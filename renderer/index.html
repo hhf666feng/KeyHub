@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>KRU</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="title-drag-region" data-tauri-drag-region>
+      <div class="app-mark" data-tauri-drag-region>
+        <span class="app-mark-led" aria-hidden="true"></span>
+        <strong>K.R.U.</strong>
+        <i aria-hidden="true"></i>
+        <small>KEY RELAY UNIT</small>
+      </div>
+      <div class="language-switch" id="language-switch" role="group" aria-label="Language">
+        <button type="button" data-language="en">EN</button>
+        <button class="active" type="button" data-language="zh">ZH</button>
+      </div>
+      <button class="owner-lock-button hidden" id="owner-lock-button" type="button">LOCK</button>
+      <div class="window-controls">
+        <button class="window-control" data-window-action="minimize" aria-label="Minimize"><svg viewBox="0 0 12 12"><path d="M2 8.5h8" /></svg></button>
+        <button class="window-control close" data-window-action="close" aria-label="Close"><svg viewBox="0 0 12 12"><path d="m2.5 2.5 7 7m0-7-7 7" /></svg></button>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <aside class="sidebar">
+        <nav class="nav" data-active="connections">
+          <button class="nav-item active" data-page="connections"><b>A</b><i aria-hidden="true"></i><span>Projects<small>ITEMS</small></span></button>
+          <button class="nav-item" data-page="activity"><b>B</b><i aria-hidden="true"></i><span>History<small>LOG</small></span></button>
+          <button class="nav-item" data-page="settings"><b>C</b><i aria-hidden="true"></i><span>Settings<small>SYSTEM</small></span></button>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <div class="metric-grid" id="metrics"></div>
+
+        <section class="page active" id="page-connections">
+          <header class="page-header connections-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="connections" type="search" placeholder="SEARCH" aria-label="Search secret projects" autocomplete="off" /></label><div class="panel-controls"><div class="draft-control"><button class="button quiet panel-add-button" id="drafts-button" type="button" disabled>Draft</button><button class="draft-delete-button hidden" id="delete-draft-button" type="button" aria-label="Delete draft" title="Delete draft">×</button></div><button class="button primary panel-add-button" id="add-connection-button">＋ Add</button></div></header>
+          <div class="connections-grid" id="connections-list"></div>
+          <i class="fixed-scroll-thumb" data-scroll-for="#connections-list" aria-hidden="true"></i>
+        </section>
+
+        <section class="page" id="page-activity">
+          <header class="page-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="activity" type="search" placeholder="SEARCH" aria-label="Search activity history" autocomplete="off" /></label><div class="page-header-actions"><div class="filter-control"><button class="filter-trigger" id="activity-filter-menu-button" type="button" aria-expanded="false" aria-controls="activity-filter-menu" aria-label="History filters"><b id="activity-filter-current-key">A</b><span id="activity-filter-current-label">ALL</span><i aria-hidden="true"></i></button><div class="filter-menu activity-filter-menu hidden" id="activity-filter-menu" role="menu" aria-label="History filters"><button class="filter-pill active" type="button" role="menuitem" data-activity-filter="all"><b>A</b><span>ALL</span></button><button class="filter-pill" type="button" role="menuitem" data-activity-filter="error"><b>B</b><span>ERROR</span></button><button class="filter-pill" type="button" role="menuitem" data-activity-filter="success"><b>C</b><span>PASS</span></button></div></div><button class="button quiet" id="clear-activity-button">CLEAR LOG</button></div></header>
+          <section class="content-panel activity-panel"><div class="activity-list" id="activity-list"></div></section>
+          <i class="fixed-scroll-thumb" data-scroll-for="#page-activity .activity-panel" aria-hidden="true"></i>
+        </section>
+
+        <section class="page" id="page-settings">
+          <header class="page-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="settings" type="search" placeholder="SEARCH" aria-label="Search system settings" autocomplete="off" /></label><div class="page-header-actions"><button class="button primary" id="header-export-backup-button" type="button">One-click export package</button><button class="button quiet" id="header-import-backup-button" type="button">One-click import package</button></div></header>
+          <div class="settings-layout">
+            <section class="content-panel settings-card" data-module="MCP / 01">
+              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register user-level stdio in one click; takes effect after starting a new Agent session.</p></div></div>
+              <div class="status-strip" id="mcp-status-strip"></div>
+              <div class="agent-restart-notice hidden" id="agent-restart-notice"><strong>NEW SESSION REQUIRED</strong><span>After registering or repairing, fully quit and reopen the Agent.</span></div>
+              <div class="agent-client-list" id="agent-client-list"><div class="agent-scan-placeholder">Scanning for Agents on this computer</div></div>
+              <div class="button-row agent-connect-actions"><button class="button quiet" id="rescan-agents">RESCAN</button></div>
+              <details class="manual-mcp-config"><summary>OTHER AGENT / MANUAL SETUP</summary><div class="manual-config-steps"><div><b>1</b><span>Open the target Agent’s MCP configuration</span></div><div><b>2</b><span>Copy JSON or TOML in the configured format</span></div><div><b>3</b><span>Paste, save, and restart the Agent</span></div></div><div class="endpoint-box"><span>STDIO / LOCAL</span><code id="mcp-endpoint">kru mcp stdio</code></div><div class="button-row manual-copy-actions"><button class="button secondary" data-copy-format="stdio-json">COPY JSON</button><button class="button quiet" data-copy-format="stdio-toml">COPY TOML</button></div></details>
+            </section>
+
+            <section class="content-panel settings-card" data-module="REVIEW / 02">
+              <div class="settings-heading"><div><h2>Review mode</h2><p>You must explicitly allow each use of a secret by the Agent in KRU.</p></div><label class="switch"><input type="checkbox" id="approval-enabled" /><span></span></label></div>
+              <div class="status-strip" id="approval-status-strip"><span class="status-dot"></span><span class="status-key">OFF</span><span>When disabled, execute directly according to saved permissions.</span></div>
+              <div class="approval-mode-note"><strong>60 SEC</strong><span>Requests show only the caller, project, and action; secrets are not used if the request times out or is denied.</span></div>
+            </section>
+
+            <section class="content-panel settings-card" data-module="APP / 03">
+              <div class="settings-heading"><div><h2>Window and notifications</h2><p>Control close button behavior and system notifications for review requests.</p></div></div>
+              <div class="desktop-options">
+                <label class="desktop-option" for="close-behavior"><span><strong>Close button</strong><small>Minimizing keeps the tray menu and review notifications available</small></span><select class="input" id="close-behavior"><option value="tray">Minimize to tray</option><option value="exit">Quit KRU</option></select></label>
+                <div class="desktop-option"><span><strong>System review pop-up</strong><small>When enabled, the review window in KRU also remains available</small></span><label class="switch"><input type="checkbox" id="system-approval-popup" /><span></span></label></div>
+              </div>
+            </section>
+
+            <section class="content-panel settings-card" data-module="WEB / 04">
+              <div class="settings-heading"><div class="square-icon coral">WEB</div><div><h2>Browser Bridge</h2><p>A reliable path for unattended browser entry; desktop mode requires actual system foreground focus.</p></div><label class="switch"><input type="checkbox" id="browser-enabled" /><span></span></label></div>
+              <div class="status-strip" id="browser-status-strip"></div>
+              <label class="field-label" for="browser-port">Local port</label><div class="inline-setting"><input class="input" id="browser-port" type="number" min="1024" max="65535" /><button class="button secondary" id="save-browser-settings-button">Save</button></div>
+              <div class="browser-connect-note"><strong>ONE-TIME SETUP</strong><span>Click to automatically pair installed extensions; the first time, just load the directory on the extension page that opens.</span></div>
+              <div class="button-row bridge-actions"><button class="button primary" id="quick-pairing-button">Connect browser in one click</button><button class="button quiet" id="open-extension-button">Extension directory</button><button class="button danger-soft" id="reset-pairing-button">Reset</button></div>
+            </section>
+
+            <section class="content-panel settings-card wide" data-module="SAFE / 05">
+              <div class="settings-heading"><div class="square-icon coral">BK</div><div><h2>Local data</h2><p>Portable backups include secrets, but not the machine master key or audit records.</p></div></div>
+              <div class="security-actions"><button class="button quiet" id="open-data-button">Open data directory</button></div>
+            </section>
+            <div class="settings-search-empty hidden" id="settings-search-empty">NO MATCHING SETTINGS</div>
+          </div>
+          <i class="fixed-scroll-thumb" data-scroll-for="#page-settings .settings-layout" aria-hidden="true"></i>
+        </section>
+      </main>
+    </div>
+
+    <div class="owner-lock-layer" id="owner-lock-layer">
+      <form class="owner-lock-panel" id="owner-lock-form">
+        <div class="lock-display"><span>OWNER ACCESS</span><strong id="owner-lock-code">LOCK</strong><small>LOCAL GUI / MCP REMAINS READY</small></div>
+        <div class="lock-copy"><div class="panel-code" id="owner-lock-mode">SET LOCAL PIN</div><h2 id="owner-lock-title">Set six-digit PIN</h2><p id="owner-lock-description">The PIN only protects users viewing plaintext; it does not affect Agent access to saved secrets.</p></div>
+        <label class="field"><span>Six-digit PIN</span><div class="pin-control" data-pin-group="owner-pin"><input class="pin-cell-input" id="owner-pin" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" required /></div></label>
+        <label class="field" id="owner-pin-confirm-field"><span>Re-enter PIN</span><div class="pin-control" data-pin-group="owner-pin-confirm"><input class="pin-cell-input" id="owner-pin-confirm" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /><input class="pin-cell-input" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="off" /></div></label>
+        <button class="button primary owner-unlock-action" id="owner-unlock-action" type="submit">SET PIN</button>
+        <div class="lock-note"><i></i><span>Secrets are still encrypted with a random master key on this computer; the PIN is only a local viewing lock.</span></div>
+      </form>
+    </div>
+
+    <div class="modal-backdrop hidden" id="connection-modal" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header"><div class="modal-title-mark"><i aria-hidden="true"></i><h2 id="modal-title">Add project</h2><span aria-hidden="true"></span><small>LOCAL VAULT ITEM</small></div><button class="icon-button" data-close-modal aria-label="Close editor">×</button></div>
+        <form id="connection-form">
+          <input type="hidden" id="connection-id" />
+          <div class="form-scroll">
+            <div class="field-grid two identity-grid"><label class="field"><span id="connection-name-label">Name</span><input class="input" id="connection-name" maxlength="80" required /></label><label class="field"><span>Description <em>Optional</em></span><input class="input" id="connection-description" maxlength="240" /></label></div>
+
+            <section class="template-picker hidden" id="template-picker">
+              <div class="template-copy"><strong>Start with a combination</strong><small>Templates only add modules; they do not limit later changes.</small></div>
+              <div class="template-grid"><button type="button" data-item-template="login"><b>A</b><span>Sign in<small>Account + password</small></span></button><button type="button" data-item-template="ssh"><b>B</b><span>SSH<small>Host + port + account + password</small></span></button><button type="button" data-item-template="api"><b>C</b><span>API<small>API credentials</small></span></button><button type="button" data-item-template="blank"><b>D</b><span>Blank<small>Add modules from scratch</small></span></button></div>
+            </section>
+
+            <section class="module-editor">
+              <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>The switch on the left controls whether plaintext is visible to the Agent</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Username</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button></div></div></div>
+              <div class="module-list" id="module-list"></div>
+              <div class="derived-status"><span>AUTO ACTIONS</span><div id="derived-actions"></div><small id="derived-help"></small></div>
+            </section>
+
+            <details class="advanced-section hidden" id="ssh-options"><summary>SSH advanced settings</summary><div class="advanced-content"><div class="field-grid ssh-policy-grid"><label class="field"><span>Command permissions</span><select class="input" id="ssh-security-mode"><option value="readonly">Observe (recommended)</option><option value="diagnostic">Diagnostics</option><option value="restricted">Restricted commands</option><option value="unrestricted">Full control</option></select></label><div class="field"><span>Server identity fingerprint <em>Independent of authentication method</em></span><div class="trust-control"><input class="input" id="ssh-fingerprint" readonly placeholder="Recorded automatically on first connection" /><button class="button secondary hidden" id="reset-ssh-trust" type="button">RESET</button></div></div></div><label class="field hidden" id="allowed-commands-field"><span>Allowed command prefixes <em>One per line</em></span><textarea class="input textarea" id="ssh-allowed-commands"></textarea></label></div></details>
+
+            <label class="check-row"><input type="checkbox" id="connection-enabled" checked /><span class="check-mark"></span><span><strong>Enable this project</strong><small>When disabled, the Agent cannot use it</small></span></label>
+          </div>
+          <div class="modal-footer"><div class="secret-hint">Plaintext for the current project is shown only in the unlocked GUI</div><div class="button-row"><button type="button" class="button quiet" data-close-modal>Cancel</button><button type="submit" class="button primary" id="save-connection-button">Save</button></div></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="backup-modal" role="dialog" aria-modal="true"><div class="confirm-card backup-card"><h2 id="backup-title">Portable backup</h2><p id="backup-description"></p><label class="field"><span>Backup password</span><input class="input" id="backup-password" type="password" /></label><label class="field hidden" id="backup-confirm-field"><span>Enter again</span><input class="input" id="backup-password-confirm" type="password" /></label><div class="button-row"><button class="button quiet" id="backup-cancel">Cancel</button><button class="button primary" id="backup-action">Continue</button></div></div></div>
+    <div class="modal-backdrop approval-backdrop hidden" id="approval-modal" role="dialog" aria-modal="true" aria-labelledby="approval-title"><div class="confirm-card approval-card"><div class="approval-code">APPROVAL REQUIRED</div><h2 id="approval-title">Allow this call?</h2><p id="approval-summary"></p><dl class="approval-details"><div><dt>Caller</dt><dd id="approval-source"></dd></div><div><dt>Projects</dt><dd id="approval-item"></dd></div><div><dt>Action</dt><dd id="approval-action"></dd></div><div><dt>Target</dt><dd id="approval-detail"></dd></div></dl><div class="approval-queue" id="approval-queue"></div><div class="button-row approval-actions"><button class="button quiet" id="approval-deny" type="button">Deny</button><button class="button primary" id="approval-allow" type="button">Allow once</button></div></div></div>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
