@@ -12,7 +12,6 @@ use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const SECRET_AAD: &[u8] = b"mcp-vault/secret/v2";
-const BACKUP_AAD: &[u8] = b"mcp-vault/backup/v1";
 
 pub fn create_owner_pin_verifier(pin: &str) -> Result<OwnerPinVerifier> {
     validate_owner_pin(pin)?;
@@ -293,37 +292,6 @@ pub fn decrypt_bytes(key: &[u8; 32], envelope: &SecretEnvelope, aad: &[u8]) -> R
         .map_err(|_| anyhow::anyhow!("Ciphertext verification failed or incorrect key"))
 }
 
-pub fn derive_backup_key(password: &str, salt: &[u8]) -> Result<[u8; 32]> {
-    if password.chars().count() < 8 {
-        bail!("Backup password must be at least 8 characters");
-    }
-    let params = Params::new(19_456, 2, 1, Some(32))
-        .map_err(|error| anyhow::anyhow!("Invalid Argon2 parameters:{error}"))?;
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    let mut key = [0_u8; 32];
-    argon2
-        .hash_password_into(password.as_bytes(), salt, &mut key)
-        .map_err(|error| anyhow::anyhow!("Backup key derivation failed:{error}"))?;
-    Ok(key)
-}
-
-pub fn encrypt_backup(password: &str, bytes: &[u8]) -> Result<(String, SecretEnvelope)> {
-    let mut salt = [0_u8; 16];
-    getrandom::fill(&mut salt).map_err(|error| anyhow::anyhow!("Unable to generate backup salt:{error}"))?;
-    let mut key = derive_backup_key(password, &salt)?;
-    let envelope = encrypt_bytes(&key, bytes, BACKUP_AAD)?;
-    key.zeroize();
-    Ok((STANDARD_NO_PAD.encode(salt), envelope))
-}
-
-pub fn decrypt_backup(password: &str, salt: &str, envelope: &SecretEnvelope) -> Result<Vec<u8>> {
-    let salt = STANDARD_NO_PAD.decode(salt).context("Invalid backup salt")?;
-    let mut key = derive_backup_key(password, &salt)?;
-    let result = decrypt_bytes(&key, envelope, BACKUP_AAD);
-    key.zeroize();
-    result
-}
-
 fn write_private_file(path: &Path, bytes: &[u8]) -> Result<()> {
     #[cfg(unix)]
     {
@@ -382,12 +350,6 @@ mod tests {
         let mut tampered = envelope;
         tampered.ciphertext.push('A');
         assert!(decrypt_bytes(&key, &tampered, SECRET_AAD).is_err());
-    }
-
-    #[test]
-    fn backup_wrong_password_fails() {
-        let (salt, envelope) = encrypt_backup("correct-password", b"backup").unwrap();
-        assert!(decrypt_backup("incorrect-password", &salt, &envelope).is_err());
     }
 
     #[test]

@@ -10,7 +10,7 @@ use mcp_vault::crypto::MasterKey;
 use mcp_vault::run_gui;
 use mcp_vault::{backup, browser::BrowserBridge, mcp, model::SettingsPatch, vault::Vault};
 use std::time::{Duration, Instant};
-use std::{env, io::IsTerminal, path::PathBuf};
+use std::{env, path::PathBuf};
 use tokio::time::sleep;
 
 fn app_data_dir() -> Result<PathBuf> {
@@ -87,13 +87,7 @@ async fn dispatch() -> Result<()> {
             Ok(())
         }
         [command, action, file] if command == "backup" && action == "import" => {
-            let summary = if backup::backup_requires_password(file)? {
-                require_tty()?;
-                let password = rpassword::prompt_password("Legacy backup password:")?;
-                backup::import_legacy_from_file(&vault, file, &password)?
-            } else {
-                backup::import_from_file(&vault, file)?
-            };
+            let summary = backup::import_from_file(&vault, file)?;
             println!(
                 "Imported: added {}, merged duplicates {}",
                 summary.added, summary.merged
@@ -169,11 +163,4 @@ async fn reset_browser(vault: &Vault) -> Result<()> {
     bridge.reset_pairing().await?;
     bridge.stop().await;
     print_browser_status(vault)
-}
-
-fn require_tty() -> Result<()> {
-    if !std::io::stdin().is_terminal() || !std::io::stderr().is_terminal() {
-        anyhow::bail!("Backup password can only be read interactively from a real terminal; piping, arguments, and environment variables are not accepted")
-    }
-    Ok(())
 }
