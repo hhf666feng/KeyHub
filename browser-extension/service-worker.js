@@ -174,7 +174,7 @@ async function connectOnce(force = false) {
       const expiresAt = jobExpiresAt(message.job);
       const result = Number.isFinite(expiresAt) && Date.now() >= expiresAt
         ? { ok: false, message: "The autofill task has expired" }
-        : await fillFocused(message.job?.value, expiresAt);
+        : await fillFocused(message.job?.value, expiresAt, Boolean(message.job?.submit));
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: "complete",
@@ -197,7 +197,7 @@ function jobExpiresAt(job, now = Date.now()) {
   return Number.isFinite(parsed) ? Math.min(parsed, latest) : latest;
 }
 
-async function fillFocused(value, expiresAt) {
+async function fillFocused(value, expiresAt, submit = false) {
   if (typeof value !== "string") return { ok: false, message: "The autofill content is invalid" };
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return { ok: false, message: "No active tab" };
@@ -206,7 +206,7 @@ async function fillFocused(value, expiresAt) {
     const [execution] = await chrome.scripting.executeScript({
       target: { tabId: tab.id, frameIds: [frameId] },
       func: writeToFocusedControl,
-      args: [value, expiresAt],
+      args: [value, expiresAt, submit],
     });
     return execution?.result || { ok: false, message: "The page did not return an autofill result" };
   } catch {
@@ -214,7 +214,7 @@ async function fillFocused(value, expiresAt) {
   }
 }
 
-function writeToFocusedControl(value, expiresAt) {
+function writeToFocusedControl(value, expiresAt, submit = false) {
   if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
     return { ok: false, message: "The autofill task has expired" };
   }
@@ -249,6 +249,14 @@ function writeToFocusedControl(value, expiresAt) {
     }
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
+    if (submit) {
+      const form = element.form || element.closest?.("form");
+      if (!form || typeof form.requestSubmit !== "function") {
+        return { ok: false, message: "Wrote to the currently focused control, but could not find a form to submit" };
+      }
+      setTimeout(() => form.requestSubmit(), 0);
+      return { ok: true, message: "Wrote to and submitted the current form" };
+    }
     return { ok: true, message: "Written to the currently focused control" };
   } catch {
     return { ok: false, message: "The page refused to write to the current control" };

@@ -1,18 +1,20 @@
 use anyhow::{Context, Result, bail};
-use enigo::{Enigo, Keyboard, Settings};
+use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 
-const MAX_FILL_BYTES: usize = 64_000;
+// Keep desktop filling aligned with the managed terminal and SSH command path.
+// A private key or certificate bundle can legitimately exceed the old 64 KB
+// ceiling, while a 1 MiB guard still prevents an accidental unbounded keystroke
+// injection into the foreground application.
+const MAX_FILL_BYTES: usize = 1_048_576;
 
-pub fn fill_focused(value: &str) -> Result<()> {
-    if value.len() > MAX_FILL_BYTES {
-        bail!("Secret field is too long to be written through desktop input");
-    }
-    if value.contains('\0') {
-        bail!("Secret field contains a null character that desktop input cannot type");
-    }
+pub fn fill_focused(value: &str, submit: bool) -> Result<()> {
+    validate_fill_value(value)?;
 
     #[cfg(target_os = "windows")]
     if fill_standard_windows_control(value)? {
+        if submit {
+            press_enter()?;
+        }
         return Ok(());
     }
 
@@ -25,7 +27,31 @@ pub fn fill_focused(value: &str) -> Result<()> {
     }
 
     let mut enigo = Enigo::new(&Settings::default()).context("Unable to initialize desktop input")?;
-    enigo.text(value).context("Unable to type into the currently focused control")
+    enigo.text(value).context("Unable to type into the currently focused control")?;
+    if submit {
+        enigo
+            .key(Key::Return, Direction::Click)
+            .context("Unable to submit the currently focused control")?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn press_enter() -> Result<()> {
+    let mut enigo = Enigo::new(&Settings::default()).context("Unable to initialize desktop input")?;
+    enigo
+        .key(Key::Return, Direction::Click)
+        .context("Unable to submit the currently focused control")
+}
+
+fn validate_fill_value(value: &str) -> Result<()> {
+    if value.len() > MAX_FILL_BYTES {
+        bail!("Secret field exceeds 1 MiB and cannot be written through desktop input");
+    }
+    if value.contains('\0') {
+        bail!("Secret field contains a null character that desktop input cannot type");
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
@@ -80,4 +106,16 @@ fn fill_standard_windows_control(value: &str) -> Result<bool> {
         bail!("Foreground input control refused the write");
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn desktop_fill_accepts_large_values_up_to_the_shared_boundary() {
+        assert!(validate_fill_value(&"x".repeat(MAX_FILL_BYTES)).is_ok());
+        assert!(validate_fill_value(&"x".repeat(MAX_FILL_BYTES + 1)).is_err());
+        assert!(validate_fill_value("contains\0nul").is_err());
+    }
 }
