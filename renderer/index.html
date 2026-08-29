@@ -62,7 +62,7 @@
             </section>
 
             <section class="content-panel settings-card" data-module="MCP / 02">
-              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register local stdio MCP; supported Agents also install the rule “Check KRU first for connection tasks.”</p></div></div>
+              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register a local stdio MCP; supported Agents also get the rule “Use KRU first for authentication tasks.”</p></div></div>
               <div class="status-strip" id="mcp-status-strip"></div>
               <div class="agent-restart-notice hidden" id="agent-restart-notice"><strong>NEW SESSION REQUIRED</strong><span>After registering or repairing, fully quit and reopen the Agent.</span></div>
               <div class="agent-client-list" id="agent-client-list"><div class="agent-scan-placeholder">Scanning for Agents on this computer</div></div>
@@ -81,7 +81,7 @@
             <section class="content-panel settings-card" data-module="WEB / 04">
               <div class="settings-heading"><div class="square-icon coral">WEB</div><div><h2>Browser Bridge</h2><p>A reliable path for unattended browser entry; desktop mode requires actual system foreground focus.</p></div><label class="switch"><input type="checkbox" id="browser-enabled" /><span></span></label></div>
               <div class="status-strip" id="browser-status-strip"></div>
-              <label class="field-label" for="browser-port">Local port</label><div class="inline-setting"><input class="input" id="browser-port" type="number" min="1024" max="65535" /><button class="button secondary" id="save-browser-settings-button">Save</button></div>
+              <label class="field-label" for="browser-port">Local port</label><div class="inline-setting"><input class="input" id="browser-port" type="number" min="1" max="65535" /><button class="button secondary" id="save-browser-settings-button">Save</button></div>
               <div class="browser-connect-note"><strong>ONE-TIME SETUP</strong><span>Click to automatically pair installed extensions; the first time, just load the directory on the extension page that opens.</span></div>
               <div class="button-row bridge-actions"><button class="button primary" id="quick-pairing-button">Connect browser in one click</button><button class="button quiet" id="open-extension-button">Extension directory</button><button class="button danger-soft" id="reset-pairing-button">Reset</button></div>
             </section>

@@ -1,12 +1,6 @@
 use anyhow::{Context, Result, bail};
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
 
-// Keep desktop filling aligned with the managed terminal and SSH command path.
-// A private key or certificate bundle can legitimately exceed the old 64 KB
-// ceiling, while a 1 MiB guard still prevents an accidental unbounded keystroke
-// injection into the foreground application.
-const MAX_FILL_BYTES: usize = 1_048_576;
-
 pub fn fill_focused(value: &str, submit: bool) -> Result<()> {
     validate_fill_value(value)?;
 
@@ -45,9 +39,6 @@ fn press_enter() -> Result<()> {
 }
 
 fn validate_fill_value(value: &str) -> Result<()> {
-    if value.len() > MAX_FILL_BYTES {
-        bail!("Secret field exceeds 1 MiB and cannot be written through desktop input");
-    }
     if value.contains('\0') {
         bail!("Secret field contains a null character that desktop input cannot type");
     }
@@ -113,9 +104,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn desktop_fill_accepts_large_values_up_to_the_shared_boundary() {
-        assert!(validate_fill_value(&"x".repeat(MAX_FILL_BYTES)).is_ok());
-        assert!(validate_fill_value(&"x".repeat(MAX_FILL_BYTES + 1)).is_err());
+    fn desktop_fill_has_no_artificial_length_limit() {
+        assert!(validate_fill_value(&"x".repeat(2 * 1_048_576)).is_ok());
         assert!(validate_fill_value("contains\0nul").is_err());
     }
 }
