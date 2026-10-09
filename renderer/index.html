@@ -125,6 +125,7 @@
             <section class="module-editor">
               <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>The switch on the left controls whether plaintext is visible to the Agent</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Username</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button></div></div></div>
               <div class="module-list" id="module-list"></div>
+              <div class="module-reorder-status" id="module-reorder-status" role="status" aria-live="polite"></div>
             </section>
 
 
@@ -132,6 +133,16 @@
           </div>
           <div class="modal-footer"><div class="secret-hint">Plaintext for the current project is shown only in the unlocked GUI</div><div class="button-row"><button type="button" class="button quiet" data-close-modal>Close</button><button type="submit" class="button primary" id="save-connection-button">Save</button></div></div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="confirmation-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmation-title" aria-describedby="confirmation-message">
+      <div class="confirm-card">
+        <div class="confirm-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M3 5.5h14M7.5 5.5V3.25h5v2.25M5.25 5.5l.75 11h8l.75-11M8.25 8.5v5M11.75 8.5v5" /></svg></div>
+        <small id="confirmation-tag">CONFIRM DELETION</small>
+        <h2 id="confirmation-title">Delete item?</h2>
+        <p id="confirmation-message">This action cannot be undone.</p>
+        <div class="button-row confirm-actions"><button class="button quiet" id="confirmation-cancel" type="button">CANCEL</button><button class="button danger" id="confirmation-accept" type="button">DELETE</button></div>
       </div>
     </div>
 
