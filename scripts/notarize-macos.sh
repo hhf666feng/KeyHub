@@ -29,10 +29,10 @@ if (( poll_interval < 1 || max_wait < 1 )); then
 fi
 
 temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
-work_dir="$(mktemp -d "$temp_root/kru-notary.XXXXXX")"
+work_dir="$(mktemp -d "$temp_root/openkeylet-notary.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 
-notary_zip="$work_dir/KRU.zip"
+notary_zip="$work_dir/OpenKeylet.zip"
 submission_json="$work_dir/submission.json"
 info_json="$work_dir/info.json"
 

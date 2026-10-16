@@ -15,7 +15,7 @@ pub struct SystemIntegrationState {
 pub fn status(executable: &Path) -> Result<SystemIntegrationState> {
     Ok(SystemIntegrationState {
         desktop_shortcut: desktop_shortcut_status(executable)?,
-        launch_at_login: entry_exists(&autostart_entry_path()?),
+        launch_at_login: entry_or_legacy_exists(&autostart_entry_path()?),
     })
 }
 
@@ -23,13 +23,14 @@ pub fn status(executable: &Path) -> Result<SystemIntegrationState> {
 pub fn set_desktop_shortcut(executable: &Path, enabled: bool) -> Result<SystemIntegrationState> {
     let path = desktop_entry_path(executable)?;
     set_entry(&path, executable, enabled, EntryKind::Desktop)?;
+    remove_legacy_entry(&path)?;
     status(executable)
 }
 
 #[cfg(target_os = "macos")]
 pub fn set_desktop_shortcut(executable: &Path, enabled: bool) -> Result<SystemIntegrationState> {
     if enabled {
-        bail!("macOS does not create desktop shortcuts; launch KRU from Applications, the Dock, or Spotlight")
+        bail!("macOS does not create desktop shortcuts; launch OpenKeylet from Applications, the Dock, or Spotlight")
     }
     remove_entry(&desktop_entry_path(executable)?)?;
     status(executable)
@@ -38,7 +39,41 @@ pub fn set_desktop_shortcut(executable: &Path, enabled: bool) -> Result<SystemIn
 pub fn set_launch_at_login(executable: &Path, enabled: bool) -> Result<SystemIntegrationState> {
     let path = autostart_entry_path()?;
     set_entry(&path, executable, enabled, EntryKind::Autostart)?;
+    remove_legacy_entry(&path)?;
     status(executable)
+}
+
+/// Preserve existing opt-ins when upgrading from the KRU application.
+pub fn migrate_legacy_entries(executable: &Path) -> Result<()> {
+    #[cfg(not(target_os = "macos"))]
+    if legacy_entry_path(&desktop_entry_path(executable)?).is_some_and(|path| entry_exists(&path)) {
+        set_desktop_shortcut(executable, true)?;
+    }
+    if legacy_entry_path(&autostart_entry_path()?).is_some_and(|path| entry_exists(&path)) {
+        set_launch_at_login(executable, true)?;
+    }
+    Ok(())
+}
+
+fn legacy_entry_path(path: &Path) -> Option<PathBuf> {
+    let name = match path.file_name()?.to_str()? {
+        "OpenKeylet.lnk" => "KRU.lnk",
+        "OpenKeylet.desktop" => "KRU.desktop",
+        "dev.openkeylet.app.plist" => "dev.kru.app.plist",
+        _ => return None,
+    };
+    Some(path.with_file_name(name))
+}
+
+fn entry_or_legacy_exists(path: &Path) -> bool {
+    entry_exists(path) || legacy_entry_path(path).is_some_and(|path| entry_exists(&path))
+}
+
+fn remove_legacy_entry(path: &Path) -> Result<()> {
+    if let Some(path) = legacy_entry_path(path) {
+        remove_entry(&path)?;
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -54,7 +89,7 @@ fn entry_exists(path: &Path) -> bool {
 
 #[cfg(not(target_os = "macos"))]
 fn desktop_shortcut_status(executable: &Path) -> Result<bool> {
-    Ok(entry_exists(&desktop_entry_path(executable)?))
+    Ok(entry_or_legacy_exists(&desktop_entry_path(executable)?))
 }
 
 #[cfg(target_os = "macos")]
@@ -79,14 +114,14 @@ fn remove_entry(path: &Path) -> Result<()> {
 fn desktop_entry_path(_executable: &Path) -> Result<PathBuf> {
     Ok(dirs::desktop_dir()
         .context("Desktop directory not found")?
-        .join("KRU.lnk"))
+        .join("OpenKeylet.lnk"))
 }
 
 #[cfg(target_os = "windows")]
 fn autostart_entry_path() -> Result<PathBuf> {
     Ok(dirs::config_dir()
         .context("Windows configuration directory not found")?
-        .join("Microsoft/Windows/Start Menu/Programs/Startup/KRU.lnk"))
+        .join("Microsoft/Windows/Start Menu/Programs/Startup/OpenKeylet.lnk"))
 }
 
 #[cfg(target_os = "windows")]
@@ -115,8 +150,10 @@ fn create_windows_shortcut(path: &Path, executable: &Path) -> Result<()> {
         .with_context(|| format!("Unable to create shortcut directory:{}", parent.display()))?;
     let executable = executable
         .canonicalize()
-        .with_context(|| format!("KRU executable not found:{}", executable.display()))?;
-    let working_directory = executable.parent().context("KRU executable path is missing a parent directory")?;
+        .with_context(|| format!("OpenKeylet executable not found:{}", executable.display()))?;
+    let working_directory = executable
+        .parent()
+        .context("OpenKeylet executable path is missing a parent directory")?;
     let initialized = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok();
     let result = (|| -> Result<()> {
         let shell_link: IShellLinkW =
@@ -125,7 +162,7 @@ fn create_windows_shortcut(path: &Path, executable: &Path) -> Result<()> {
         let executable_text = HSTRING::from(windows_shell_path(&executable));
         let working_text = HSTRING::from(windows_shell_path(working_directory));
         let arguments = HSTRING::from("gui");
-        let description = HSTRING::from("KRU — local credential relay for AI agents");
+        let description = HSTRING::from("OpenKeylet — local credential relay for AI agents");
         unsafe {
             shell_link.SetPath(&executable_text).context("SetPath")?;
             shell_link
@@ -167,9 +204,9 @@ fn windows_shell_path(path: &Path) -> String {
 #[cfg(target_os = "macos")]
 fn desktop_entry_path(executable: &Path) -> Result<PathBuf> {
     let name = if macos_app_bundle(executable).is_some() {
-        "KRU.app"
+        "OpenKeylet.app"
     } else {
-        "KRU"
+        "OpenKeylet"
     };
     Ok(dirs::desktop_dir().context("Desktop directory not found")?.join(name))
 }
@@ -178,7 +215,7 @@ fn desktop_entry_path(executable: &Path) -> Result<PathBuf> {
 fn autostart_entry_path() -> Result<PathBuf> {
     Ok(dirs::home_dir()
         .context("Could not find user directory")?
-        .join("Library/LaunchAgents/dev.kru.app.plist"))
+        .join("Library/LaunchAgents/dev.openkeylet.app.plist"))
 }
 
 #[cfg(target_os = "macos")]
@@ -202,7 +239,7 @@ fn set_entry(path: &Path, executable: &Path, enabled: bool, kind: EntryKind) -> 
         EntryKind::Autostart => {
             let executable = xml_escape(executable.to_string_lossy().as_ref());
             let content = format!(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key><string>dev.kru.app</string>\n  <key>ProgramArguments</key><array><string>{executable}</string><string>gui</string></array>\n  <key>RunAtLoad</key><true/>\n</dict>\n</plist>\n"
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key><string>dev.openkeylet.app</string>\n  <key>ProgramArguments</key><array><string>{executable}</string><string>gui</string></array>\n  <key>RunAtLoad</key><true/>\n</dict>\n</plist>\n"
             );
             fs::write(path, content)
                 .with_context(|| format!("Could not write login startup configuration:{}", path.display()))
@@ -224,14 +261,14 @@ fn xml_escape(value: &str) -> String {
 fn desktop_entry_path(_executable: &Path) -> Result<PathBuf> {
     Ok(dirs::desktop_dir()
         .context("Desktop directory not found")?
-        .join("KRU.desktop"))
+        .join("OpenKeylet.desktop"))
 }
 
 #[cfg(target_os = "linux")]
 fn autostart_entry_path() -> Result<PathBuf> {
     Ok(dirs::config_dir()
         .context("Could not find Linux configuration directory")?
-        .join("autostart/KRU.desktop"))
+        .join("autostart/OpenKeylet.desktop"))
 }
 
 #[cfg(target_os = "linux")]
@@ -246,7 +283,7 @@ fn set_entry(path: &Path, executable: &Path, enabled: bool, _kind: EntryKind) ->
         .with_context(|| format!("Could not create system entry directory:{}", parent.display()))?;
     let executable = desktop_exec_quote(executable.to_string_lossy().as_ref());
     let content = format!(
-        "[Desktop Entry]\nType=Application\nVersion=1.0\nName=KRU\nComment=Local credential relay for AI agents\nExec={executable} gui\nTryExec={executable}\nIcon=kru\nTerminal=false\nCategories=Utility;Security;\n"
+        "[Desktop Entry]\nType=Application\nVersion=1.0\nName=OpenKeylet\nComment=Local credential relay for AI agents\nExec={executable} gui\nTryExec={executable}\nIcon=openkeylet\nTerminal=false\nCategories=Utility;Security;\n"
     );
     fs::write(path, content).with_context(|| format!("Could not write system entry:{}", path.display()))?;
     fs::set_permissions(path, fs::Permissions::from_mode(0o755))
@@ -266,7 +303,7 @@ fn desktop_exec_quote(value: &str) -> String {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-compile_error!("KRU system integration is only supported on Windows, macOS, and Linux");
+compile_error!("OpenKeylet system integration is only supported on Windows, macOS, and Linux");
 
 #[cfg(all(test, target_os = "windows"))]
 mod tests {
@@ -275,7 +312,7 @@ mod tests {
     #[test]
     fn creates_a_real_windows_shortcut() {
         let directory = tempfile::tempdir().unwrap();
-        let shortcut = directory.path().join("KRU.lnk");
+        let shortcut = directory.path().join("OpenKeylet.lnk");
         create_windows_shortcut(&shortcut, &std::env::current_exe().unwrap()).unwrap();
         assert!(shortcut.is_file());
     }

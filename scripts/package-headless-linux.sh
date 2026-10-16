@@ -16,13 +16,13 @@ case "$(uname -m)" in
   *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-binary_source="$project_root/src-tauri/target/release/kru"
+binary_source="$project_root/src-tauri/target/release/openkeylet"
 if [[ ! -f "$binary_source" ]]; then
-  echo "Headless KRU binary is missing. Run npm run build:headless first." >&2
+  echo "Headless OpenKeylet binary is missing. Run npm run build:headless first." >&2
   exit 1
 fi
 
-package_name="KRU_${version}_linux-headless-${package_arch}"
+package_name="OpenKeylet_${version}_linux-headless-${package_arch}"
 dist_root="$project_root/dist"
 stage_root="$dist_root/.headless-linux-stage"
 package_root="$stage_root/$package_name"
@@ -36,8 +36,8 @@ esac
 
 rm -rf "$stage_root"
 mkdir -p "$package_root"
-cp "$binary_source" "$package_root/kru"
-chmod +x "$package_root/kru"
+cp "$binary_source" "$package_root/openkeylet"
+chmod +x "$package_root/openkeylet"
 cp "$project_root/README.md" "$project_root/LICENSE" "$package_root/"
 cp -R "$project_root/browser-extension" "$package_root/browser-extension"
 

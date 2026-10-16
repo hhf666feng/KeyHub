@@ -2,11 +2,11 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $version = (Get-Content (Join-Path $projectRoot "package.json") -Raw | ConvertFrom-Json).version
-$packageName = "KRU_${version}_windows-x64"
-$releaseExe = if ($env:KRU_RELEASE_EXE) {
-  [System.IO.Path]::GetFullPath($env:KRU_RELEASE_EXE)
+$packageName = "OpenKeylet_${version}_windows-x64"
+$releaseExe = if ($env:OPENKEYLET_RELEASE_EXE) {
+  [System.IO.Path]::GetFullPath($env:OPENKEYLET_RELEASE_EXE)
 } else {
-  Join-Path $projectRoot "src-tauri\target\release\kru.exe"
+  Join-Path $projectRoot "src-tauri\target\release\openkeylet.exe"
 }
 $distRoot = Join-Path $projectRoot "dist"
 $stageRoot = Join-Path $distRoot ".portable-stage"
@@ -42,7 +42,7 @@ if (Test-Path -LiteralPath $stageRoot) {
   Remove-Item -LiteralPath $stageRoot -Recurse -Force
 }
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-Copy-Item -LiteralPath $releaseExe -Destination (Join-Path $packageRoot "kru.exe")
+Copy-Item -LiteralPath $releaseExe -Destination (Join-Path $packageRoot "openkeylet.exe")
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot "browser-extension") -Destination $packageRoot -Recurse

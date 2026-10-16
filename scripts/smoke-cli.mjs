@@ -12,12 +12,12 @@ if (process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true") {
 
 const binaryArgument = process.argv[2];
 if (!binaryArgument) {
-  throw new Error("usage: node scripts/smoke-cli.mjs <kru executable>");
+  throw new Error("usage: node scripts/smoke-cli.mjs <openkeylet executable>");
 }
 const binary = path.resolve(binaryArgument);
-assert.ok(fs.existsSync(binary), `KRU executable does not exist: ${binary}`);
+assert.ok(fs.existsSync(binary), `OpenKeylet executable does not exist: ${binary}`);
 
-const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kru-cli-smoke-"));
+const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openkeylet-cli-smoke-"));
 const smokeEnv = {
   ...process.env,
   HOME: path.join(smokeRoot, "home"),
@@ -158,7 +158,7 @@ function mcpSmoke() {
       const initialized = await request(1, "initialize", {
         protocolVersion: "2025-06-18",
         capabilities: {},
-        clientInfo: { name: "kru-ci-smoke", version: "1.0.0" },
+        clientInfo: { name: "openkeylet-ci-smoke", version: "1.0.0" },
       });
       assert.ok(initialized.serverInfo?.name, "initialize returned no server name");
       send({ jsonrpc: "2.0", method: "notifications/initialized", params: {} });
@@ -208,9 +208,9 @@ function mcpSmoke() {
 
 try {
   const jsonConfig = JSON.parse(runConfig("stdio-json"));
-  assert.deepEqual(jsonConfig.mcpServers?.kru?.args, ["mcp", "stdio"]);
-  assert.ok(jsonConfig.mcpServers?.kru?.command, "stdio-json: missing command");
-  const configuredBinary = path.resolve(jsonConfig.mcpServers.kru.command);
+  assert.deepEqual(jsonConfig.mcpServers?.openkeylet?.args, ["mcp", "stdio"]);
+  assert.ok(jsonConfig.mcpServers?.openkeylet?.command, "stdio-json: missing command");
+  const configuredBinary = path.resolve(jsonConfig.mcpServers.openkeylet.command);
   assert.ok(fs.existsSync(configuredBinary), `configured executable does not exist: ${configuredBinary}`);
   assert.equal(
     fs.realpathSync.native(configuredBinary),
@@ -219,21 +219,21 @@ try {
   );
 
   const tomlConfig = runConfig("stdio-toml");
-  assert.match(tomlConfig, /\[mcp_servers\.kru\]/);
+  assert.match(tomlConfig, /\[mcp_servers\.openkeylet\]/);
   assert.match(tomlConfig, /args\s*=\s*\["mcp",\s*"stdio"\]/);
 
   await mcpSmoke();
   assert.ok(
     fs.existsSync(path.join(expectedVault, "vault.json")),
-    `KRU did not create its vault in the expected isolated location: ${expectedVault}`,
+    `OpenKeylet did not create its vault in the expected isolated location: ${expectedVault}`,
   );
   if (process.platform === "darwin") {
     const keyFile = path.join(expectedVault, "master.key");
-    assert.ok(fs.existsSync(keyFile), "macOS KRU did not create its private master-key file");
+    assert.ok(fs.existsSync(keyFile), "macOS OpenKeylet did not create its private master-key file");
     assert.equal(fs.statSync(expectedVault).mode & 0o777, 0o700, "macOS vault directory is not mode 0700");
     assert.equal(fs.statSync(keyFile).mode & 0o777, 0o600, "macOS master-key file is not mode 0600");
   }
-  console.log("KRU config and MCP stdio smoke passed.");
+  console.log("OpenKeylet config and MCP stdio smoke passed.");
 } finally {
   fs.rmSync(smokeRoot, { recursive: true, force: true });
 }

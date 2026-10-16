@@ -1,5 +1,5 @@
 function reportFocus() {
-  chrome.runtime.sendMessage({ type: "kru-focus" }).catch(() => {});
+  chrome.runtime.sendMessage({ type: "openkeylet-focus" }).catch(() => {});
 }
 
 document.addEventListener("focusin", reportFocus, true);

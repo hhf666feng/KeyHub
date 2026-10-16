@@ -55,7 +55,7 @@ jobs:
           $archives = @(Get-ChildItem dist -Filter '*-portable.zip')
           if ($archives.Count -ne 1) { throw "Expected exactly one Windows portable archive." }
           & scripts/verify-portable-windows.ps1 -Archive $archives[0].FullName
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/kru.exe
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/openkeylet.exe
 
   macos-gui:
     name: macOS GUI
@@ -73,8 +73,8 @@ jobs:
       - run: npm ci
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npm run build:mac
-      - run: node scripts/smoke-cli.mjs src-tauri/target/release/bundle/macos/KRU.app/Contents/MacOS/kru
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/KRU.app/Contents/MacOS/kru
+      - run: node scripts/smoke-cli.mjs src-tauri/target/release/bundle/macos/OpenKeylet.app/Contents/MacOS/openkeylet
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/OpenKeylet.app/Contents/MacOS/openkeylet
       - run: npm run portable:mac
       - name: Verify packaged macOS application
         run: |

@@ -33,7 +33,7 @@ for (const line of cargoLines) {
 
 const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
 const cargoLockVersion = cargoLock.match(
-  /\[\[package\]\]\s+name = "kru"\s+version = "([^"]+)"/,
+  /\[\[package\]\]\s+name = "openkeylet"\s+version = "([^"]+)"/,
 )?.[1];
 
 const versions = {
@@ -58,4 +58,4 @@ if (tag && tag !== `v${packageVersion}`) {
   fail(`tag ${tag} does not match v${packageVersion}`);
 }
 
-console.log(`KRU version ${packageVersion} is consistent${tag ? ` (${tag})` : ""}.`);
+console.log(`OpenKeylet version ${packageVersion} is consistent${tag ? ` (${tag})` : ""}.`);

@@ -17,11 +17,13 @@ use toml_edit::{Array, DocumentMut, Item, Table, value};
 const CLIENT_IDS: [&str; 5] = ["codex", "claude-code", "cursor", "opencode", "openclaw"];
 const STATUS_CLI_TIMEOUT: Duration = Duration::from_secs(3);
 const ACTION_CLI_TIMEOUT: Duration = Duration::from_secs(20);
-const KRU_INSTRUCTION_START: &str = "<!-- KRU MANAGED INSTRUCTION START -->";
-const KRU_INSTRUCTION_END: &str = "<!-- KRU MANAGED INSTRUCTION END -->";
-const KRU_INSTRUCTION_BLOCK: &str = r#"<!-- KRU MANAGED INSTRUCTION START -->
-When a task may require a login, credential, authenticated API, SSH host, VPS, or server, prefer KRU before asking the user to provide a secret. If the user names a KRU project and the intended action is clear, call that KRU action directly with the project name. When only one enabled project supports the action, its name may be omitted. Use `items_search` only to discover projects, modules, actions, or resolve ambiguity. Follow KRU's MCP server instructions and never ask for hidden plaintext.
-<!-- KRU MANAGED INSTRUCTION END -->"#;
+const OPENKEYLET_INSTRUCTION_START: &str = "<!-- OPENKEYLET MANAGED INSTRUCTION START -->";
+const OPENKEYLET_INSTRUCTION_END: &str = "<!-- OPENKEYLET MANAGED INSTRUCTION END -->";
+const LEGACY_INSTRUCTION_START: &str = "<!-- KRU MANAGED INSTRUCTION START -->";
+const LEGACY_INSTRUCTION_END: &str = "<!-- KRU MANAGED INSTRUCTION END -->";
+const OPENKEYLET_INSTRUCTION_BLOCK: &str = r#"<!-- OPENKEYLET MANAGED INSTRUCTION START -->
+When a task may require a login, credential, authenticated API, SSH host, VPS, or server, prefer OpenKeylet before asking the user to provide a secret. If the user names an OpenKeylet project and the intended action is clear, call that OpenKeylet action directly with the project name. When only one enabled project supports the action, its name may be omitted. Use `items_search` only to discover projects, modules, actions, or resolve ambiguity. Follow OpenKeylet's MCP server instructions and never ask for hidden plaintext.
+<!-- OPENKEYLET MANAGED INSTRUCTION END -->"#;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -107,7 +109,9 @@ impl AgentRegistry {
             .filter(|client_id| supports_managed_instruction(client_id))
         {
             if let Err(error) = self.refresh_managed_instruction_if_present(client_id) {
-                eprintln!("KRU: failed to refresh {client_id} managed instruction: {error:#}");
+                eprintln!(
+                    "OpenKeylet: failed to refresh {client_id} managed instruction: {error:#}"
+                );
             }
         }
     }
@@ -250,7 +254,7 @@ impl AgentRegistry {
             can_remove: false,
             restart_required: false,
             message: if detected {
-                "Can connect to KRU".to_owned()
+                "Can connect to OpenKeylet".to_owned()
             } else {
                 "Not detected on this device".to_owned()
             },
@@ -290,7 +294,8 @@ impl AgentRegistry {
                         if refreshed {
                             status.restart_required = true;
                             status.message =
-                                "KRU connected; managed rules updated automatically and will take effect after restarting Agent".to_owned();
+                                "OpenKeylet connected; managed rules were updated automatically and will take effect after restarting the Agent"
+                                    .to_owned();
                         }
                     }
                     Ok(InstructionState::Missing) => {
@@ -318,7 +323,7 @@ impl AgentRegistry {
             status.can_register = false;
             status.can_repair = false;
             status.message =
-                "macOS is running KRU from a temporary quarantine path; move KRU.app to Applications before connecting"
+                "OpenKeylet is running from a temporary quarantine path on macOS; move OpenKeylet.app to Applications before connecting"
                     .to_owned();
         }
         status
@@ -331,8 +336,10 @@ impl AgentRegistry {
         }
         let text = fs::read_to_string(&path)
             .with_context(|| format!("Unable to read Agent global rules {}", path.display()))?;
-        if text.contains(KRU_INSTRUCTION_BLOCK)
-            || (!text.contains(KRU_INSTRUCTION_START) && !text.contains(KRU_INSTRUCTION_END))
+        if (text.contains(OPENKEYLET_INSTRUCTION_BLOCK) && !has_legacy_instruction(&text))
+            || (!has_managed_instruction(&text)
+                && !text.contains(OPENKEYLET_INSTRUCTION_END)
+                && !text.contains(LEGACY_INSTRUCTION_END))
         {
             return Ok(false);
         }
@@ -347,12 +354,10 @@ impl AgentRegistry {
         }
         let text = fs::read_to_string(&path)
             .with_context(|| format!("Unable to read Agent global rules {}", path.display()))?;
-        if text.contains(KRU_INSTRUCTION_BLOCK) {
+        if text.contains(OPENKEYLET_INSTRUCTION_BLOCK) && !has_legacy_instruction(&text) {
             return Ok(InstructionState::Current);
         }
-        if client_id == "claude-code"
-            && !text.trim().is_empty()
-            && !text.contains(KRU_INSTRUCTION_START)
+        if client_id == "claude-code" && !text.trim().is_empty() && !has_managed_instruction(&text)
         {
             return Ok(InstructionState::Conflict);
         }
@@ -385,13 +390,27 @@ impl AgentRegistry {
                     Ok(override_path)
                 }
             }
-            "claude-code" => Ok(self.home.join(".claude").join("rules").join("kru.md")),
+            "claude-code" => {
+                let rules = self.home.join(".claude").join("rules");
+                let current = rules.join("openkeylet.md");
+                let legacy = rules.join("kru.md");
+                // Reuse an existing managed rule file rather than install a duplicate.
+                Ok(if !current.is_file() && legacy.is_file() {
+                    legacy
+                } else {
+                    current
+                })
+            }
             "opencode" => Ok(self.opencode_instruction_dir.join("AGENTS.md")),
             _ => bail!("This Agent has no global rules entry point that can be safely maintained"),
         }
     }
 
     fn instruction_paths(&self, client_id: &str) -> Result<Vec<PathBuf>> {
+        if client_id == "claude-code" {
+            let rules = self.home.join(".claude").join("rules");
+            return Ok(vec![rules.join("openkeylet.md"), rules.join("kru.md")]);
+        }
         if client_id == "codex" {
             return Ok(vec![
                 self.codex_home.join("AGENTS.md"),
@@ -408,13 +427,22 @@ impl AgentRegistry {
         }
         let text = fs::read_to_string(&path).context("Unable to read Codex configuration")?;
         let document = text.parse::<DocumentMut>().context("Invalid Codex TOML configuration")?;
-        let Some(entry) = document
+        let has_legacy = document
             .get("mcp_servers")
             .and_then(Item::as_table_like)
             .and_then(|table| table.get("kru"))
+            .is_some_and(|entry| owned_toml_entry(entry, &self.executable));
+        let Some(entry) = document
+            .get("mcp_servers")
+            .and_then(Item::as_table_like)
+            .and_then(|table| table.get("openkeylet"))
             .and_then(Item::as_table_like)
         else {
-            return Ok(EntryState::Available);
+            return Ok(if has_legacy {
+                EntryState::Stale
+            } else {
+                EntryState::Available
+            });
         };
         let command = entry
             .get("command")
@@ -425,7 +453,10 @@ impl AgentRegistry {
             .and_then(Item::as_array)
             .map(toml_array_strings)
             .unwrap_or_default();
-        Ok(classify_command(command, &args, &self.executable))
+        Ok(with_legacy_state(
+            classify_command(command, &args, &self.executable),
+            has_legacy,
+        ))
     }
 
     fn inspect_json_client(&self, client_id: &str) -> Result<EntryState> {
@@ -436,9 +467,18 @@ impl AgentRegistry {
         let text = fs::read_to_string(&path).context("Unable to read Agent JSON configuration")?;
         let document: JsonValue = parse_to_serde_value(&text, &ParseOptions::default())
             .context("Invalid Agent JSON/JSONC configuration")?;
+        let has_legacy = legacy_json_paths(client_id).iter().any(|path| {
+            document
+                .pointer(path)
+                .is_some_and(|entry| owned_json_entry(entry, &self.executable))
+        });
         if client_id == "cursor" {
-            let Some(entry) = document.pointer("/mcpServers/kru") else {
-                return Ok(EntryState::Available);
+            let Some(entry) = document.pointer("/mcpServers/openkeylet") else {
+                return Ok(if has_legacy {
+                    EntryState::Stale
+                } else {
+                    EntryState::Available
+                });
             };
             let command = entry
                 .get("command")
@@ -446,11 +486,14 @@ impl AgentRegistry {
                 .unwrap_or_default()
                 .to_owned();
             let args = json_array_strings(entry.get("args"));
-            return Ok(classify_command(&command, &args, &self.executable));
+            return Ok(with_legacy_state(
+                classify_command(&command, &args, &self.executable),
+                has_legacy,
+            ));
         }
 
-        let current = document.pointer("/mcp/servers/kru");
-        let legacy = document.pointer("/mcp/kru");
+        let current = document.pointer("/mcp/servers/openkeylet");
+        let legacy = document.pointer("/mcp/openkeylet");
         let classify = |entry: &JsonValue| {
             let command = json_array_strings(entry.get("command"));
             (
@@ -458,7 +501,7 @@ impl AgentRegistry {
                 command.iter().skip(1).cloned().collect::<Vec<_>>(),
             )
         };
-        match (current, legacy) {
+        let state: Result<EntryState> = match (current, legacy) {
             (None, None) => Ok(EntryState::Available),
             (Some(entry), None) => {
                 let (command, args) = classify(entry);
@@ -493,29 +536,48 @@ impl AgentRegistry {
                     },
                 )
             }
-        }
+        };
+        Ok(with_legacy_state(state?, has_legacy))
     }
 
     async fn inspect_cli_client(&self, client_id: &str, executable: &Path) -> Result<EntryState> {
+        let current = self
+            .inspect_named_cli_entry(client_id, executable, "openkeylet")
+            .await?;
+        let legacy = self
+            .inspect_named_cli_entry(client_id, executable, "kru")
+            .await?;
+        Ok(with_legacy_state(
+            current.unwrap_or(EntryState::Available),
+            matches!(legacy, Some(EntryState::Registered | EntryState::Stale)),
+        ))
+    }
+
+    async fn inspect_named_cli_entry(
+        &self,
+        client_id: &str,
+        executable: &Path,
+        name: &str,
+    ) -> Result<Option<EntryState>> {
         let args = if client_id == "claude-code" {
-            vec!["mcp", "get", "kru"]
+            vec!["mcp", "get", name]
         } else {
-            vec!["mcp", "show", "kru", "--json"]
+            vec!["mcp", "show", name, "--json"]
         };
         let output = self.run_cli_status(executable, &args).await?;
         let text = output_text(&output);
         if !output.status.success() {
             if is_missing_entry(&text) {
-                return Ok(EntryState::Available);
+                return Ok(None);
             }
             bail!("{}", clean_process_error(&text));
         }
         if text_matches(&text, &self.executable) {
-            Ok(EntryState::Registered)
-        } else if text_has_kru_command(&text) {
-            Ok(EntryState::Stale)
+            Ok(Some(EntryState::Registered))
+        } else if text_has_openkeylet_command(&text) {
+            Ok(Some(EntryState::Stale))
         } else {
-            Ok(EntryState::Conflict)
+            Ok(Some(EntryState::Conflict))
         }
     }
 
@@ -525,12 +587,27 @@ impl AgentRegistry {
         let mut document = original
             .parse::<DocumentMut>()
             .context("Invalid Codex TOML configuration; no changes were made")?;
+        let previous_entry = document
+            .get("mcp_servers")
+            .and_then(Item::as_table_like)
+            .and_then(|servers| servers.get("openkeylet").or_else(|| servers.get("kru")))
+            .filter(|entry| owned_toml_entry(entry, &self.executable))
+            .cloned();
+        if let Some(servers) = document
+            .get_mut("mcp_servers")
+            .and_then(Item::as_table_like_mut)
+            && servers
+                .get("kru")
+                .is_some_and(|entry| owned_toml_entry(entry, &self.executable))
+        {
+            servers.remove("kru");
+        }
         if action == "remove" {
             if let Some(servers) = document
                 .get_mut("mcp_servers")
                 .and_then(Item::as_table_like_mut)
             {
-                servers.remove("kru");
+                servers.remove("openkeylet");
             }
         } else {
             if action == "repair" && path.is_file() {
@@ -542,13 +619,17 @@ impl AgentRegistry {
             let servers = document["mcp_servers"]
                 .as_table_like_mut()
                 .context("Codex mcp_servers is not a table")?;
-            let mut table = Table::new();
-            table["command"] = value(self.executable.to_string_lossy().into_owned());
+            let mut entry = previous_entry.unwrap_or_else(|| Item::Table(Table::new()));
+            let table = entry.as_table_like_mut().context("MCP configuration is not a table")?;
+            table.insert(
+                "command",
+                value(self.executable.to_string_lossy().into_owned()),
+            );
             let mut args = Array::new();
             args.push("mcp");
             args.push("stdio");
-            table["args"] = value(args);
-            servers.insert("kru", Item::Table(table));
+            table.insert("args", value(args));
+            servers.insert("openkeylet", entry);
         }
         write_atomic_checked(&path, &original, &document.to_string())
     }
@@ -559,10 +640,53 @@ impl AgentRegistry {
         let root = CstRootNode::parse(&original, &ParseOptions::default())
             .context("Invalid Agent JSON/JSONC configuration; no changes were made")?;
         let root_object = root.object_value_or_set();
+        let original_value: JsonValue = parse_to_serde_value(&original, &ParseOptions::default())
+            .context("Invalid Agent JSON/JSONC configuration; no changes were made")?;
+        let current_paths: &[&str] = if client_id == "cursor" {
+            &["/mcpServers/openkeylet"]
+        } else {
+            &["/mcp/servers/openkeylet", "/mcp/openkeylet"]
+        };
+        let preserved_fields = current_paths
+            .iter()
+            .chain(legacy_json_paths(client_id))
+            .filter_map(|pointer| original_value.pointer(pointer))
+            .find(|entry| owned_json_entry(entry, &self.executable))
+            .and_then(JsonValue::as_object)
+            .map(|entry| {
+                entry
+                    .iter()
+                    .filter(|(key, _)| {
+                        !["command", "args", "type", "enabled"].contains(&key.as_str())
+                    })
+                    .map(|(key, value)| (key.clone(), json_to_cst(value)))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        for pointer in legacy_json_paths(client_id) {
+            if !original_value
+                .pointer(pointer)
+                .is_some_and(|entry| owned_json_entry(entry, &self.executable))
+            {
+                continue;
+            }
+            let container = if client_id == "cursor" {
+                root_object.object_value("mcpServers")
+            } else if *pointer == "/mcp/servers/kru" {
+                root_object
+                    .object_value("mcp")
+                    .and_then(|mcp| mcp.object_value("servers"))
+            } else {
+                root_object.object_value("mcp")
+            };
+            if let Some(entry) = container.and_then(|container| container.get("kru")) {
+                entry.remove();
+            }
+        }
         if client_id == "cursor" {
             if action == "remove" {
                 if let Some(container) = root_object.object_value("mcpServers") {
-                    if let Some(entry) = container.get("kru") {
+                    if let Some(entry) = container.get("openkeylet") {
                         entry.remove();
                     }
                 }
@@ -571,17 +695,19 @@ impl AgentRegistry {
                     backup_config(&path)?;
                 }
                 let container = root_object.object_value_or_set("mcpServers");
-                let entry = CstInputValue::Object(vec![
+                let mut fields = vec![
                     (
                         "command".to_owned(),
                         self.executable.to_string_lossy().into_owned().into(),
                     ),
                     ("args".to_owned(), vec!["mcp", "stdio"].into()),
-                ]);
-                if let Some(current) = container.get("kru") {
+                ];
+                fields.extend(preserved_fields);
+                let entry = CstInputValue::Object(fields);
+                if let Some(current) = container.get("openkeylet") {
                     current.set_value(entry);
                 } else {
-                    container.append("kru", entry);
+                    container.append("openkeylet", entry);
                 }
             }
         } else {
@@ -592,11 +718,11 @@ impl AgentRegistry {
             let use_v2 = mcp.object_value("servers").is_some();
             if action == "remove" {
                 if let Some(servers) = mcp.object_value("servers") {
-                    if let Some(entry) = servers.get("kru") {
+                    if let Some(entry) = servers.get("openkeylet") {
                         entry.remove();
                     }
                 }
-                if let Some(legacy) = mcp.get("kru") {
+                if let Some(legacy) = mcp.get("openkeylet") {
                     legacy.remove();
                 }
             } else {
@@ -615,24 +741,25 @@ impl AgentRegistry {
                         .into(),
                     ),
                 ];
+                fields.extend(preserved_fields);
                 if use_v2 {
-                    if let Some(legacy) = mcp.get("kru") {
+                    if let Some(legacy) = mcp.get("openkeylet") {
                         legacy.remove();
                     }
                     let servers = mcp.object_value_or_set("servers");
                     let entry = CstInputValue::Object(fields);
-                    if let Some(current) = servers.get("kru") {
+                    if let Some(current) = servers.get("openkeylet") {
                         current.set_value(entry);
                     } else {
-                        servers.append("kru", entry);
+                        servers.append("openkeylet", entry);
                     }
                 } else {
                     fields.push(("enabled".to_owned(), true.into()));
                     let entry = CstInputValue::Object(fields);
-                    if let Some(current) = mcp.get("kru") {
+                    if let Some(current) = mcp.get("openkeylet") {
                         current.set_value(entry);
                     } else {
-                        mcp.append("kru", entry);
+                        mcp.append("openkeylet", entry);
                     }
                 }
             }
@@ -646,18 +773,16 @@ impl AgentRegistry {
             .context("Agent CLI not found")?;
         if action == "remove" || action == "repair" {
             let args = if client_id == "claude-code" {
-                vec!["mcp", "remove", "--scope", "user", "kru"]
+                vec!["mcp", "remove", "--scope", "user", "openkeylet"]
             } else {
-                vec!["mcp", "unset", "kru"]
+                vec!["mcp", "unset", "openkeylet"]
             };
             let output = self.run_cli_action(&executable, &args).await?;
-            if !(output.status.success()
-                || action == "remove" && is_missing_entry(&output_text(&output)))
-            {
+            if !(output.status.success() || is_missing_entry(&output_text(&output))) {
                 bail!("{}", clean_process_error(&output_text(&output)));
             }
             if action == "remove" {
-                return Ok(());
+                return self.remove_legacy_cli_entry(client_id, &executable).await;
             }
         }
         let exe = self.executable.to_string_lossy().into_owned();
@@ -669,7 +794,7 @@ impl AgentRegistry {
                 "user".to_owned(),
                 "--transport".to_owned(),
                 "stdio".to_owned(),
-                "kru".to_owned(),
+                "openkeylet".to_owned(),
                 "--".to_owned(),
                 exe,
                 "mcp".to_owned(),
@@ -679,7 +804,7 @@ impl AgentRegistry {
             vec![
                 "mcp".to_owned(),
                 "add".to_owned(),
-                "kru".to_owned(),
+                "openkeylet".to_owned(),
                 "--command".to_owned(),
                 exe,
                 "--arg".to_owned(),
@@ -692,6 +817,25 @@ impl AgentRegistry {
         let output = self.run_cli_action(&executable, &refs).await?;
         if !output.status.success() {
             bail!("{}", clean_process_error(&output_text(&output)));
+        }
+        self.remove_legacy_cli_entry(client_id, &executable).await
+    }
+
+    async fn remove_legacy_cli_entry(&self, client_id: &str, executable: &Path) -> Result<()> {
+        if matches!(
+            self.inspect_named_cli_entry(client_id, executable, "kru")
+                .await?,
+            Some(EntryState::Registered | EntryState::Stale)
+        ) {
+            let args = if client_id == "claude-code" {
+                vec!["mcp", "remove", "--scope", "user", "kru"]
+            } else {
+                vec!["mcp", "unset", "kru"]
+            };
+            let output = self.run_cli_action(executable, &args).await?;
+            if !(output.status.success() || is_missing_entry(&output_text(&output))) {
+                bail!("{}", clean_process_error(&output_text(&output)));
+            }
         }
         Ok(())
     }
@@ -763,7 +907,7 @@ impl AgentRegistry {
             "cursor" => self.home.join(".cursor").join("mcp.json"),
             "opencode" => self.opencode_config_path(),
             "openclaw" => self.openclaw_config.clone(),
-            _ => self.home.join(".kru").join("unsupported"),
+            _ => self.home.join(".openkeylet").join("unsupported"),
         }
     }
 
@@ -940,34 +1084,89 @@ fn apply_entry_state(status: &mut AgentClientStatus, state: EntryState) {
         EntryState::Available => {
             status.state = "available".to_owned();
             status.can_register = true;
-            status.message = "Can connect to KRU".to_owned();
+            status.message = "Can connect to OpenKeylet".to_owned();
         }
         EntryState::Registered => {
             status.state = "registered".to_owned();
             status.can_register = false;
             status.can_remove = true;
-            status.message = "KRU connected".to_owned();
+            status.message = "OpenKeylet connected".to_owned();
         }
         EntryState::Stale => {
             status.state = "stale".to_owned();
             status.can_register = false;
             status.can_repair = true;
             status.can_remove = true;
-            status.message = "KRU path, arguments, or global rules need updating".to_owned();
+            status.message = "OpenKeylet path, arguments, or global rules need updating".to_owned();
         }
         EntryState::Conflict => {
             status.state = "conflict".to_owned();
             status.can_register = false;
             status.can_repair = true;
-            status.message = "A kru configuration with the same name already exists, but its contents differ".to_owned();
+            status.message = "An openkeylet configuration with the same name already exists, but its contents differ".to_owned();
         }
+    }
+}
+
+fn with_legacy_state(state: EntryState, has_legacy: bool) -> EntryState {
+    if has_legacy && state != EntryState::Conflict {
+        EntryState::Stale
+    } else {
+        state
+    }
+}
+
+fn owned_toml_entry(entry: &Item, executable: &Path) -> bool {
+    entry
+        .as_table_like()
+        .and_then(|entry| entry.get("command"))
+        .and_then(Item::as_str)
+        .is_some_and(|command| {
+            is_openkeylet_command(command) || same_path(Path::new(command), executable)
+        })
+}
+
+fn owned_json_entry(entry: &JsonValue, executable: &Path) -> bool {
+    entry
+        .get("command")
+        .and_then(|command| {
+            command
+                .as_str()
+                .or_else(|| command.as_array()?.first()?.as_str())
+        })
+        .is_some_and(|command| {
+            is_openkeylet_command(command) || same_path(Path::new(command), executable)
+        })
+}
+
+fn legacy_json_paths(client_id: &str) -> &'static [&'static str] {
+    if client_id == "cursor" {
+        &["/mcpServers/kru"]
+    } else {
+        &["/mcp/kru", "/mcp/servers/kru"]
+    }
+}
+
+fn json_to_cst(value: &JsonValue) -> CstInputValue {
+    match value {
+        JsonValue::Null => CstInputValue::Null,
+        JsonValue::Bool(value) => CstInputValue::Bool(*value),
+        JsonValue::Number(value) => CstInputValue::Number(value.to_string()),
+        JsonValue::String(value) => CstInputValue::String(value.clone()),
+        JsonValue::Array(values) => CstInputValue::Array(values.iter().map(json_to_cst).collect()),
+        JsonValue::Object(values) => CstInputValue::Object(
+            values
+                .iter()
+                .map(|(key, value)| (key.clone(), json_to_cst(value)))
+                .collect(),
+        ),
     }
 }
 
 fn classify_command(command: &str, args: &[String], executable: &Path) -> EntryState {
     if same_path(Path::new(command), executable) && args == ["mcp", "stdio"] {
         EntryState::Registered
-    } else if is_kru_command(command) {
+    } else if is_openkeylet_command(command) {
         EntryState::Stale
     } else {
         EntryState::Conflict
@@ -991,17 +1190,17 @@ fn text_matches(text: &str, executable: &Path) -> bool {
         && normalized.contains("stdio")
 }
 
-fn text_has_kru_command(text: &str) -> bool {
+fn text_has_openkeylet_command(text: &str) -> bool {
     let pattern =
         regex::Regex::new(r#"(?im)(?:^\s*command\s*:\s*|\"command\"\s*:\s*\")([^\"\r\n,]+)"#)
             .expect("static command regex");
     pattern
         .captures_iter(text)
         .filter_map(|captures| captures.get(1))
-        .any(|command| is_kru_command(command.as_str().trim()))
+        .any(|command| is_openkeylet_command(command.as_str().trim()))
 }
 
-fn is_kru_command(command: &str) -> bool {
+fn is_openkeylet_command(command: &str) -> bool {
     let file_name = command
         .trim()
         .trim_matches(['\'', '"'])
@@ -1011,7 +1210,9 @@ fn is_kru_command(command: &str) -> bool {
     Path::new(file_name)
         .file_stem()
         .and_then(|name| name.to_str())
-        .is_some_and(|name| name.eq_ignore_ascii_case("kru"))
+        .is_some_and(|name| {
+            name.eq_ignore_ascii_case("openkeylet") || name.eq_ignore_ascii_case("kru")
+        })
 }
 
 fn same_path(left: &Path, right: &Path) -> bool {
@@ -1131,10 +1332,21 @@ fn read_or(path: &Path, fallback: &str) -> Result<String> {
     }
 }
 
+fn has_legacy_instruction(text: &str) -> bool {
+    text.contains(LEGACY_INSTRUCTION_START) || text.contains(LEGACY_INSTRUCTION_END)
+}
+
+fn has_managed_instruction(text: &str) -> bool {
+    text.contains(OPENKEYLET_INSTRUCTION_START) || text.contains(LEGACY_INSTRUCTION_START)
+}
+
 fn upsert_managed_instruction(path: &Path, dedicated_file: bool) -> Result<()> {
     let original = read_or(path, "")?;
-    if dedicated_file && !original.trim().is_empty() && !original.contains(KRU_INSTRUCTION_START) {
-        bail!("{} Already exists and is not a KRU-managed rule; not overwritten", path.display());
+    if dedicated_file && !original.trim().is_empty() && !has_managed_instruction(&original) {
+        bail!(
+            "{} Already exists and is not an OpenKeylet managed rule; not overwritten",
+            path.display()
+        );
     }
     let mut updated = strip_managed_instruction(&original)?
         .trim_end_matches(['\r', '\n'])
@@ -1142,7 +1354,7 @@ fn upsert_managed_instruction(path: &Path, dedicated_file: bool) -> Result<()> {
     if !updated.is_empty() {
         updated.push_str("\n\n");
     }
-    updated.push_str(KRU_INSTRUCTION_BLOCK);
+    updated.push_str(OPENKEYLET_INSTRUCTION_BLOCK);
     updated.push('\n');
     write_atomic_checked(path, &original, &updated)
 }
@@ -1153,30 +1365,39 @@ fn remove_managed_instruction(path: &Path, dedicated_file: bool) -> Result<()> {
     }
     let original = fs::read_to_string(path)
         .with_context(|| format!("Unable to read Agent global rules {}", path.display()))?;
-    if !original.contains(KRU_INSTRUCTION_START) {
+    if !has_managed_instruction(&original) && !has_legacy_instruction(&original) {
         return Ok(());
     }
     let updated = strip_managed_instruction(&original)?;
     if dedicated_file && updated.trim().is_empty() {
         fs::remove_file(path)
-            .with_context(|| format!("Unable to remove KRU global rules {}", path.display()))?;
+            .with_context(|| format!("Unable to remove OpenKeylet global rule {}", path.display()))?;
         return Ok(());
     }
     write_atomic_checked(path, &original, &updated)
 }
 
 fn strip_managed_instruction(text: &str) -> Result<String> {
-    let Some(start) = text.find(KRU_INSTRUCTION_START) else {
-        if text.contains(KRU_INSTRUCTION_END) {
-            bail!("KRU-managed marker in Agent global rules is incomplete");
+    let text = strip_instruction_block(text, LEGACY_INSTRUCTION_START, LEGACY_INSTRUCTION_END)?;
+    strip_instruction_block(
+        &text,
+        OPENKEYLET_INSTRUCTION_START,
+        OPENKEYLET_INSTRUCTION_END,
+    )
+}
+
+fn strip_instruction_block(text: &str, start_marker: &str, end_marker: &str) -> Result<String> {
+    let Some(start) = text.find(start_marker) else {
+        if text.contains(end_marker) {
+            bail!("OpenKeylet managed marker in Agent global rules is incomplete");
         }
         return Ok(text.to_owned());
     };
-    let content_start = start + KRU_INSTRUCTION_START.len();
+    let content_start = start + start_marker.len();
     let end_offset = text[content_start..]
-        .find(KRU_INSTRUCTION_END)
-        .context("KRU-managed marker in Agent global rules is incomplete")?;
-    let end = content_start + end_offset + KRU_INSTRUCTION_END.len();
+        .find(end_marker)
+        .context("OpenKeylet managed marker in Agent global rules is incomplete")?;
+    let end = content_start + end_offset + end_marker.len();
     let mut before = text[..start].trim_end_matches(['\r', '\n']).to_owned();
     let after = text[end..].trim_start_matches(['\r', '\n']);
     if !before.is_empty() && !after.is_empty() {
@@ -1211,7 +1432,7 @@ fn backup_config(path: &Path) -> Result<PathBuf> {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("config");
-    let backup = path.with_file_name(format!("{file_name}.kru.{stamp}.bak"));
+    let backup = path.with_file_name(format!("{file_name}.openkeylet.{stamp}.bak"));
     fs::copy(path, &backup).context("Unable to back up conflicting configuration")?;
     Ok(backup)
 }
@@ -1261,10 +1482,10 @@ fn display_name(client_id: &str) -> &str {
 
 fn action_label(action: &str) -> &str {
     match action {
-        "register" => "Connectivity",
+        "register" => "Connect",
         "repair" => "Repair",
         "remove" => "Remove",
-        _ => "Action",
+        _ => "Actions",
     }
 }
 
@@ -1290,12 +1511,128 @@ mod tests {
 
     fn registry() -> (tempfile::TempDir, AgentRegistry) {
         let temp = tempdir().unwrap();
-        let exe = temp
-            .path()
-            .join(if cfg!(windows) { "kru.exe" } else { "kru" });
+        let exe = temp.path().join(if cfg!(windows) {
+            "openkeylet.exe"
+        } else {
+            "openkeylet"
+        });
         fs::write(&exe, b"test").unwrap();
         let registry = AgentRegistry::isolated(exe, temp.path().to_path_buf(), vec![]);
         (temp, registry)
+    }
+
+    #[test]
+    fn legacy_codex_config_is_repaired_without_touching_other_servers() {
+        let (_temp, registry) = registry();
+        let path = registry.config_path("codex");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "# personal config\n[mcp_servers.other]\ncommand = \"other-tool\"\n[mcp_servers.kru]\ncommand = \"/old/kru\"\nargs = [\"mcp\", \"stdio\"]\n").unwrap();
+        assert_eq!(registry.inspect_codex().unwrap(), EntryState::Stale);
+        registry.mutate_codex("repair").unwrap();
+        assert_eq!(registry.inspect_codex().unwrap(), EntryState::Registered);
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(text.contains("# personal config"));
+        assert!(text.contains("mcp_servers.other"));
+        assert!(!text.contains("mcp_servers.kru"));
+        assert!(fs::read_dir(path.parent().unwrap()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "bak")
+        }));
+    }
+
+    #[test]
+    fn legacy_json_configs_migrate_both_opencode_shapes_and_cursor() {
+        for (client, input, new_pointer, old_pointer) in [
+            (
+                "cursor",
+                r#"{"mcpServers":{"kru":{"command":"/old/kru","args":["mcp","stdio"]},"other":{"command":"other-tool"}}}"#,
+                "/mcpServers/openkeylet",
+                "/mcpServers/kru",
+            ),
+            (
+                "opencode",
+                r#"{"mcp":{"kru":{"type":"local","command":["/old/kru","mcp","stdio"]},"other":{"command":["other-tool"]}}}"#,
+                "/mcp/openkeylet",
+                "/mcp/kru",
+            ),
+            (
+                "opencode",
+                r#"{"mcp":{"servers":{"kru":{"command":["/old/kru","mcp","stdio"]},"other":{"command":["other-tool"]}}}}"#,
+                "/mcp/servers/openkeylet",
+                "/mcp/servers/kru",
+            ),
+        ] {
+            let (_temp, registry) = registry();
+            let path = registry.config_path(client);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, format!("// personal config\n{input}\n")).unwrap();
+            assert_eq!(
+                registry.inspect_json_client(client).unwrap(),
+                EntryState::Stale
+            );
+            registry.mutate_json_client(client, "repair").unwrap();
+            assert_eq!(
+                registry.inspect_json_client(client).unwrap(),
+                EntryState::Registered
+            );
+            let text = fs::read_to_string(&path).unwrap();
+            let value: JsonValue = parse_to_serde_value(&text, &ParseOptions::default()).unwrap();
+            assert!(value.pointer(new_pointer).is_some());
+            assert!(value.pointer(old_pointer).is_none());
+            assert!(text.contains("// personal config"));
+            assert!(text.contains("other-tool"));
+        }
+    }
+
+    #[test]
+    fn unrelated_server_named_kru_is_preserved() {
+        let (_temp, registry) = registry();
+        let path = registry.config_path("codex");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "[mcp_servers.kru]\ncommand = \"unrelated-tool\"\n").unwrap();
+        assert_eq!(registry.inspect_codex().unwrap(), EntryState::Available);
+        registry.mutate_codex("register").unwrap();
+        assert!(
+            fs::read_to_string(&path)
+                .unwrap()
+                .contains("unrelated-tool")
+        );
+        let path = registry.config_path("cursor");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(
+            &path,
+            r#"{"mcpServers":{"kru":{"command":"unrelated-tool"}}}"#,
+        )
+        .unwrap();
+        registry.mutate_json_client("cursor", "register").unwrap();
+        registry.mutate_json_client("cursor", "remove").unwrap();
+        assert!(fs::read_to_string(path).unwrap().contains("unrelated-tool"));
+    }
+
+    #[test]
+    fn legacy_managed_rules_are_replaced_once_and_preserve_personal_rules() {
+        let (_temp, registry) = registry();
+        let path = registry.home.join(".claude/rules/kru.md");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, format!("# Personal rules\n\n{LEGACY_INSTRUCTION_START}\nOld rule\n{LEGACY_INSTRUCTION_END}\n")).unwrap();
+        assert_eq!(
+            registry.active_instruction_path("claude-code").unwrap(),
+            path
+        );
+        registry.refresh_managed_instructions();
+        registry.refresh_managed_instructions();
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(text.starts_with("# Personal rules"));
+        assert!(!text.contains(LEGACY_INSTRUCTION_START));
+        assert_eq!(text.matches(OPENKEYLET_INSTRUCTION_START).count(), 1);
+        remove_managed_instruction(&path, true).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap().trim(),
+            "# Personal rules"
+        );
     }
 
     fn make_test_executable(path: &Path) {
@@ -1325,9 +1662,9 @@ mod tests {
         let once = fs::read_to_string(&path).unwrap();
         assert!(once.contains("# keep"));
         assert!(once.contains("mcp_servers.other"));
-        assert!(once.contains("mcp_servers.kru"));
+        assert!(once.contains("mcp_servers.openkeylet"));
         let instruction = fs::read_to_string(registry.codex_home.join("AGENTS.md")).unwrap();
-        assert!(instruction.contains(KRU_INSTRUCTION_BLOCK));
+        assert!(instruction.contains(OPENKEYLET_INSTRUCTION_BLOCK));
         let second = registry.mutate("codex", "register").await;
         assert!(!second.ok);
         assert_eq!(once, fs::read_to_string(&path).unwrap());
@@ -1345,7 +1682,7 @@ mod tests {
         assert!(registry.mutate("codex", "register").await.ok);
         let installed = fs::read_to_string(&override_path).unwrap();
         assert!(installed.starts_with("# Personal rules\n"));
-        assert!(installed.contains(KRU_INSTRUCTION_BLOCK));
+        assert!(installed.contains(OPENKEYLET_INSTRUCTION_BLOCK));
         assert!(!registry.codex_home.join("AGENTS.md").exists());
 
         assert!(registry.mutate("codex", "remove").await.ok);
@@ -1380,7 +1717,7 @@ mod tests {
         fs::write(
             &path,
             format!(
-                "# Personal rules\n\n{KRU_INSTRUCTION_START}\nOld KRU instruction.\n{KRU_INSTRUCTION_END}\n"
+                "# Personal rules\n\n{OPENKEYLET_INSTRUCTION_START}\nOld OpenKeylet instruction.\n{OPENKEYLET_INSTRUCTION_END}\n"
             ),
         )
         .unwrap();
@@ -1388,18 +1725,18 @@ mod tests {
         registry.refresh_managed_instructions();
         let updated = fs::read_to_string(path).unwrap();
         assert!(updated.starts_with("# Personal rules\n"));
-        assert!(updated.contains(KRU_INSTRUCTION_BLOCK));
-        assert!(!updated.contains("Old KRU instruction."));
+        assert!(updated.contains(OPENKEYLET_INSTRUCTION_BLOCK));
+        assert!(!updated.contains("Old OpenKeylet instruction."));
     }
 
     #[test]
     fn dedicated_rule_never_overwrites_an_unmanaged_file() {
         let temp = tempdir().unwrap();
-        let path = temp.path().join("kru.md");
+        let path = temp.path().join("openkeylet.md");
         fs::write(&path, "user-owned rule\n").unwrap();
 
         let error = upsert_managed_instruction(&path, true).unwrap_err();
-        assert!(error.to_string().contains("Not a KRU-managed rule"));
+        assert!(error.to_string().contains("not an OpenKeylet managed rule"));
         assert_eq!(fs::read_to_string(path).unwrap(), "user-owned rule\n");
     }
 
@@ -1413,12 +1750,12 @@ mod tests {
         let registered = fs::read_to_string(&path).unwrap();
         assert!(registered.contains("// keep"));
         assert!(registered.contains("\"other\""));
-        assert!(registered.contains("\"kru\""));
+        assert!(registered.contains("\"openkeylet\""));
         assert!(registry.mutate("cursor", "remove").await.ok);
         let removed = fs::read_to_string(&path).unwrap();
         assert!(removed.contains("// keep"));
         assert!(removed.contains("\"other\""));
-        assert!(!removed.contains("\"kru\""));
+        assert!(!removed.contains("\"openkeylet\""));
     }
 
     #[tokio::test]
@@ -1426,7 +1763,7 @@ mod tests {
         let (_temp, registry) = registry();
         let path = registry.config_path("codex");
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        let original = "[mcp_servers.kru]\ncommand = \"not-kru\"\nargs = []\n";
+        let original = "[mcp_servers.openkeylet]\ncommand = \"not-openkeylet\"\nargs = []\n";
         fs::write(&path, original).unwrap();
         let status = registry.status("codex").await;
         assert_eq!(status.state, "conflict");
@@ -1437,7 +1774,7 @@ mod tests {
             item.unwrap()
                 .file_name()
                 .to_string_lossy()
-                .contains(".kru.")
+                .contains(".openkeylet.")
         }));
     }
 
@@ -1458,24 +1795,24 @@ mod tests {
         assert!(text.contains("\"theme\": \"dark\""));
         let value: JsonValue = parse_to_serde_value(&text, &ParseOptions::default()).unwrap();
         assert_eq!(
-            value.pointer("/mcp/kru/type"),
+            value.pointer("/mcp/openkeylet/type"),
             Some(&serde_json::json!("local"))
         );
         let command = value
-            .pointer("/mcp/kru/command")
+            .pointer("/mcp/openkeylet/command")
             .and_then(JsonValue::as_array)
             .unwrap();
         assert_eq!(command[1], "mcp");
         assert_eq!(command[2], "stdio");
         assert_eq!(
-            value.pointer("/mcp/kru/enabled"),
+            value.pointer("/mcp/openkeylet/enabled"),
             Some(&serde_json::json!(true))
         );
         assert!(value.pointer("/mcp/servers").is_none());
         assert!(
             fs::read_to_string(registry.opencode_instruction_dir.join("AGENTS.md"))
                 .unwrap()
-                .contains(KRU_INSTRUCTION_BLOCK)
+                .contains(OPENKEYLET_INSTRUCTION_BLOCK)
         );
         assert_eq!(registry.status("opencode").await.state, "registered");
     }
@@ -1494,9 +1831,9 @@ mod tests {
         let text = fs::read_to_string(&path).unwrap();
         assert!(text.contains("// V2 config"));
         let value: JsonValue = parse_to_serde_value(&text, &ParseOptions::default()).unwrap();
-        assert!(value.pointer("/mcp/kru").is_none());
-        assert!(value.pointer("/mcp/servers/kru").is_some());
-        assert!(value.pointer("/mcp/servers/kru/enabled").is_none());
+        assert!(value.pointer("/mcp/openkeylet").is_none());
+        assert!(value.pointer("/mcp/servers/openkeylet").is_some());
+        assert!(value.pointer("/mcp/servers/openkeylet/enabled").is_none());
         assert_eq!(registry.status("opencode").await.state, "registered");
     }
 
@@ -1509,7 +1846,7 @@ mod tests {
         fs::write(
             &path,
             format!(
-                "{{\n  // V1 setting stays readable\n  \"mcp\": {{\n    \"kru\": {{ \"type\": \"local\", \"command\": [{executable}, \"mcp\", \"stdio\"], \"enabled\": false }}\n  }}\n}}\n"
+                "{{\n  // V1 setting stays readable\n  \"mcp\": {{\n    \"openkeylet\": {{ \"type\": \"local\", \"command\": [{executable}, \"mcp\", \"stdio\"], \"enabled\": false }}\n  }}\n}}\n"
             ),
         )
         .unwrap();
@@ -1523,7 +1860,7 @@ mod tests {
         assert!(text.contains("// V1 setting stays readable"));
         let value: JsonValue = parse_to_serde_value(&text, &ParseOptions::default()).unwrap();
         assert_eq!(
-            value.pointer("/mcp/kru/enabled"),
+            value.pointer("/mcp/openkeylet/enabled"),
             Some(&serde_json::json!(true))
         );
         assert!(value.pointer("/mcp/servers").is_none());
@@ -1531,7 +1868,7 @@ mod tests {
             item.unwrap()
                 .file_name()
                 .to_string_lossy()
-                .contains("opencode.jsonc.kru.")
+                .contains("opencode.jsonc.openkeylet.")
         }));
     }
 
@@ -1544,7 +1881,7 @@ mod tests {
         fs::write(
             &path,
             format!(
-                "{{ \"mcp\": {{ \"kru\": {{ \"command\": [{executable}, \"mcp\", \"stdio\"] }}, \"servers\": {{ \"kru\": {{ \"command\": [{executable}, \"mcp\", \"stdio\"] }} }} }} }}\n"
+                "{{ \"mcp\": {{ \"openkeylet\": {{ \"command\": [{executable}, \"mcp\", \"stdio\"] }}, \"servers\": {{ \"openkeylet\": {{ \"command\": [{executable}, \"mcp\", \"stdio\"] }} }} }} }}\n"
             ),
         )
         .unwrap();
@@ -1553,8 +1890,8 @@ mod tests {
         assert!(registry.mutate("opencode", "remove").await.ok);
         let text = fs::read_to_string(&path).unwrap();
         let value: JsonValue = parse_to_serde_value(&text, &ParseOptions::default()).unwrap();
-        assert!(value.pointer("/mcp/kru").is_none());
-        assert!(value.pointer("/mcp/servers/kru").is_none());
+        assert!(value.pointer("/mcp/openkeylet").is_none());
+        assert!(value.pointer("/mcp/servers/openkeylet").is_none());
     }
 
     #[tokio::test]
@@ -1568,7 +1905,7 @@ mod tests {
         assert_eq!(registry.config_path("opencode"), json);
         assert!(registry.mutate("opencode", "register").await.ok);
         let value: JsonValue = serde_json::from_str(&fs::read_to_string(json).unwrap()).unwrap();
-        assert!(value.pointer("/mcp/kru").is_some());
+        assert!(value.pointer("/mcp/openkeylet").is_some());
     }
 
     #[test]
@@ -1696,24 +2033,24 @@ mod tests {
 
     #[test]
     fn cli_conflict_detection_checks_command_not_server_name() {
-        assert!(!text_has_kru_command(
-            "kru:\n  Command: C:\\tools\\other.exe\n  Args: mcp stdio"
+        assert!(!text_has_openkeylet_command(
+            "openkeylet:\n  Command: C:\\tools\\other.exe\n  Args: mcp stdio"
         ));
-        assert!(text_has_kru_command(
-            r#"{"name":"kru","command":"C:\\old\\kru.exe","args":["mcp","stdio"]}"#
+        assert!(text_has_openkeylet_command(
+            r#"{"name":"openkeylet","command":"C:\\old\\openkeylet.exe","args":["mcp","stdio"]}"#
         ));
     }
 
     #[test]
     fn cli_path_match_accepts_windows_verbatim_path_output() {
-        let executable = Path::new(r"\\?\C:\Users\malou\kru.exe");
+        let executable = Path::new(r"\\?\C:\Users\malou\openkeylet.exe");
         assert!(text_matches(
-            r"Command: \\?\C:\Users\malou\kru.exe
+            r"Command: \\?\C:\Users\malou\openkeylet.exe
 Args: mcp stdio",
             executable
         ));
         assert!(text_matches(
-            r#"{"command":"\\\\?\\C:\\Users\\malou\\kru.exe","args":["mcp","stdio"]}"#,
+            r#"{"command":"\\\\?\\C:\\Users\\malou\\openkeylet.exe","args":["mcp","stdio"]}"#,
             executable
         ));
     }

@@ -2948,7 +2948,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kru"
+name = "openkeylet"
 version = "0.15.0"
 dependencies = [
  "anyhow",

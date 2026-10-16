@@ -10,12 +10,12 @@ if (process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true") {
 
 const executableArgument = process.argv[2];
 if (!executableArgument) {
-  throw new Error("usage: node scripts/smoke-gui.mjs <kru executable>");
+  throw new Error("usage: node scripts/smoke-gui.mjs <openkeylet executable>");
 }
 const executable = path.resolve(executableArgument);
-assert.ok(fs.existsSync(executable), `KRU executable does not exist: ${executable}`);
+assert.ok(fs.existsSync(executable), `OpenKeylet executable does not exist: ${executable}`);
 
-const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "kru-gui-smoke-"));
+const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openkeylet-gui-smoke-"));
 const env = {
   ...process.env,
   HOME: path.join(smokeRoot, "home"),
@@ -50,11 +50,11 @@ try {
     });
     child.once("exit", (code, signal) => {
       clearTimeout(timer);
-      reject(new Error(`KRU GUI exited early (${code ?? signal}). ${output}`));
+      reject(new Error(`OpenKeylet GUI exited early (${code ?? signal}). ${output}`));
     });
   });
-  assert.equal(child.exitCode, null, `KRU GUI did not remain alive. ${output}`);
-  console.log("KRU GUI remained alive for 4 seconds.");
+  assert.equal(child.exitCode, null, `OpenKeylet GUI did not remain alive. ${output}`);
+  console.log("OpenKeylet GUI remained alive for 4 seconds.");
 } finally {
   if (process.platform === "win32" && child.pid) {
     spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });

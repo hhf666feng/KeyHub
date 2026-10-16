@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "KRU",
+  "productName": "OpenKeylet",
   "version": "0.15.0",
   "identifier": "dev.kru.desktop",
   "build": {
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "KRU",
+        "title": "OpenKeylet",
         "width": 460,
         "height": 690,
         "minWidth": 460,

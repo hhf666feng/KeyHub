@@ -39,25 +39,25 @@ test -f "$root/SHA256SUMS.txt"
 
 case "$kind" in
   macos)
-    executable="$root/KRU.app/Contents/MacOS/kru"
+    executable="$root/OpenKeylet.app/Contents/MacOS/openkeylet"
     test -x "$executable"
-    /usr/bin/codesign --verify --deep --strict --verbose=2 "$root/KRU.app"
-    if [[ "${KRU_REQUIRE_NOTARIZED:-0}" == "1" ]]; then
-      signature_details="$(/usr/bin/codesign --display --verbose=4 "$root/KRU.app" 2>&1)"
+    /usr/bin/codesign --verify --deep --strict --verbose=2 "$root/OpenKeylet.app"
+    if [[ "${OPENKEYLET_REQUIRE_NOTARIZED:-0}" == "1" ]]; then
+      signature_details="$(/usr/bin/codesign --display --verbose=4 "$root/OpenKeylet.app" 2>&1)"
       grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
       grep -Fq "runtime" <<<"$signature_details"
       grep -Fq "Timestamp=" <<<"$signature_details"
-      /usr/bin/xcrun stapler validate "$root/KRU.app"
-      /usr/sbin/spctl --assess --type execute --verbose=4 "$root/KRU.app"
+      /usr/bin/xcrun stapler validate "$root/OpenKeylet.app"
+      /usr/sbin/spctl --assess --type execute --verbose=4 "$root/OpenKeylet.app"
     fi
     ;;
   linux-gui)
-    executable="$root/kru"
+    executable="$root/openkeylet"
     test -x "$executable"
-    test -x "$root/KRU.AppImage"
+    test -x "$root/OpenKeylet.AppImage"
     ;;
   linux-headless)
-    executable="$root/kru"
+    executable="$root/openkeylet"
     test -x "$executable"
     ;;
 esac

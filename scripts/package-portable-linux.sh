@@ -19,7 +19,7 @@ esac
 appimage_dir="$project_root/src-tauri/target/release/bundle/appimage"
 mapfile -t app_sources < <(find "$appimage_dir" -maxdepth 1 -type f -name '*.AppImage' -print | sort)
 if [[ ${#app_sources[@]} -ne 1 ]]; then
-  echo "Expected exactly one freshly built KRU AppImage, found ${#app_sources[@]}. Remove stale bundle output and rebuild." >&2
+  echo "Expected exactly one freshly built OpenKeylet AppImage, found ${#app_sources[@]}. Remove stale bundle output and rebuild." >&2
   exit 1
 fi
 app_source="${app_sources[0]}"
@@ -27,11 +27,11 @@ if find "$project_root/renderer" "$project_root/browser-extension" "$project_roo
   "$project_root/package.json" "$project_root/package-lock.json" "$project_root/src-tauri/Cargo.toml" \
   "$project_root/src-tauri/Cargo.lock" "$project_root/src-tauri/tauri.conf.json" \
   -type f -newer "$app_source" -print -quit | grep -q .; then
-  echo "KRU AppImage is older than its source. Run npm run build:linux again." >&2
+  echo "OpenKeylet AppImage is older than its source. Run npm run build:linux again." >&2
   exit 1
 fi
 
-package_name="KRU_${version}_linux-${package_arch}"
+package_name="OpenKeylet_${version}_linux-${package_arch}"
 dist_root="$project_root/dist"
 stage_root="$dist_root/.portable-linux-stage"
 package_root="$stage_root/$package_name"
@@ -45,17 +45,17 @@ esac
 
 rm -rf "$stage_root"
 mkdir -p "$package_root"
-cp "$app_source" "$package_root/KRU.AppImage"
-chmod +x "$package_root/KRU.AppImage"
-cat > "$package_root/kru" <<'EOF'
+cp "$app_source" "$package_root/OpenKeylet.AppImage"
+chmod +x "$package_root/OpenKeylet.AppImage"
+cat > "$package_root/openkeylet" <<'EOF'
 #!/bin/sh
 set -eu
 package_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 export APPIMAGE_EXTRACT_AND_RUN=1
-export KRU_LAUNCHER_PATH="$package_dir/kru"
-exec "$package_dir/KRU.AppImage" "$@"
+export OPENKEYLET_LAUNCHER_PATH="$package_dir/openkeylet"
+exec "$package_dir/OpenKeylet.AppImage" "$@"
 EOF
-chmod +x "$package_root/kru"
+chmod +x "$package_root/openkeylet"
 cp "$project_root/README.md" "$project_root/LICENSE" "$package_root/"
 cp -R "$project_root/browser-extension" "$package_root/browser-extension"
 

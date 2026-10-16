@@ -127,7 +127,7 @@ fn reject_vault_internal_export_path(vault: &Vault, path: &Path) -> Result<()> {
             .join(name)
     };
     if target.starts_with(&data_dir) {
-        bail!("Backup files cannot be saved inside the KRU data directory; choose another location");
+        bail!("Backup files cannot be saved inside the OpenKeylet data directory. Choose another location");
     }
     Ok(())
 }

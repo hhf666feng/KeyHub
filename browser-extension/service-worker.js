@@ -7,7 +7,7 @@ const focusedFrameByTab = new Map();
 const JOB_TIMEOUT_MS = 35_000;
 
 chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message?.type === "kru-focus" && sender.tab?.id != null) {
+  if (["openkeylet-focus", "kru-focus"].includes(message?.type) && sender.tab?.id != null) {
     focusedFrameByTab.set(sender.tab.id, sender.frameId ?? 0);
     return;
   }
@@ -173,7 +173,7 @@ async function connectOnce(force = false) {
     if (message.type === "job") {
       const expiresAt = jobExpiresAt(message.job);
       const result = Number.isFinite(expiresAt) && Date.now() >= expiresAt
-        ? { ok: false, message: "The autofill task has expired" }
+        ? { ok: false, message: "The fill task has expired" }
         : await fillFocused(message.job?.value, expiresAt, Boolean(message.job?.submit));
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -198,7 +198,7 @@ function jobExpiresAt(job, now = Date.now()) {
 }
 
 async function fillFocused(value, expiresAt, submit = false) {
-  if (typeof value !== "string") return { ok: false, message: "The autofill content is invalid" };
+  if (typeof value !== "string") return { ok: false, message: "The fill value is invalid" };
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return { ok: false, message: "No active tab" };
   const frameId = focusedFrameByTab.get(tab.id) ?? 0;
@@ -208,15 +208,15 @@ async function fillFocused(value, expiresAt, submit = false) {
       func: writeToFocusedControl,
       args: [value, expiresAt, submit],
     });
-    return execution?.result || { ok: false, message: "The page did not return an autofill result" };
+    return execution?.result || { ok: false, message: "The page did not return a fill result" };
   } catch {
-    return { ok: false, message: "Could not write to the currently focused control; check the page and extension permissions" };
+    return { ok: false, message: "Cannot fill the focused control; check the page and extension permissions" };
   }
 }
 
 function writeToFocusedControl(value, expiresAt, submit = false) {
   if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
-    return { ok: false, message: "The autofill task has expired" };
+    return { ok: false, message: "The fill task has expired" };
   }
   const findActiveElement = (root) => {
     const element = root.activeElement;
@@ -225,12 +225,12 @@ function writeToFocusedControl(value, expiresAt, submit = false) {
   };
   const element = findActiveElement(document);
   if (!element || element === document.body || element === document.documentElement) {
-    return { ok: false, message: "There is no focused editable control on the current page" };
+    return { ok: false, message: "The current page has no focused input control" };
   }
   const tag = element.tagName?.toLowerCase();
   const editable = element.isContentEditable;
   if (tag !== "input" && tag !== "textarea" && !editable) {
-    return { ok: false, message: "The current focus is not an editable control" };
+    return { ok: false, message: "The focused element is not an input control" };
   }
   try {
     element.focus();
@@ -244,7 +244,7 @@ function writeToFocusedControl(value, expiresAt, submit = false) {
     } else {
       const prototype = tag === "textarea" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-      if (!setter) return { ok: false, message: "The current control does not support secure writing" };
+      if (!setter) return { ok: false, message: "The current control does not support safe filling" };
       setter.call(element, value);
     }
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
@@ -252,14 +252,14 @@ function writeToFocusedControl(value, expiresAt, submit = false) {
     if (submit) {
       const form = element.form || element.closest?.("form");
       if (!form || typeof form.requestSubmit !== "function") {
-        return { ok: false, message: "Wrote to the currently focused control, but could not find a form to submit" };
+        return { ok: false, message: "Filled the focused control, but no form was available to submit" };
       }
       setTimeout(() => form.requestSubmit(), 0);
-      return { ok: true, message: "Wrote to and submitted the current form" };
+      return { ok: true, message: "Filled and submitted the current form" };
     }
-    return { ok: true, message: "Written to the currently focused control" };
+    return { ok: true, message: "Filled the focused control" };
   } catch {
-    return { ok: false, message: "The page refused to write to the current control" };
+    return { ok: false, message: "The page refused to fill the current control" };
   }
 }
 

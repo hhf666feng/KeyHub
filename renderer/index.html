@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>KRU</title>
+    <title>OpenKeylet</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="title-drag-region" data-tauri-drag-region="deep">
       <div class="app-mark" data-tauri-drag-region>
         <img class="app-mark-logo" src="app-mark-16.png" srcset="app-mark-16.png 1x, app-mark-20.png 1.25x, app-mark-24.png 1.5x, app-mark-32.png 2x, app-mark-40.png 2.5x, app-mark-48.png 3x, app-mark-64.png 4x" alt="" />
-        <strong>K.R.U.</strong>
+        <strong>OpenKeylet</strong>
         <i aria-hidden="true"></i>
-        <small>KEY RELAY UNIT</small>
+        <small>LOCAL KEYRING</small>
       </div>
       <div class="language-switch" id="language-switch" role="group" aria-label="Language">
         <button class="active" type="button" data-language="en">EN</button>
@@ -54,26 +54,26 @@
           <header class="page-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="settings" type="search" placeholder="SEARCH" aria-label="Search system settings" autocomplete="off" /></label><div class="page-header-actions"><button class="button primary" id="header-export-backup-button" type="button">One-click export package</button><button class="button quiet" id="header-import-backup-button" type="button">One-click import package</button></div></header>
           <div class="settings-layout">
             <section class="content-panel settings-card" data-module="SYSTEM / 01">
-              <div class="settings-heading"><div><h2>System shortcuts</h2><p>Control KRU’s desktop shortcut and startup behavior.</p></div></div>
+              <div class="settings-heading"><div><h2>System shortcuts</h2><p>Control OpenKeylet desktop shortcuts and startup behavior.</p></div></div>
               <div class="desktop-options">
-                <div class="desktop-option" id="desktop-shortcut-option"><span><strong>Create desktop shortcut</strong><small>Create a KRU shortcut on the current user’s desktop</small></span><label class="switch"><input type="checkbox" id="desktop-shortcut-enabled" /><span></span></label></div>
-                <div class="desktop-option" id="launch-at-login-option"><span><strong>Start on system startup</strong><small>Start KRU automatically after login and keep a single instance running</small></span><label class="switch"><input type="checkbox" id="launch-at-login-enabled" /><span></span></label></div>
+                <div class="desktop-option" id="desktop-shortcut-option"><span><strong>Create desktop shortcut</strong><small>Create an OpenKeylet shortcut on the current user’s desktop</small></span><label class="switch"><input type="checkbox" id="desktop-shortcut-enabled" /><span></span></label></div>
+                <div class="desktop-option" id="launch-at-login-option"><span><strong>Start on system startup</strong><small>Automatically start OpenKeylet after system login and keep a single instance</small></span><label class="switch"><input type="checkbox" id="launch-at-login-enabled" /><span></span></label></div>
               </div>
             </section>
 
             <section class="content-panel settings-card" data-module="MCP / 02">
-              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register a local stdio MCP; supported Agents also get the rule “Use KRU first for authentication tasks.”</p></div></div>
+              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register local stdio MCP; supported Agents also install the rule “Use OpenKeylet first for authentication tasks”.</p></div></div>
               <div class="status-strip" id="mcp-status-strip"></div>
               <div class="agent-restart-notice hidden" id="agent-restart-notice"><strong>NEW SESSION REQUIRED</strong><span>After registering or repairing, fully quit and reopen the Agent.</span></div>
               <div class="agent-client-list" id="agent-client-list"><div class="agent-scan-placeholder">Scanning for Agents on this computer</div></div>
               <div class="button-row agent-connect-actions"><button class="button quiet" id="rescan-agents">RESCAN</button></div>
-              <details class="manual-mcp-config"><summary>OTHER AGENT / MANUAL SETUP</summary><div class="manual-config-steps"><div><b>1</b><span>Open the target Agent’s MCP configuration</span></div><div><b>2</b><span>Copy JSON or TOML in the configured format</span></div><div><b>3</b><span>Paste, save, and restart the Agent</span></div></div><div class="endpoint-box"><span>STDIO / LOCAL</span><code id="mcp-endpoint">kru mcp stdio</code></div><div class="button-row manual-copy-actions"><button class="button secondary" data-copy-format="stdio-json">COPY JSON</button><button class="button quiet" data-copy-format="stdio-toml">COPY TOML</button></div></details>
+              <details class="manual-mcp-config"><summary>OTHER AGENT / MANUAL SETUP</summary><div class="manual-config-steps"><div><b>1</b><span>Open the target Agent’s MCP configuration</span></div><div><b>2</b><span>Copy JSON or TOML in the configured format</span></div><div><b>3</b><span>Paste, save, and restart the Agent</span></div></div><div class="endpoint-box"><span>STDIO / LOCAL</span><code id="mcp-endpoint">openkeylet mcp stdio</code></div><div class="button-row manual-copy-actions"><button class="button secondary" data-copy-format="stdio-json">COPY JSON</button><button class="button quiet" data-copy-format="stdio-toml">COPY TOML</button></div></details>
             </section>
 
             <section class="content-panel settings-card" data-module="APP / 03">
               <div class="settings-heading"><div><h2>Window and lock</h2><p>Control the close button and local PIN lock.</p></div></div>
               <div class="desktop-options">
-                <label class="desktop-option" for="close-behavior"><span><strong>Close button</strong><small>Minimize to keep the tray menu available</small></span><select class="input" id="close-behavior"><option value="tray">Minimize to tray</option><option value="exit">Quit KRU</option></select></label>
+                <label class="desktop-option" for="close-behavior"><span><strong>Close button</strong><small>Minimize to keep the tray menu available</small></span><select class="input" id="close-behavior"><option value="tray">Minimize to tray</option><option value="exit">Quit OpenKeylet</option></select></label>
                 <div class="desktop-option pin-option"><span><strong>PIN lock</strong><small>Turning this off removes the current PIN; set a new PIN when you turn it on again</small></span><label class="switch"><input type="checkbox" id="pin-enabled" /><span></span></label></div>
               </div>
             </section>
@@ -87,7 +87,7 @@
             </section>
 
             <section class="content-panel settings-card wide" data-module="SAFE / 05">
-              <div class="settings-heading"><div class="square-icon coral">BK</div><div><h2>Local data</h2><p>Export an encrypted backup that KRU decrypts automatically, avoiding direct exposure of secrets in plaintext.</p></div></div>
+              <div class="settings-heading"><div class="square-icon coral">BK</div><div><h2>Local data</h2><p>Export an encrypted package that OpenKeylet decrypts automatically, so secrets are not exposed directly as plaintext.</p></div></div>
               <div class="security-actions"><button class="button quiet" id="open-data-button">Open data directory</button></div>
             </section>
             <div class="settings-search-empty hidden" id="settings-search-empty">NO MATCHING SETTINGS</div>

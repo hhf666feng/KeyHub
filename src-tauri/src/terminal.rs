@@ -200,7 +200,7 @@ impl TerminalManager {
         let reader_done = Arc::new(AtomicBool::new(false));
         let reader_done_signal = reader_done.clone();
         std::thread::Builder::new()
-            .name("kru-pty-reader".to_owned())
+            .name("openkeylet-pty-reader".to_owned())
             .spawn(move || {
                 let mut buffer = [0_u8; 8_192];
                 let mut cursor_query_state = 0;
@@ -656,7 +656,7 @@ mod tests {
     #[test]
     fn opening_below_capacity_preserves_a_finished_drained_session() {
         let manager = TerminalManager::new();
-        let marker = "KRU-STALE-SESSION";
+        let marker = "OpenKeylet-STALE-SESSION";
         let (program, args) = output_command(marker);
         let stale = manager.open(&program, args, None).unwrap();
         let mut output = String::new();
@@ -682,7 +682,7 @@ mod tests {
     #[test]
     fn opening_a_terminal_preserves_a_finished_session_with_unread_output() {
         let manager = TerminalManager::new();
-        let marker = "KRU-UNREAD-SESSION";
+        let marker = "OpenKeylet-UNREAD-SESSION";
         let (program, args) = output_command(marker);
         let unread = manager.open(&program, args, None).unwrap();
         wait_for_exit_with_unread_output(&manager, unread.session_id, Duration::from_secs(2));
@@ -900,7 +900,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
                     "-NoProfile".into(),
                     "-NonInteractive".into(),
                     "-Command".into(),
-                    "[Console]::Write('KRU-POWERSHELL-OK')".into(),
+                    "[Console]::Write('OpenKeylet-POWERSHELL-OK')".into(),
                 ],
                 None,
             )
@@ -911,7 +911,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
             session.session_id,
             &mut output,
             Duration::from_secs(5),
-            |output, result| !result.running && output.contains("KRU-POWERSHELL-OK"),
+            |output, result| !result.running && output.contains("OpenKeylet-POWERSHELL-OK"),
         );
         assert!(
             !output.contains("Could not start this shell"),
@@ -939,7 +939,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
                     "-NoProfile".into(),
                     "-NonInteractive".into(),
                     "-Command".into(),
-                    "$ErrorActionPreference='Stop'; try { Import-Module Microsoft.PowerShell.Security -Force; Get-ExecutionPolicy | Out-Null; [void][Net.ServicePointManager]::SecurityProtocol; [Console]::Write('KRU-WINDOWS-POWERSHELL-OK') } catch { [Console]::Write($_.Exception.ToString()) }; exit".into(),
+                    "$ErrorActionPreference='Stop'; try { Import-Module Microsoft.PowerShell.Security -Force; Get-ExecutionPolicy | Out-Null; [void][Net.ServicePointManager]::SecurityProtocol; [Console]::Write('OpenKeylet-WINDOWS-POWERSHELL-OK') } catch { [Console]::Write($_.Exception.ToString()) }; exit".into(),
                 ],
                 None,
             )
@@ -958,7 +958,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
             |_, result| !result.running,
         );
         assert!(
-            output.contains("KRU-WINDOWS-POWERSHELL-OK"),
+            output.contains("OpenKeylet-WINDOWS-POWERSHELL-OK"),
             "Windows PowerShell did not complete its startup checks: {output}"
         );
         assert!(
@@ -974,7 +974,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
         let temp = tempfile::tempdir().unwrap();
         for extension in ["bat", "cmd"] {
             let script = temp.path().join(format!("fixture.{extension}"));
-            std::fs::write(&script, "@echo off\r\necho KRU-BATCH-OK").unwrap();
+            std::fs::write(&script, "@echo off\r\necho OpenKeylet-BATCH-OK").unwrap();
             let resolved = resolve_executable(script.to_str().unwrap(), None).unwrap();
             assert!(
                 Path::new(&resolved.executable)

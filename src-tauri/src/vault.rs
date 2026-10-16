@@ -99,7 +99,7 @@ impl Vault {
             serde_json::from_slice(&bytes).context("Invalid vault file format")?;
         if !matches!(document.version, 7 | VAULT_VERSION) {
             bail!(
-                "KRU supports only modular v7 or v8 vaults; the current file version is {}",
+                "OpenKeylet only supports modular v7 or v8 vaults; current file version is {}",
                 document.version
             );
         }

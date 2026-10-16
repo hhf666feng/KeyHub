@@ -189,7 +189,7 @@ mod tests {
             "nvidia-smi --query-gpu=name,memory.total --format=csv",
             "head /srv/app/.env | grep TOKEN",
             "mkdir -p /srv/train && python train.py --epochs 20",
-            "printf fixture-ok > /tmp/kru-probe",
+            "printf fixture-ok > /tmp/openkeylet-probe",
         ] {
             assert!(
                 validate_ssh_command(command).is_ok(),
@@ -203,7 +203,7 @@ mod tests {
     }
 
     #[test]
-    fn reserves_only_headers_that_kru_injects() {
+    fn reserves_only_headers_that_openkeylet_injects() {
         let blocked = blocked_header_names(&connection());
         assert!(blocked.contains("x-api-key"));
         for name in ["host", "authorization", "cookie", "proxy-authorization"] {

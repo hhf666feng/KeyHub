@@ -25,7 +25,7 @@ pub fn invalidate(data_dir: &Path) -> Result<()> {
 
 pub fn exit_process_when_changed(data_dir: PathBuf, expected: String) -> Result<()> {
     thread::Builder::new()
-        .name("kru-mcp-lifecycle".to_owned())
+        .name("openkeylet-mcp-lifecycle".to_owned())
         .spawn(move || {
             let path = data_dir.join(BUILD_EPOCH_FILE);
             loop {
@@ -38,7 +38,7 @@ pub fn exit_process_when_changed(data_dir: PathBuf, expected: String) -> Result<
                 }
             }
         })
-        .context("Unable to start the KRU MCP lifecycle monitor")?;
+        .context("Unable to start OpenKeylet MCP lifecycle monitor")?;
     Ok(())
 }
 
@@ -58,15 +58,16 @@ fn current_or_initialize(data_dir: &Path) -> Result<String> {
 }
 
 fn with_epoch_lock<T>(data_dir: &Path, action: impl FnOnce() -> Result<T>) -> Result<T> {
-    std::fs::create_dir_all(data_dir).context("Unable to create the KRU data directory")?;
+    std::fs::create_dir_all(data_dir).context("Unable to create the OpenKeylet data directory")?;
     let lock = OpenOptions::new()
         .create(true)
         .truncate(false)
         .read(true)
         .write(true)
         .open(data_dir.join(EPOCH_LOCK_FILE))
-        .context("Unable to open the KRU MCP lifecycle lock")?;
-    lock.lock_exclusive().context("Unable to lock the KRU MCP lifecycle")?;
+        .context("Unable to open the OpenKeylet MCP lifecycle lock")?;
+    lock.lock_exclusive()
+        .context("Unable to lock the OpenKeylet MCP lifecycle")?;
     let result = action();
     let _ = FileExt::unlock(&lock);
     result
@@ -74,10 +75,11 @@ fn with_epoch_lock<T>(data_dir: &Path, action: impl FnOnce() -> Result<T>) -> Re
 
 fn write_epoch_unlocked(data_dir: &Path, value: &str) -> Result<()> {
     let path = data_dir.join(BUILD_EPOCH_FILE);
-    let mut file = AtomicWriteFile::open(&path).context("Unable to create the KRU MCP lifecycle file")?;
+    let mut file = AtomicWriteFile::open(&path).context("Unable to create the OpenKeylet MCP lifecycle file")?;
     file.write_all(value.as_bytes())
-        .context("Unable to write the KRU MCP lifecycle file")?;
-    file.commit().context("Unable to save the KRU MCP lifecycle file")?;
+        .context("Unable to write the OpenKeylet MCP lifecycle file")?;
+    file.commit()
+        .context("Unable to save the OpenKeylet MCP lifecycle file")?;
     Ok(())
 }
 

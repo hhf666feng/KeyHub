@@ -29,7 +29,7 @@ pub struct GuiInstance {
 
 impl GuiInstance {
     pub fn acquire(data_dir: &Path) -> Result<Self> {
-        fs::create_dir_all(data_dir).context("Unable to create the KRU data directory")?;
+        fs::create_dir_all(data_dir).context("Unable to create the OpenKeylet data directory")?;
         let lock_path = data_dir.join("gui-instance.lock");
         let descriptor_path = data_dir.join("gui-instance.json");
         let lock = OpenOptions::new()
@@ -38,7 +38,7 @@ impl GuiInstance {
             .read(true)
             .write(true)
             .open(&lock_path)
-            .context("Unable to open the KRU GUI instance lock")?;
+            .context("Unable to open the OpenKeylet GUI instance lock")?;
         let started = Instant::now();
 
         loop {
@@ -47,18 +47,18 @@ impl GuiInstance {
                 Err(error) if lock_is_contended(&error) => {
                     request_takeover(&descriptor_path);
                     if started.elapsed() >= TAKEOVER_TIMEOUT {
-                        bail!("The old KRU instance did not exit within 6 seconds");
+                        bail!("The previous OpenKeylet instance did not exit within 6 seconds");
                     }
                     thread::sleep(TAKEOVER_RETRY);
                 }
-                Err(error) => return Err(error).context("Unable to lock the KRU GUI instance"),
+                Err(error) => return Err(error).context("Unable to lock the OpenKeylet GUI instance"),
             }
         }
     }
 
     fn become_primary(lock: File, descriptor_path: PathBuf) -> Result<Self> {
-        let listener =
-            TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).context("Unable to create the KRU GUI takeover channel")?;
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+            .context("Unable to create the OpenKeylet GUI handoff channel")?;
         let port = listener.local_addr()?.port();
         let token = uuid::Uuid::new_v4().to_string();
         let descriptor = serde_json::to_vec(&InstanceDescriptor {
@@ -75,10 +75,13 @@ impl GuiInstance {
     }
 
     pub fn listen_for_takeover(&mut self, exit: impl FnOnce() + Send + 'static) -> Result<()> {
-        let listener = self.listener.take().context("KRU GUI takeover channel started")?;
+        let listener = self
+            .listener
+            .take()
+            .context("OpenKeylet GUI handoff channel started")?;
         let token = self.token.clone();
         thread::Builder::new()
-            .name("kru-gui-instance".to_owned())
+            .name("openkeylet-gui-instance".to_owned())
             .spawn(move || {
                 let mut exit = Some(exit);
                 for incoming in listener.incoming() {
@@ -100,7 +103,7 @@ impl GuiInstance {
                     }
                 }
             })
-            .context("Unable to start the KRU GUI takeover listener")?;
+            .context("Unable to start the OpenKeylet GUI handoff listener")?;
         Ok(())
     }
 }
@@ -132,10 +135,11 @@ fn request_takeover(descriptor_path: &Path) {
 }
 
 fn write_descriptor(path: &Path, value: &[u8]) -> Result<()> {
-    let mut file = AtomicWriteFile::open(path).context("Unable to create the KRU GUI instance descriptor file")?;
+    let mut file = AtomicWriteFile::open(path).context("Unable to create the OpenKeylet GUI instance descriptor file")?;
     file.write_all(value)
-        .context("Unable to write the KRU GUI instance descriptor file")?;
-    file.commit().context("Unable to save the KRU GUI instance descriptor file")?;
+        .context("Unable to write the OpenKeylet GUI instance descriptor file")?;
+    file.commit()
+        .context("Unable to save the OpenKeylet GUI instance descriptor file")?;
     Ok(())
 }
 

@@ -469,7 +469,7 @@ impl BrowserBridge {
 }
 
 async fn health() -> &'static str {
-    "KRU Browser Bridge"
+    "OpenKeylet Browser Bridge"
 }
 
 async fn internal_health(

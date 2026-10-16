@@ -25,7 +25,7 @@ form.addEventListener("submit", async (event) => {
   try {
     await chrome.storage.local.set({ bridgePort: port });
     await chrome.runtime.sendMessage({ type: "bridge-config-updated" });
-    errorText.textContent = "Click One-click connect in KRU; the extension will pair automatically";
+    errorText.textContent = "Click Quick connect in OpenKeylet; the extension will pair automatically";
     await refresh();
   } catch (error) {
     errorText.textContent = String(error?.message || error);

@@ -120,7 +120,7 @@ impl MasterKey {
 
         if vault_exists {
             bail!(
-                "Vault master key is missing; KRU will not display a macOS Keychain authorization dialog or generate a new key that overwrites existing data"
+                "Vault master key is missing; OpenKeylet will not show a macOS Keychain authorization prompt or generate a new key that overwrites existing data"
             );
         }
 

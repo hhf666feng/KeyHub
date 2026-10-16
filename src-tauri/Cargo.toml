@@ -1,8 +1,8 @@
 [package]
-name = "kru"
+name = "openkeylet"
 version = "0.15.0"
-description = "Local credential relay unit for AI agents"
-authors = ["KRU contributors"]
+description = "Local password and credential manager for AI agents"
+authors = ["OpenKeylet contributors"]
 license = "MIT"
 edition = "2024"
 rust-version = "1.88"
@@ -27,7 +27,7 @@ gui = [
 desktop-fill = ["dep:enigo", "dep:windows"]
 
 [[bin]]
-name = "kru"
+name = "openkeylet"
 path = "src/main.rs"
 
 

@@ -18,7 +18,7 @@ use tokio::time::sleep;
 #[tokio::main]
 async fn main() {
     if let Err(error) = dispatch().await {
-        eprintln!("KRU: {error:#}");
+        eprintln!("OpenKeylet: {error:#}");
         std::process::exit(1);
     }
 }
@@ -32,7 +32,9 @@ async fn dispatch() -> Result<()> {
             return Ok(());
         }
         #[cfg(not(feature = "gui"))]
-        anyhow::bail!("This is the KRU headless version; use the mcp stdio, config, browser, or backup subcommand");
+        anyhow::bail!(
+            "This is the headless version of OpenKeylet; use the mcp stdio, config, browser, or backup subcommand"
+        );
     }
 
     #[cfg(target_os = "macos")]
@@ -40,7 +42,7 @@ async fn dispatch() -> Result<()> {
         let data_dir = app_data_dir()?;
         if MasterKey::migrate_legacy_macos_key(&data_dir)? {
             Vault::open(data_dir)?;
-            println!("The old keychain master key has been migrated; future KRU launches will no longer request keychain permissions");
+            println!("The legacy keychain master key has been migrated; future OpenKeylet launches will no longer request keychain permission");
         } else {
             println!("The app-private master key file already exists; no migration is needed");
         }
@@ -91,7 +93,7 @@ async fn dispatch() -> Result<()> {
             Ok(())
         }
         _ => anyhow::bail!(
-            "Usage: kru [gui] | mcp stdio | config <stdio-json|stdio-toml> | browser <status|enable [port]|disable|pair [port]|reset> | backup <export|import> <file> | key migrate (macOS)"
+            "Usage: openkeylet [gui] | mcp stdio | config <stdio-json|stdio-toml> | browser <status|enable [port]|disable|pair [port]|reset> | backup <export|import> <file> | key migrate (macOS)"
         ),
     }
 }
@@ -138,7 +140,7 @@ async fn pair_browser(vault: &Vault, port: Option<u16>) -> Result<()> {
     bridge.sync().await;
     bridge.start_quick_pairing().await?;
     eprintln!(
-        "A 120-second automatic pairing window is enabled; load or wake the KRU Chromium extension (port {}）…",
+        "A 120-second automatic pairing window is open; load or wake the OpenKeylet Chromium extension (port {}）…",
         settings.browser_port
     );
     let started = Instant::now();
@@ -151,7 +153,7 @@ async fn pair_browser(vault: &Vault, port: Option<u16>) -> Result<()> {
         sleep(Duration::from_millis(250)).await;
     }
     bridge.stop().await;
-    anyhow::bail!("Browser extension pairing timed out; confirm the extension port matches KRU and try again")
+    anyhow::bail!("Browser extension pairing timed out; confirm that the extension port matches OpenKeylet and try again")
 }
 
 async fn reset_browser(vault: &Vault) -> Result<()> {

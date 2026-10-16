@@ -4,14 +4,14 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $archivePath = [System.IO.Path]::GetFullPath($Archive)
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ("kru-portable-verify-" + [guid]::NewGuid().ToString("N"))
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("openkeylet-portable-verify-" + [guid]::NewGuid().ToString("N"))
 
 try {
   Expand-Archive -LiteralPath $archivePath -DestinationPath $work
   $roots = @(Get-ChildItem -LiteralPath $work -Directory)
   if ($roots.Count -ne 1) { throw "Archive must contain exactly one top-level directory." }
   $root = $roots[0].FullName
-  @("README.md", "LICENSE", "browser-extension\manifest.json", "SHA256SUMS.txt", "kru.exe") | ForEach-Object {
+  @("README.md", "LICENSE", "browser-extension\manifest.json", "SHA256SUMS.txt", "openkeylet.exe") | ForEach-Object {
     if (-not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Leaf)) { throw "Missing package file: $_" }
   }
 
@@ -23,8 +23,8 @@ try {
     if ($actual -ne $Matches[1]) { throw "Internal checksum mismatch: $($Matches[2])" }
   }
 
-  node (Join-Path $projectRoot "scripts\smoke-cli.mjs") (Join-Path $root "kru.exe")
-  if ($LASTEXITCODE -ne 0) { throw "Packaged KRU CLI/MCP smoke failed." }
+  node (Join-Path $projectRoot "scripts\smoke-cli.mjs") (Join-Path $root "openkeylet.exe")
+  if ($LASTEXITCODE -ne 0) { throw "Packaged OpenKeylet CLI/MCP smoke failed." }
 } finally {
   if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 }

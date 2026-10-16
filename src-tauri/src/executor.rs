@@ -77,7 +77,7 @@ pub struct ApiRequestInput {
 pub struct ApiUploadFile {
     pub field: String,
     #[schemars(
-        description = "Local file path. Absolute and ~/ paths are accepted; relative paths resolve from the KRU MCP process working directory."
+        description = "Local file path. Absolute and ~/ paths are accepted; relative paths resolve from the OpenKeylet MCP process working directory."
     )]
     pub path: String,
     #[serde(default)]
@@ -389,8 +389,10 @@ async fn save_api_response_to_file(
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("response");
-    let temporary_path =
-        destination.with_file_name(format!(".{file_name}.kru-{}.part", Uuid::new_v4().simple()));
+    let temporary_path = destination.with_file_name(format!(
+        ".{file_name}.openkeylet-{}.part",
+        Uuid::new_v4().simple()
+    ));
     let write_result: Result<u64> = async {
         let mut file = tokio::fs::OpenOptions::new()
             .write(true)
@@ -855,7 +857,7 @@ async fn upload_local_file(
     if !overwrite && sftp.try_exists(remote_path.to_owned()).await? {
         bail!("Remote destination already exists; set overwrite to replace it=true");
     }
-    let temporary_path = format!("{remote_path}.kru-{}.part", Uuid::new_v4().simple());
+    let temporary_path = format!("{remote_path}.openkeylet-{}.part", Uuid::new_v4().simple());
     let result: Result<u64> = async {
         let mut local = tokio::fs::File::open(local_path)
             .await
@@ -899,7 +901,7 @@ async fn upload_local_directory(
     if !overwrite && sftp.try_exists(remote_path.to_owned()).await? {
         bail!("Remote destination already exists; set overwrite to replace it=true");
     }
-    let temporary_path = format!("{remote_path}.kru-{}.part", Uuid::new_v4().simple());
+    let temporary_path = format!("{remote_path}.openkeylet-{}.part", Uuid::new_v4().simple());
     sftp.create_dir(temporary_path.clone())
         .await
         .context("Unable to create remote temporary directory")?;
@@ -990,8 +992,10 @@ async fn download_remote_file(
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("download");
-    let temporary_path =
-        local_path.with_file_name(format!(".{file_name}.kru-{}.part", Uuid::new_v4().simple()));
+    let temporary_path = local_path.with_file_name(format!(
+        ".{file_name}.openkeylet-{}.part",
+        Uuid::new_v4().simple()
+    ));
     let result: Result<u64> = async {
         let mut remote = sftp
             .open(remote_path.to_owned())
@@ -1048,7 +1052,7 @@ async fn download_remote_directory(
         .and_then(|name| name.to_str())
         .unwrap_or("download");
     let temporary_path = local_path.with_file_name(format!(
-        ".{directory_name}.kru-{}.part",
+        ".{directory_name}.openkeylet-{}.part",
         Uuid::new_v4().simple()
     ));
     tokio::fs::create_dir(&temporary_path)
@@ -1228,7 +1232,10 @@ async fn commit_remote_file(
     if !overwrite {
         bail!("Remote file already exists; explicitly set overwrite to replace it=true");
     }
-    let backup_path = format!("{destination_path}.kru-{}.backup", Uuid::new_v4().simple());
+    let backup_path = format!(
+        "{destination_path}.openkeylet-{}.backup",
+        Uuid::new_v4().simple()
+    );
     sftp.rename(destination_path.to_owned(), backup_path.clone())
         .await
         .context("Unable to stage existing remote file; original file is unchanged")?;
@@ -1280,7 +1287,10 @@ async fn commit_remote_directory(
     if !overwrite {
         bail!("Remote destination already exists; set overwrite to replace it=true");
     }
-    let backup_path = format!("{destination_path}.kru-{}.backup", Uuid::new_v4().simple());
+    let backup_path = format!(
+        "{destination_path}.openkeylet-{}.backup",
+        Uuid::new_v4().simple()
+    );
     sftp.rename(destination_path.to_owned(), backup_path.clone())
         .await
         .context("Unable to stage existing remote directory; original directory is unchanged")?;
@@ -1372,7 +1382,7 @@ async fn commit_local_file(
         .and_then(|name| name.to_str())
         .unwrap_or("download");
     let backup_path = destination_path.with_file_name(format!(
-        ".{file_name}.kru-{}.backup",
+        ".{file_name}.openkeylet-{}.backup",
         Uuid::new_v4().simple()
     ));
     tokio::fs::rename(destination_path, &backup_path)
@@ -1422,7 +1432,7 @@ async fn commit_local_directory(
         .and_then(|name| name.to_str())
         .unwrap_or("download");
     let backup_path = destination_path.with_file_name(format!(
-        ".{directory_name}.kru-{}.backup",
+        ".{directory_name}.openkeylet-{}.backup",
         Uuid::new_v4().simple()
     ));
     tokio::fs::rename(destination_path, &backup_path)
@@ -2316,7 +2326,7 @@ mod tests {
     }
 
     #[test]
-    fn api_response_only_redacts_secrets_known_to_kru() {
+    fn api_response_only_redacts_secrets_known_to_openkeylet() {
         let connection = stored("https://api.example.test/v1/".to_owned());
         let mut secrets = SecretBundle::default();
         secrets.token = Some("stored-token-9384".to_owned());
@@ -2393,21 +2403,23 @@ mod tests {
     fn ssh_connect_errors_name_the_failed_stage() {
         assert!(ssh_connect_error_message(&"Disconnected").contains("handshake"));
         assert!(ssh_connect_error_message(&"os error 10060").contains("TCP"));
-        assert!(ssh_connect_error_message(&"connection refused").contains("Port"));
+        assert!(ssh_connect_error_message(&"connection refused").contains("port"));
     }
 
     #[test]
     fn ssh_secret_environment_quotes_values_and_rejects_invalid_names() {
         let command = ssh_command_with_secret_environment(
-            "printf '%s' \"$KRU_PASSWORD\"",
+            "printf '%s' \"$OPENKEYLET_PASSWORD\"",
             &HashMap::from([(
-                "KRU_PASSWORD".to_owned(),
+                "OPENKEYLET_PASSWORD".to_owned(),
                 "value with ' quotes and $shell".to_owned(),
             )]),
         )
         .unwrap();
-        assert!(command.starts_with("KRU_PASSWORD='value with '\\'' quotes and $shell' sh -c "));
-        assert!(command.contains("$KRU_PASSWORD"));
+        assert!(
+            command.starts_with("OPENKEYLET_PASSWORD='value with '\\'' quotes and $shell' sh -c ")
+        );
+        assert!(command.contains("$OPENKEYLET_PASSWORD"));
         assert!(
             ssh_command_with_secret_environment(
                 "true",

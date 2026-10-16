@@ -43,19 +43,19 @@ const staticCopy = [
   ['#header-export-backup-button', 'text', '一键打包', 'EXPORT'],
   ['#header-import-backup-button', 'text', '一键导入包', 'IMPORT'],
   ['[data-module="SYSTEM / 01"] .settings-heading h2', 'text', '系统入口', 'SYSTEM ACCESS'],
-  ['[data-module="SYSTEM / 01"] .settings-heading p', 'text', '控制 KRU 的桌面快捷方式与开机启动。', 'Control the KRU desktop shortcut and launch at login.'],
+  ['[data-module="SYSTEM / 01"] .settings-heading p', 'text', '控制 OpenKeylet 的桌面快捷方式与开机启动。', 'Control the OpenKeylet desktop shortcut and launch at login.'],
   ['#desktop-shortcut-option strong', 'text', '创建快捷方式到桌面', 'CREATE DESKTOP SHORTCUT'],
-  ['#desktop-shortcut-option small', 'text', '在当前用户桌面创建 KRU 快捷方式', 'Create a KRU shortcut on the current user’s desktop.'],
+  ['#desktop-shortcut-option small', 'text', '在当前用户桌面创建 OpenKeylet 快捷方式', 'Create a OpenKeylet shortcut on the current user’s desktop.'],
   ['#launch-at-login-option strong', 'text', '开机自启动', 'LAUNCH AT LOGIN'],
-  ['#launch-at-login-option small', 'text', '登录系统后自动启动 KRU，并保持单实例', 'Start KRU after sign-in while preserving single-instance behavior.'],
+  ['#launch-at-login-option small', 'text', '登录系统后自动启动 OpenKeylet，并保持单实例', 'Start OpenKeylet after sign-in while preserving single-instance behavior.'],
   ['[data-module="MCP / 02"] .settings-heading h2', 'text', 'Agent 接入', 'AGENT SETUP'],
-  ['[data-module="MCP / 02"] .settings-heading p', 'text', '注册本地 stdio MCP；支持的 Agent 同时安装“认证任务优先使用 KRU”规则。', 'Register the local stdio MCP and install the KRU-first authentication rule where supported.'],
+  ['[data-module="MCP / 02"] .settings-heading p', 'text', '注册本地 stdio MCP；支持的 Agent 同时安装“认证任务优先使用 OpenKeylet”规则。', 'Register the local stdio MCP and install the OpenKeylet-first authentication rule where supported.'],
   ['[data-module="APP / 03"] .settings-heading h2', 'text', '窗口与锁定', 'WINDOW & LOCK'],
   ['[data-module="APP / 03"] .settings-heading p', 'text', '控制关闭按钮与本地 PIN 锁。', 'Control the close button and local PIN lock.'],
   ['label[for="close-behavior"] strong', 'text', '关闭按钮', 'CLOSE BUTTON'],
   ['label[for="close-behavior"] small', 'text', '最小化可保留托盘菜单', 'Minimizing keeps tray controls available.'],
   ['#close-behavior option[value="tray"]', 'text', '最小化到托盘', 'MINIMIZE TO TRAY'],
-  ['#close-behavior option[value="exit"]', 'text', '退出 KRU', 'QUIT KRU'],
+  ['#close-behavior option[value="exit"]', 'text', '退出 OpenKeylet', 'QUIT OpenKeylet'],
   ['.pin-option strong', 'text', 'PIN 锁', 'PIN LOCK'],
   ['.pin-option small', 'text', '关闭后移除当前 PIN；再次开启时设置新的 PIN', 'Turning this off removes the current PIN. Set a new PIN when enabling it again.'],
   ['.agent-restart-notice span', 'text', '完成后重启 Agent。', 'Restart the agent after setup.'],
@@ -72,7 +72,7 @@ const staticCopy = [
   ['#open-extension-button', 'text', '扩展目录', 'EXTENSION FOLDER'],
   ['#reset-pairing-button', 'text', '重置', 'RESET'],
   ['[data-module="SAFE / 05"] .settings-heading h2', 'text', '本地数据', 'LOCAL DATA'],
-  ['[data-module="SAFE / 05"] .settings-heading p', 'text', '导出由 KRU 自动解密的加密包，避免秘密以原文直接暴露。', 'Export an encrypted package KRU unlocks automatically, preventing direct plaintext exposure.'],
+  ['[data-module="SAFE / 05"] .settings-heading p', 'text', '导出由 OpenKeylet 自动解密的加密包，避免秘密以原文直接暴露。', 'Export an encrypted package OpenKeylet unlocks automatically, preventing direct plaintext exposure.'],
   ['#open-data-button', 'text', '打开数据目录', 'OPEN DATA FOLDER'],
   ['#owner-lock-description', 'text', 'PIN 保护明文查看；模块值默认隐藏，仅在你开启后对 Agent 可见。', 'The PIN protects plaintext viewing. Module values stay hidden unless you make them visible to agents.'],
   ['#owner-pin', 'label', '六位数字 PIN', 'SIX-DIGIT PIN'],
@@ -125,8 +125,8 @@ function applyLanguage() {
   }
   if (isMacOS) {
     $('[data-module="SYSTEM / 01"] .settings-heading p').textContent = localized(
-      '控制 KRU 的登录时启动。',
-      'Control whether KRU launches at login.',
+      '控制 OpenKeylet 的登录时启动。',
+      'Control whether OpenKeylet launches at login.',
     );
   }
 }
@@ -572,7 +572,7 @@ function renderConnections() {
   const container = $('#connections-list');
   if (!items.length) {
     const hasItems = state.connections.length > 0;
-    container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前搜索没有结果。', 'No items match the current search.') : localized('KRU 保存秘密，并在 Agent 指定的最后一步完成写入。', 'KRU stores secrets and writes them only at the final step selected by an agent.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除搜索', 'CLEAR SEARCH') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
+    container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前搜索没有结果。', 'No items match the current search.') : localized('OpenKeylet 保存秘密，并在 Agent 指定的最后一步完成写入。', 'OpenKeylet stores secrets and writes them only at the final step selected by an agent.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除搜索', 'CLEAR SEARCH') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
     queueScrollThumbSync();
     return;
   }
@@ -584,7 +584,7 @@ function renderConnections() {
       <div class="module-strip"><span>ITEM / ${String(stableIndex).padStart(2, '0')}</span><button class="module-state" type="button" data-action="toggle-enabled" data-id="${item.id}" aria-pressed="${item.enabled}" title="${item.enabled ? localized('点击停用；Agent 将无法使用其中的秘密', 'Disable this item; agents will no longer be able to use its secrets') : localized('点击启用；Agent 将可以使用其中的秘密', 'Enable this item so agents can use its secrets')}"><i class="status-dot ${item.enabled ? '' : 'off'}"></i>${item.enabled ? 'READY' : 'OFF'}</button></div>
       <div class="connection-top"><div class="connection-main"><div class="connection-name-row"><span class="connection-name"><span>${escapeHtml(item.name)}</span></span></div><div class="connection-address">${escapeHtml(itemDetail(item))}</div></div><div class="connection-symbol">${escapeHtml(authModule)}</div></div>
       ${item.description ? `<div class="connection-description">${escapeHtml(item.description)}</div>` : ''}
-      <div class="card-actions"><button class="small-button" type="button" data-action="test" data-id="${item.id}" ${canTest ? '' : 'disabled'}>CHECK</button><button class="small-button" type="button" data-action="copy-name" data-id="${item.id}" title="${localized('复制 KRU MCP 使用提示', 'Copy KRU MCP use prompt')}" aria-label="${localized('复制 KRU MCP 使用提示', 'Copy KRU MCP use prompt')}">USE</button><button class="small-button" type="button" data-action="edit" data-id="${item.id}">EDIT</button><button class="small-button delete" type="button" data-action="delete" data-id="${item.id}">DEL</button></div>
+      <div class="card-actions"><button class="small-button" type="button" data-action="test" data-id="${item.id}" ${canTest ? '' : 'disabled'}>CHECK</button><button class="small-button" type="button" data-action="copy-name" data-id="${item.id}" title="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}" aria-label="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}">USE</button><button class="small-button" type="button" data-action="edit" data-id="${item.id}">EDIT</button><button class="small-button delete" type="button" data-action="delete" data-id="${item.id}">DEL</button></div>
     </article>`;
   }).join('');
   requestAnimationFrame(() => {
@@ -651,7 +651,7 @@ function activityAction(action = '') {
   if (/重置.*SSH.*主机信任/.test(raw)) return 'Reset SSH host trust';
   if (/导入备份/.test(raw)) return 'Import portable backup';
   if (/填写|填入/.test(raw)) return `Fill secret field (${activityCode(raw)})`;
-  return 'KRU operation';
+  return 'OpenKeylet operation';
 }
 
 function activitySource(source = '') {
@@ -670,7 +670,7 @@ function renderActivity() {
   activityMatchCount = activities.length;
   if (!activities.length) {
     const hasActivity = state.activities.length > 0;
-    container.innerHTML = `<div class="empty-state"><div><h3>${hasActivity ? localized('没有匹配记录', 'NO MATCHING ACTIVITY') : localized('暂无操作记录', 'NO ACTIVITY YET')}</h3><p>${hasActivity ? localized('当前搜索或结果筛选没有记录。', 'No activity matches the current search and result filter.') : localized('Agent 使用 KRU 后，这里只显示不含秘密的摘要。', 'After an agent uses KRU, only secret-free summaries appear here.')}</p>${hasActivity ? `<button class="button primary" data-action="clear-activity-filters">${localized('重置搜索与筛选', 'RESET SEARCH & FILTER')}</button>` : ''}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div><h3>${hasActivity ? localized('没有匹配记录', 'NO MATCHING ACTIVITY') : localized('暂无操作记录', 'NO ACTIVITY YET')}</h3><p>${hasActivity ? localized('当前搜索或结果筛选没有记录。', 'No activity matches the current search and result filter.') : localized('Agent 使用 OpenKeylet 后，这里只显示不含秘密的摘要。', 'After an agent uses OpenKeylet, only secret-free summaries appear here.')}</p>${hasActivity ? `<button class="button primary" data-action="clear-activity-filters">${localized('重置搜索与筛选', 'RESET SEARCH & FILTER')}</button>` : ''}</div></div>`;
     queueScrollThumbSync();
     return;
   }
@@ -729,8 +729,8 @@ function renderSettings() {
 const agentLabels = { notDetected: 'NOT FOUND', available: 'READY', registered: 'CONNECTED', stale: 'NEEDS REPAIR', conflict: 'CONFLICT', error: 'ERROR' };
 function agentDetail(client) {
   const details = language === 'en'
-    ? { notDetected: 'Not installed', available: 'Ready to connect', registered: 'Connected', stale: 'KRU setup needs repair', conflict: 'Config conflict', error: 'Detection failed' }
-    : { notDetected: '未安装或未发现', available: '可连接', registered: '已连接', stale: 'KRU 连接或全局规则需要修复', conflict: '配置冲突', error: '检测失败' };
+    ? { notDetected: 'Not installed', available: 'Ready to connect', registered: 'Connected', stale: 'OpenKeylet setup needs repair', conflict: 'Config conflict', error: 'Detection failed' }
+    : { notDetected: '未安装或未发现', available: '可连接', registered: '已连接', stale: 'OpenKeylet 连接或全局规则需要修复', conflict: '配置冲突', error: '检测失败' };
   return details[client.state] || publicMessage(client.message, localized('状态已更新', 'Status updated'));
 }
 function renderAgents() {
@@ -1166,7 +1166,7 @@ async function exportBackup(button) {
   button.disabled = true;
   try {
     const path = await api.exportBackup();
-    if (path) toast(localized('备份已导出，可由 KRU 自动解密导入', 'Backup exported and ready for automatic KRU import'));
+    if (path) toast(localized('备份已导出，可由 OpenKeylet 自动解密导入', 'Backup exported and ready for automatic OpenKeylet import'));
   } catch (error) {
     toast(cleanError(error), 'error');
   } finally {
@@ -1333,8 +1333,8 @@ document.addEventListener('click', async (event) => {
     if (action.dataset.action === 'edit') await openEditor(item);
     if (action.dataset.action === 'copy-name') {
       try {
-        await api.copyOwnerValue(`use ${item.name} in KRU MCP`);
-        toast(localized('KRU MCP 使用提示已复制', 'KRU MCP use prompt copied'));
+        await api.copyOwnerValue(`use ${item.name} in OpenKeylet MCP`);
+        toast(localized('OpenKeylet MCP 使用提示已复制', 'OpenKeylet MCP use prompt copied'));
       } catch (error) { toast(cleanError(error), 'error'); }
     }
     if (action.dataset.action === 'test') {
@@ -1374,8 +1374,8 @@ document.addEventListener('click', async (event) => {
     if (kind === 'remove') {
       const client = agentClients.find((candidate) => candidate.clientId === agentAction.dataset.clientId);
       if (!await confirmDestructiveAction({
-        title: localized(`移除 ${client?.displayName || 'Agent'} 的 KRU 接入？`, `Remove KRU from ${client?.displayName || 'this agent'}?`),
-        message: localized('将删除该 Agent 的 KRU MCP 配置；之后可以重新连接。', 'This removes the KRU MCP configuration from the agent. You can connect it again later.'),
+        title: localized(`移除 ${client?.displayName || 'Agent'} 的 OpenKeylet 接入？`, `Remove OpenKeylet from ${client?.displayName || 'this agent'}?`),
+        message: localized('将删除该 Agent 的 OpenKeylet MCP 配置；之后可以重新连接。', 'This removes the OpenKeylet MCP configuration from the agent. You can connect it again later.'),
         acceptLabel: localized('移除', 'REMOVE'),
         tag: localized('确认移除接入', 'CONFIRM INTEGRATION REMOVAL'),
       })) return;

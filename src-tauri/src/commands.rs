@@ -14,7 +14,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicBool, Ordering},
     time::Instant,
@@ -571,8 +571,8 @@ async fn export_backup(
     let selected = app
         .dialog()
         .file()
-        .add_filter("KRU backup", &["mvault"])
-        .set_file_name("kru-backup.mvault")
+        .add_filter("OpenKeylet backup", &["mvault"])
+        .set_file_name("openkeylet-backup.mvault")
         .blocking_save_file();
     let Some(path) = selected else {
         return Ok(None);
@@ -590,7 +590,7 @@ async fn import_backup(
     let selected = app
         .dialog()
         .file()
-        .add_filter("KRU backup", &["mvault"])
+        .add_filter("OpenKeylet backup", &["mvault"])
         .blocking_pick_file();
     let Some(path) = selected else {
         return Ok(None);
@@ -653,19 +653,19 @@ fn show_main_window(app: &AppHandle) {
 }
 
 fn install_tray(app: &tauri::App) -> Result<()> {
-    let open = MenuItem::with_id(app, "tray-open", "OPEN KRU", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "tray-open", "OPEN OpenKeylet", true, None::<&str>)?;
     let lock = MenuItem::with_id(app, "tray-lock", "LOCK", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "tray-quit", "QUIT", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &lock, &separator, &quit])?;
     let icon = app
         .default_window_icon()
-        .context("KRU tray icon not found")?
+        .context("OpenKeylet tray icon not found")?
         .clone();
 
-    TrayIconBuilder::with_id("kru-tray")
+    TrayIconBuilder::with_id("openkeylet-tray")
         .icon(icon)
-        .tooltip("KRU — LOCAL VAULT")
+        .tooltip("OpenKeylet — LOCAL VAULT")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -690,7 +690,7 @@ fn install_tray(app: &tauri::App) -> Result<()> {
                 if let Err(error) =
                     crate::runtime_epoch::invalidate(app.state::<AppRuntime>().vault.data_dir())
                 {
-                    eprintln!("KRU: failed to stop MCP sessions: {error:#}");
+                    eprintln!("OpenKeylet: failed to stop MCP sessions: {error:#}");
                 }
                 app.exit(0);
             }
@@ -748,6 +748,9 @@ pub fn run_gui() -> Result<()> {
             gui_instance.listen_for_takeover(move || exit_handle.exit(0))?;
             let vault = Vault::open(data_dir.clone())?;
             let executable = mcp::launcher_executable()?.to_string_lossy().into_owned();
+            if let Err(error) = crate::system_integration::migrate_legacy_entries(Path::new(&executable)) {
+                eprintln!("OpenKeylet: failed to migrate legacy system shortcuts: {error:#}");
+            }
             let browser = BrowserBridge::new(vault.clone());
             let agent_registry = AgentRegistry::new(PathBuf::from(&executable))?;
             agent_registry.refresh_managed_instructions();
@@ -777,7 +780,7 @@ pub fn run_gui() -> Result<()> {
                     .store(true, Ordering::Release),
                 Err(error) => {
                     eprintln!(
-                        "KRU: system tray unavailable; closing the window will exit: {error:#}"
+                        "OpenKeylet: system tray unavailable; closing the window will exit: {error:#}"
                     )
                 }
             }
@@ -813,7 +816,7 @@ pub fn run_gui() -> Result<()> {
                 } else if let Err(error) =
                     crate::runtime_epoch::invalidate(runtime.vault.data_dir())
                 {
-                    eprintln!("KRU: failed to stop MCP sessions: {error:#}");
+                    eprintln!("OpenKeylet: failed to stop MCP sessions: {error:#}");
                 }
             }
         })
@@ -853,7 +856,7 @@ pub fn run_gui() -> Result<()> {
             window_action,
         ])
         .build(tauri::generate_context!())
-        .context("KRU GUI startup failed")?;
+        .context("OpenKeylet GUI startup failed")?;
 
     #[cfg(target_os = "macos")]
     app.run(|app, event| {

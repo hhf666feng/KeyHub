@@ -51,7 +51,7 @@ jobs:
           $archives = @(Get-ChildItem dist -Filter '*-portable.zip')
           if ($archives.Count -ne 1) { throw "Expected exactly one Windows portable archive." }
           & scripts/verify-portable-windows.ps1 -Archive $archives[0].FullName
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/kru.exe
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/openkeylet.exe
       - uses: actions/upload-artifact@v4
         with:
           name: windows-portable
@@ -103,7 +103,7 @@ jobs:
         run: |
           umask 077
           certificate_path="$RUNNER_TEMP/developer-id-application.p12"
-          keychain_path="$RUNNER_TEMP/kru-signing.keychain-db"
+          keychain_path="$RUNNER_TEMP/openkeylet-signing.keychain-db"
           printf '%s' "$APPLE_CERTIFICATE" | \
             openssl base64 -d -A -out "$certificate_path"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
@@ -142,10 +142,10 @@ jobs:
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        run: bash scripts/notarize-macos.sh src-tauri/target/release/bundle/macos/KRU.app
+        run: bash scripts/notarize-macos.sh src-tauri/target/release/bundle/macos/OpenKeylet.app
       - name: Verify signed and notarized macOS application
         run: |
-          app_path="src-tauri/target/release/bundle/macos/KRU.app"
+          app_path="src-tauri/target/release/bundle/macos/OpenKeylet.app"
           signature_details="$(codesign --display --verbose=4 "$app_path" 2>&1)"
           grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
           grep -Fq "runtime" <<<"$signature_details"
@@ -153,16 +153,16 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app_path"
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/KRU.app/Contents/MacOS/kru
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/OpenKeylet.app/Contents/MacOS/openkeylet
       - name: Package notarized macOS application
         env:
-          KRU_REQUIRE_DEVELOPER_ID: '1'
+          OPENKEYLET_REQUIRE_DEVELOPER_ID: '1'
         run: npm run portable:mac
       - name: Verify archive checksum
         run: (cd dist && shasum -a 256 -c *.sha256)
       - name: Verify packaged macOS application
         env:
-          KRU_REQUIRE_NOTARIZED: '1'
+          OPENKEYLET_REQUIRE_NOTARIZED: '1'
         run: |
           archives=(dist/*-portable.zip)
           test ${#archives[@]} -eq 1
@@ -175,7 +175,7 @@ jobs:
       - name: Remove Apple signing material
         if: always()
         run: |
-          security delete-keychain "$RUNNER_TEMP/kru-signing.keychain-db" 2>/dev/null || true
+          security delete-keychain "$RUNNER_TEMP/openkeylet-signing.keychain-db" 2>/dev/null || true
           rm -f \
             "$RUNNER_TEMP/developer-id-application.p12" \
             "$RUNNER_TEMP"/AuthKey_*.p8
@@ -239,7 +239,7 @@ jobs:
       - run: node scripts/check-version.mjs
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features
       - run: npm run build:headless
-      - run: node scripts/smoke-cli.mjs src-tauri/target/release/kru
+      - run: node scripts/smoke-cli.mjs src-tauri/target/release/openkeylet
       - run: npm run portable:headless
       - name: Verify archive checksum
         run: (cd dist && sha256sum -c *.sha256)
@@ -268,7 +268,7 @@ jobs:
         run: |
           cd release-assets
           shopt -s nullglob
-          archives=(KRU_*)
+          archives=(OpenKeylet_*)
           if [[ ${#archives[@]} -ne 4 ]]; then
             printf 'Expected exactly four release archives, found %s:\n' "${#archives[@]}" >&2
             printf '  %s\n' "${archives[@]}" >&2
@@ -284,4 +284,4 @@ jobs:
           --repo "$GITHUB_REPOSITORY"
           --verify-tag
           --generate-notes
-          --title "KRU $GITHUB_REF_NAME"
+          --title "OpenKeylet $GITHUB_REF_NAME"
