@@ -1,0 +1,46 @@
+.github-card .github-note,
+.github-form .github-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.github-details {
+  display: grid;
+  grid-template-columns: minmax(65px, auto) minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 14px 0;
+  font-size: 11px;
+}
+.github-details dt { color: var(--muted); }
+#github-status { display: block; min-height: 34px; padding: 10px 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.github-details dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; text-align: right; }
+.github-actions, .github-manage, .github-key-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.github-card .github-manage { margin-top: 10px; }
+.github-card .github-manage .button { font-size: 9px; padding-inline: 9px; }
+.github-error { color: var(--danger, #b13424); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; margin: 10px 0; }
+.github-key-display { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.github-key-display > label { display: block; margin-bottom: 8px; font-size: 11px; }
+.github-key.input { width: 100%; min-height: 62px; height: auto; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 11px; line-height: 1.7; padding: 9px 10px; user-select: text; }
+.github-modal-card textarea.github-key.input { height: auto; padding: 9px 10px; line-height: 1.7; }
+.github-modal-card { width: min(424px, calc(100vw - 24px)); max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
+.github-modal-card .modal-header { flex: 0 0 auto; }
+.github-modal-card .modal-header h2 { font-size: 18px; margin: 0; }
+.github-form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.github-form-scroll { padding: 16px 20px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.github-form .field { display: grid; gap: 7px; margin-bottom: 12px; min-width: 0; }
+.github-form .field > span { font-size: 11px; color: var(--ink); }
+.github-form .field > .input { width: 100%; min-width: 0; }
+.github-help-row { display: flex; flex-wrap: wrap; gap: 6px; margin: -3px 0 14px; }
+.github-help-row .button { font-size: 9px; padding: 6px 9px; min-height: 28px; }
+.github-key-confirm { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; font-size: 11px; line-height: 1.5; cursor: pointer; }
+.github-key-confirm input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--accent, var(--orange)); }
+.github-form .github-modal-footer { flex: 0 0 auto; gap: 12px; padding: 12px 20px; }
+.github-modal-footer .github-note { margin: 0; flex: 1; }
+.github-modal-footer .button { flex: 0 0 auto; }
+.github-card[aria-busy="true"] .status-dot { opacity: .6; }
+@media (forced-colors: active) {
+  .github-error { color: CanvasText; }
+  .github-key-confirm input { appearance: auto; }
+}

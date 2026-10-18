@@ -63,6 +63,14 @@ The vault and master-key files remain in the current user's application-data dir
 
 `.mvault` backups are self-contained authenticated-encryption packages that OpenKeylet unlocks automatically. They prevent accidental plaintext reading and detect modification, but they are not access-controlled. Anyone who obtains a backup can decode it with OpenKeylet or another format-aware tool. Protect backup files as if they contained plaintext secrets.
 
+## Optional GitHub snapshots
+
+GitHub backup uses a separate authenticated-encryption format, not the self-unlocking `.mvault` container. A random 256-bit recovery key encrypts the entire portable payload with XChaCha20-Poly1305 and version-specific associated data. Neither the recovery key nor the repository access token is uploaded. Both are encrypted locally with the device's existing vault key, excluded from exports, and accessible through GUI commands only after the owner unlock check. Serialized local secret buffers are zeroized after use.
+
+The client talks only to GitHub.com's API, refuses redirects, bounds response/snapshot sizes, and does not echo remote error bodies. It checks repository identity, default branch and private visibility before uploads and restores. Updates use the previously acknowledged blob SHA; conflicting or uncertain writes are never force-retried. These checks do not stop the repository owner from later making a repository public, deleting it, or changing it between API calls. Authentication protects snapshot contents, not availability or rollback: the current manual backup format does not provide cryptographic freshness guarantees against a malicious repository operator.
+
+Recovery imports merge into the vault transactionally, without deleting or overwriting local items. Git history retains past ciphertext. Disconnecting does not erase remote backups, remove other clones, revoke the token, or rotate the recovery key. Anyone with the recovery key and any snapshot can decrypt that snapshot. A compromised local user account remains outside the security boundary. Keep the recovery key separately; OpenKeylet cannot reset it for a user who has lost every copy and connected device.
+
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities privately through GitHub Security Advisories. Do not include real credentials, vault files, backups, master-key files, API responses, terminal output, or sensitive local paths.

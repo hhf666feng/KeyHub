@@ -26,6 +26,17 @@ function localized(zh, en) {
 }
 
 const staticCopy = [
+  ['.nav', 'aria-label', '主导航', 'Main navigation'],
+  ['#connections-list', 'aria-label', '项目列表', 'Vault items'],
+  ['.activity-panel', 'aria-label', '操作记录', 'Activity log'],
+  ['.settings-layout', 'aria-label', '设置', 'Settings'],
+  ['#page-connections .page-search-input', 'placeholder', '搜索项目…', 'Search items…'],
+  ['#page-activity .page-search-input', 'placeholder', '搜索记录…', 'Search activity…'],
+  ['#page-settings .page-search-input', 'placeholder', '搜索设置…', 'Search settings…'],
+  ['#desktop-shortcut-enabled', 'aria-label', '创建桌面快捷方式', 'Create desktop shortcut'],
+  ['#launch-at-login-enabled', 'aria-label', '开机自启动', 'Launch at login'],
+  ['#pin-enabled', 'aria-label', '启用 PIN 锁', 'Enable PIN lock'],
+  ['#browser-enabled', 'aria-label', '启用 Browser Bridge', 'Enable Browser Bridge'],
   ['.window-control[data-window-action="minimize"]', 'aria-label', '最小化', 'Minimize'],
   ['.window-control[data-window-action="close"]', 'aria-label', '关闭', 'Close'],
   ['.nav-item[data-page="connections"] > span', 'html', '项目<small>ITEMS</small>', 'ITEMS<small>VAULT</small>'],
@@ -207,8 +218,12 @@ let ownerPinSetupRequested = false;
 let confirmationResolver = null;
 let confirmationPreviousFocus = null;
 let confirmationInertElements = [];
-const scrollThumbBindings = [];
-let scrollSyncQueued = false;
+const githubBackup = window.OpenKeyletGithubBackup.create({
+  invoke, localized, toast,
+  isUnlocked: () => ownerLockState.unlocked,
+  confirmAction: confirmDestructiveAction,
+  onRestore: () => refresh(),
+});
 
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[character]);
@@ -220,37 +235,6 @@ function cleanError(error) {
 
 function normalizeSearch(value = '') {
   return String(value).trim().toLocaleLowerCase('zh-CN');
-}
-
-function queueScrollThumbSync() {
-  if (scrollSyncQueued) return;
-  scrollSyncQueued = true;
-  requestAnimationFrame(() => {
-    scrollSyncQueued = false;
-    for (const { surface, thumb } of scrollThumbBindings) {
-      const maxScroll = Math.max(0, surface.scrollHeight - surface.clientHeight);
-      const inset = 4;
-      const thumbHeight = thumb.offsetHeight || 48;
-      const travel = Math.max(0, surface.clientHeight - thumbHeight - inset * 2);
-      const progress = maxScroll ? surface.scrollTop / maxScroll : 0;
-      thumb.style.top = `${surface.offsetTop + inset}px`;
-      thumb.style.transform = `translateY(${Math.round(progress * travel)}px)`;
-      thumb.classList.toggle('visible', maxScroll > 1);
-    }
-  });
-}
-
-function initFixedScrollThumbs() {
-  for (const thumb of $$('.fixed-scroll-thumb')) {
-    const surface = $(thumb.dataset.scrollFor);
-    if (!surface) continue;
-    scrollThumbBindings.push({ surface, thumb });
-    surface.addEventListener('scroll', queueScrollThumbSync, { passive: true });
-    new ResizeObserver(queueScrollThumbSync).observe(surface);
-    new MutationObserver(queueScrollThumbSync).observe(surface, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  }
-  window.addEventListener('resize', queueScrollThumbSync);
-  queueScrollThumbSync();
 }
 
 function toast(message, type = '') {
@@ -297,6 +281,7 @@ function confirmDestructiveAction({ title, message, acceptLabel = localized('删
 }
 
 function clearOwnerPlaintext() {
+  githubBackup.clearSecrets();
   finishConfirmation(false, false);
   closeEditor();
   currentModules.forEach((module) => { module.secretValue = ''; });
@@ -370,6 +355,7 @@ async function refresh(showError = true) {
       systemIntegrationState = { desktopShortcut: false, launchAtLogin: false };
     }
     language = state.settings.language === 'en' ? 'en' : 'zh';
+    await githubBackup.refresh();
     applyLanguage();
     render();
   } catch (error) {
@@ -386,19 +372,29 @@ function render() {
 }
 
 const segmentNames = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+const segmentGlyphs = {
+  0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg',
+  5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
+  s: 'acdfg', e: 'adefg', t: 'defg', r: 'eg', d: 'bcdeg', y: 'bcdfg', '-': 'g',
+};
+
+function sevenSegmentGlyph(character) {
+  const lit = segmentGlyphs[String(character).toLowerCase()] || '';
+  return `<span class="seven-digit" aria-hidden="true">${segmentNames.map((segment) => `<i class="segment segment-${segment}" data-lit="${lit.includes(segment)}"></i>`).join('')}</span>`;
+}
 
 function sevenSegmentNumber(value, length = 4) {
   const exact = Math.max(0, Math.trunc(Number(value) || 0));
   const maximum = (10 ** length) - 1;
   const overflow = exact > maximum;
   const digits = String(Math.min(exact, maximum)).padStart(length, '0');
-  return `<span class="seven-number ${overflow ? 'overflow' : ''}" role="img" aria-label="${exact}">${[...digits].map((digit) => `<span class="seven-digit digit-${digit}" aria-hidden="true">${segmentNames.map((segment) => `<i class="segment segment-${segment}"></i>`).join('')}</span>`).join('')}${overflow ? '<b class="seven-overflow" aria-hidden="true">+</b>' : ''}</span>`;
+  return `<span class="seven-number ${overflow ? 'overflow' : ''}" role="img" aria-label="${exact}">${[...digits].map(sevenSegmentGlyph).join('')}${overflow ? '<b class="seven-overflow" aria-hidden="true">+</b>' : ''}</span>`;
 }
 
 function displayWord(value, length = 4) {
   const exact = String(value || '---').toUpperCase().slice(0, length);
   const word = exact.padStart(length, ' ');
-  return `<span class="seven-number seven-word" role="img" aria-label="${escapeHtml(exact)}">${[...word].map((character) => `<span class="seven-digit char-${character === ' ' ? 'blank' : character.toLowerCase()}" aria-hidden="true">${segmentNames.map((segment) => `<i class="segment segment-${segment}"></i>`).join('')}</span>`).join('')}</span>`;
+  return `<span class="seven-number seven-word" role="img" aria-label="${escapeHtml(exact)}">${[...word].map(sevenSegmentGlyph).join('')}</span>`;
 }
 
 function compactCount(value, suffix) {
@@ -432,27 +428,18 @@ function renderMetrics() {
   const lastStatus = !latest ? 'idle' : latest.status === 'error' ? 'error' : 'ok';
   const lastCode = lastStatus === 'idle' ? '--' : lastStatus === 'error' ? 'ERR' : 'OK';
   const lastAction = latest ? activityCode(latest.action) : 'NO CALL';
-  const recentCalls = state.activities.slice(0, 8).reverse();
   const since24Hours = Date.now() - 86_400_000;
   const activities24h = state.activities.filter((activity) => {
     const timestamp = new Date(activity.time).getTime();
     return Number.isFinite(timestamp) && timestamp >= since24Hours;
   });
   const errors24h = activities24h.filter((activity) => activity.status === 'error').length;
-  const passes24h = activities24h.length - errors24h;
   const actionTypes24h = new Set(activities24h.map((activity) => activityCode(activity.action)));
-  const lastUseType = lastAction === 'WEB' ? 'FILL' : lastAction;
   const lastUseName = latest?.connectionName || (latest ? lastAction : 'NO CALL');
   const registeredAgents = agentClients.filter((client) => client.state === 'registered').length;
   const availableAgents = agentClients.filter((client) => client.state === 'available').length;
   const brokenAgents = agentClients.filter((client) => ['stale', 'conflict', 'error'].includes(client.state)).length;
   const displayCount = (count) => String(Math.min(Math.max(Number(count) || 0, 0), 9999)).padStart(4, '0');
-  const agentMeter = agentClients.slice(0, 8).map((client) => {
-    if (client.state === 'registered') return 'lit';
-    if (client.state === 'available') return 'info';
-    if (['stale', 'conflict', 'error'].includes(client.state)) return 'fault';
-    return '';
-  });
   const systemFault = state.mcp.status === 'error' || state.browserBridge.status === 'error';
   const systemNeedsSetup = !mcpReady || (browserOn && !state.browserBridge.paired);
   const systemCode = systemFault ? 'ERR' : systemNeedsSetup ? 'SET' : 'RDY';
@@ -467,48 +454,47 @@ function renderMetrics() {
   const models = {
     connections: {
       channels: [['A', 'FILL', moduleCounts.fill ? 'on' : ''], ['B', 'SSH', moduleCounts.ssh ? 'on' : ''], ['C', 'HTTP', moduleCounts.api ? 'on' : ''], ['D', 'OFF', disabled ? 'warn' : '']],
-      minor: 'PAGE A', mode: 'VAULT', valueKind: 'number', value: total, unit: 'ITEM',
+      mode: 'VAULT', valueKind: 'number', value: total, unit: 'ITEM',
       ready: !total ? 'EMPTY' : enabled ? 'READY' : 'DISABLED', tag: disabled ? compactCount(disabled, 'OFF') : total ? 'ALL ON' : 'LOCAL', readyTone: disabled ? 'warn' : '',
       telemetryStatus: lastStatus, telemetryLabel: 'LAST USE', telemetryCode: lastCode, action: lastUseName,
-      meter: recentCalls.map((activity) => `lit ${activity.status === 'error' ? 'fault' : ''} ${/BROWSER|Browser|\bWEB\b/i.test(String(activity.action)) ? 'web' : ''}`),
-      legend: `<span class="${lastUseType === 'FILL' ? 'lit' : ''}">FILL</span><span class="${lastUseType === 'SSH' ? 'lit' : ''}">SSH</span><span class="${lastUseType === 'API' ? 'lit' : ''}">HTTP</span>`,
     },
     activity: {
       channels: [['A', 'FILL', actionTypes24h.has('FILL') || actionTypes24h.has('WEB') ? 'on' : ''], ['B', 'SSH', actionTypes24h.has('SSH') ? 'on' : ''], ['C', 'HTTP', actionTypes24h.has('API') ? 'on' : ''], ['D', 'TERM', actionTypes24h.has('TERM') ? 'on' : '']],
-      minor: 'PAGE B', mode: 'AUDIT', valueKind: 'number', value: activities24h.length, unit: '24H',
+      mode: 'AUDIT', valueKind: 'number', value: activities24h.length, unit: '24H',
       ready: !activities24h.length ? 'IDLE' : errors24h ? 'ATTENTION' : 'CLEAN', tag: errors24h ? compactCount(errors24h, 'ERR') : 'NO ERR', readyTone: errors24h ? 'fault' : '',
       telemetryStatus: lastStatus, telemetryLabel: 'LATEST', telemetryCode: lastCode, action: lastAction,
-      meter: recentCalls.map((activity) => `lit ${activity.status === 'error' ? 'fault' : ''}`),
-      legend: `<span class="${passes24h ? 'lit' : ''}">PASS</span><span class="${errors24h ? 'fault' : ''}">ERR</span>`,
     },
     settings: {
       channels: [['A', 'MCP', mcpReady ? 'on' : 'error'], ['B', 'CRYPT', state.security.encrypted ? 'on' : 'error'], ['C', 'WEB', browserOn ? 'on web' : ''], ['D', 'PIN', ownerLockState.pinConfigured ? 'on' : '']],
-      minor: 'PAGE C', mode: 'SYSTEM', valueKind: 'word', value: systemCode, unit: 'STATE',
+      mode: 'SYSTEM', valueKind: 'word', value: systemCode, unit: 'STATE',
       ready: systemFault ? 'SERVICE FAULT' : systemNeedsSetup ? 'ACTION NEEDED' : 'LOCAL READY', tag: state.security.encrypted ? 'SEALED' : 'CHECK', readyTone: systemFault ? 'fault' : systemNeedsSetup ? 'warn' : '',
       telemetryStatus: settingsTelemetry.status, telemetryLabel: settingsTelemetry.label, telemetryCode: settingsTelemetry.code, action: settingsTelemetry.action,
-      meter: agentMeter,
-      legend: `<span class="${registeredAgents ? 'lit' : ''}">ON</span><span class="${availableAgents ? 'info' : ''}">ADD</span><span class="${brokenAgents ? 'fault' : ''}">FIX</span>`,
     },
   };
   const model = models[activePage] || models.connections;
-  const meter = Array.from({ length: 8 }, (_, index) => `<i class="${model.meter[index] || ''}"></i>`).join('');
   const reading = model.valueKind === 'word' ? displayWord(model.value) : sevenSegmentNumber(model.value);
+  const secondary = activePage === 'activity'
+    ? { value: errors24h, unit: 'ERR', label: localized('最近 24 小时失败数', 'Errors in the last 24 hours') }
+    : activePage === 'settings'
+      ? { value: registeredAgents, unit: 'MCP', label: localized('已连接 Agent', 'Connected agents') }
+      : { value: latest?.durationMs, unit: 'MS', label: localized('最近操作耗时', 'Last operation duration') };
+  const secondaryReading = secondary.value == null ? displayWord('---', 3) : sevenSegmentNumber(secondary.value, 3);
+  const detail = `${model.telemetryLabel}: ${model.telemetryCode} · ${model.action}`;
+  const screenFault = model.telemetryStatus === 'error' || model.readyTone === 'fault';
   $('#metrics').innerHTML = `
-    <div class="display-grain" aria-hidden="true"></div>
-    <div class="display-channels" aria-label="${localized('设备通道状态', 'Device channel status')}">
-      ${model.channels.map(([key, label, className]) => `<div class="display-channel ${className}"><b>${key}</b><span>${label}</span><i></i></div>`).join('')}
-    </div>
-    <div class="display-primary">
-      <div class="display-mode"><span>${model.minor}</span><b>${model.mode}</b></div>
-      <div class="display-count ${model.valueKind === 'word' ? 'is-word' : ''}">${reading}<span class="display-count-unit">${model.unit}</span></div>
-      <div class="display-ready ${model.readyTone || ''}"><i class="display-play"></i><strong>${model.ready}</strong><em>${model.tag}</em></div>
-      <div class="display-ghost-labels" aria-hidden="true"><span>MCP</span><span>WEB</span><span>LOCK</span><span>AUTH</span></div>
-    </div>
-    <div class="display-telemetry ${model.telemetryStatus} telemetry-page-${activePage}">
-      <div class="telemetry-head"><span>${model.telemetryLabel}</span><i aria-hidden="true"></i></div>
-      <div class="telemetry-reading"><strong>${model.telemetryCode}</strong><span>${escapeHtml(model.action)}</span></div>
-      <div class="activity-meter" aria-label="${localized('当前页面状态', 'Current page status')}">${meter}</div>
-      <div class="relay-legend">${model.legend}</div>
+    <div class="lcd-screen">
+      <div class="lcd-primary" title="${escapeHtml(`${model.ready} · ${model.tag}`)}">
+        ${reading}<div class="lcd-caption"><span>${model.mode}</span><strong>${model.unit}</strong></div>
+      </div>
+      <div class="lcd-secondary" role="group" aria-label="${secondary.label}" title="${escapeHtml(`${secondary.label} · ${detail}`)}">
+        ${secondaryReading}<span class="lcd-unit" aria-label="${secondary.unit}">${[...secondary.unit].map((letter) => `<i aria-hidden="true">${letter}</i>`).join('')}</span>
+      </div>
+      <div class="lcd-system">
+        <strong class="lcd-status ${screenFault ? 'fault' : model.readyTone || ''}" title="${escapeHtml(detail)}">${screenFault ? 'ERR' : model.ready}</strong>
+        <div class="lcd-channels" role="group" aria-label="${localized('设备通道状态', 'Device channel status')}">
+          ${model.channels.map(([, label, tone]) => `<span class="${tone}" aria-label="${label}: ${tone.includes('error') ? 'ERROR' : tone ? 'ACTIVE' : 'INACTIVE'}">${label}</span>`).join('')}
+        </div>
+      </div>
     </div>`;
 }
 
@@ -573,7 +559,6 @@ function renderConnections() {
   if (!items.length) {
     const hasItems = state.connections.length > 0;
     container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前搜索没有结果。', 'No items match the current search.') : localized('OpenKeylet 保存秘密，并在 Agent 指定的最后一步完成写入。', 'OpenKeylet stores secrets and writes them only at the final step selected by an agent.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除搜索', 'CLEAR SEARCH') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
-    queueScrollThumbSync();
     return;
   }
   container.innerHTML = items.map((item) => {
@@ -596,7 +581,6 @@ function renderConnections() {
       label.style.setProperty('--name-scroll-duration', `${Math.max(3, distance / 22 + 1.5)}s`);
     });
   });
-  queueScrollThumbSync();
 }
 
 function draftSecretValues(secrets = {}) {
@@ -671,14 +655,12 @@ function renderActivity() {
   if (!activities.length) {
     const hasActivity = state.activities.length > 0;
     container.innerHTML = `<div class="empty-state"><div><h3>${hasActivity ? localized('没有匹配记录', 'NO MATCHING ACTIVITY') : localized('暂无操作记录', 'NO ACTIVITY YET')}</h3><p>${hasActivity ? localized('当前搜索或结果筛选没有记录。', 'No activity matches the current search and result filter.') : localized('Agent 使用 OpenKeylet 后，这里只显示不含秘密的摘要。', 'After an agent uses OpenKeylet, only secret-free summaries appear here.')}</p>${hasActivity ? `<button class="button primary" data-action="clear-activity-filters">${localized('重置搜索与筛选', 'RESET SEARCH & FILTER')}</button>` : ''}</div></div>`;
-    queueScrollThumbSync();
     return;
   }
   container.innerHTML = activities.slice(0, activityVisibleCount).map(({ activity, sourceIndex }) => {
     const errorExpanded = expandedActivityErrors.has(activity.id);
     return `<article class="activity-item"><div class="log-index">${String(state.activities.length - sourceIndex).padStart(4, '0')}</div><div class="activity-status ${activity.status === 'error' ? 'error' : ''}">${activity.status === 'error' ? '×' : '✓'}</div><div><div class="activity-title">${escapeHtml(activityAction(activity.action))} · ${escapeHtml(activity.connectionName)}</div><div class="activity-meta">${escapeHtml(activitySource(activity.source))} · ${activity.durationMs} ms</div>${activity.error ? `<button type="button" class="activity-error ${errorExpanded ? 'expanded' : ''}" data-expand-error="${activity.id}" aria-expanded="${errorExpanded}">${escapeHtml(publicMessage(activity.error, localized('操作失败', 'Operation failed. Details are available in the local log.')))}</button>` : ''}</div><time class="activity-time">${formatTime(activity.time)}</time></article>`;
   }).join('');
-  queueScrollThumbSync();
 }
 
 function queueMoreActivities() {
@@ -700,10 +682,10 @@ function applySettingsSearch() {
     if (matches) visible += 1;
   }
   $('#settings-search-empty').classList.toggle('hidden', visible > 0);
-  queueScrollThumbSync();
 }
 
 function renderSettings() {
+  githubBackup.render();
   $('#mcp-endpoint').textContent = `${state.mcp.stdioCommand} mcp stdio`;
   const mcpFault = state.mcp.status === 'error';
   const mcpStrip = $('#mcp-status-strip');
@@ -1199,10 +1181,13 @@ document.addEventListener('click', async (event) => {
     setActivityFilterMenu(false);
     activePage = nav.dataset.page;
     $('.nav').dataset.active = activePage;
-    $$('.nav-item').forEach((item) => item.classList.toggle('active', item === nav));
+    $$('.nav-item').forEach((item) => {
+      item.classList.toggle('active', item === nav);
+      if (item === nav) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
+    });
     $$('.page').forEach((page) => page.classList.toggle('active', page.id === `page-${nav.dataset.page}`));
     renderMetrics();
-    queueScrollThumbSync();
     if (nav.dataset.page === 'settings') scanAgents();
   }
   const windowButton = event.target.closest('[data-window-action]');
@@ -1362,7 +1347,6 @@ document.addEventListener('click', async (event) => {
     else expandedActivityErrors.add(errorDetail.dataset.expandError);
     errorDetail.setAttribute('aria-expanded', String(!expanded));
     errorDetail.classList.toggle('expanded', !expanded);
-    queueScrollThumbSync();
   }
   const copy = event.target.closest('[data-copy-format]');
   if (copy) {
@@ -1597,7 +1581,7 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft' && index > 0) { event.preventDefault(); inputs[index - 1].focus(); return; }
     if (event.key === 'ArrowRight' && index < inputs.length - 1) { event.preventDefault(); inputs[index + 1].focus(); return; }
   }
-  const pageSearchAvailable = $('#connection-modal').classList.contains('hidden') && $('#owner-lock-layer').classList.contains('hidden');
+  const pageSearchAvailable = $('#connection-modal').classList.contains('hidden') && $('#owner-lock-layer').classList.contains('hidden') && !githubBackup.isOpen();
   if (pageSearchAvailable && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f' && !event.altKey) {
     event.preventDefault();
     const search = $(`[data-page-search="${activePage}"]`);
@@ -1654,6 +1638,7 @@ $('#owner-lock-form').addEventListener('submit', async (event) => {
     }
     if (settingPin) toast(localized('PIN 锁已开启', 'PIN lock enabled'));
     await refreshDrafts(true);
+    await githubBackup.refresh();
   } catch (error) {
     toast(cleanError(error), 'error');
     clearPin('owner-pin');
@@ -1730,11 +1715,10 @@ setInterval(() => { if ($('#page-activity').classList.contains('active')) refres
 
 async function bootstrap() {
   applyLanguage();
-  initFixedScrollThumbs();
+  initLettering();
   await refreshOwnerLock();
   await refresh();
   await refreshDrafts();
   scanAgents();
-  queueScrollThumbSync();
 }
 bootstrap();

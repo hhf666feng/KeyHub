@@ -93,6 +93,21 @@ impl Vault {
         self.inner.key.source()
     }
 
+    // Device-local integration credentials never enter portable/cloud exports.
+    pub(crate) fn protect_local_state<T: serde::Serialize>(
+        &self,
+        value: &T,
+    ) -> Result<crate::model::SecretEnvelope> {
+        self.inner.key.encrypt(value)
+    }
+
+    pub(crate) fn unprotect_local_state<T: serde::de::DeserializeOwned>(
+        &self,
+        envelope: &crate::model::SecretEnvelope,
+    ) -> Result<T> {
+        self.inner.key.decrypt(envelope)
+    }
+
     fn require_supported_version(&self) -> Result<()> {
         let bytes = fs::read(&self.inner.vault_path).context("Could not read vault")?;
         let document: VaultDocument =
@@ -130,7 +145,10 @@ impl Vault {
 
     pub fn verify_owner_pin(&self, pin: &str) -> Result<bool> {
         let document = self.read_document()?;
-        let verifier = document.owner_pin.as_ref().context("PIN has not been set")?;
+        let verifier = document
+            .owner_pin
+            .as_ref()
+            .context("PIN has not been set")?;
         verify_owner_pin(pin, verifier)
     }
 
@@ -429,8 +447,9 @@ impl Vault {
                 .unwrap_or_default();
             if !input.private_key_import_path.trim().is_empty() {
                 let path = PathBuf::from(input.private_key_import_path.trim());
-                secrets.private_key =
-                    Some(fs::read_to_string(&path).context("SSH private key must be in text format")?);
+                secrets.private_key = Some(
+                    fs::read_to_string(&path).context("SSH private key must be in text format")?,
+                );
                 imported_key_name = path
                     .file_name()
                     .and_then(|name| name.to_str())
@@ -681,8 +700,8 @@ impl Vault {
 
     fn write_document_unlocked(&self, document: &VaultDocument) -> Result<()> {
         let bytes = serde_json::to_vec_pretty(document).context("Could not serialize vault")?;
-        let mut file =
-            AtomicWriteFile::open(&self.inner.vault_path).context("Could not create temporary vault file")?;
+        let mut file = AtomicWriteFile::open(&self.inner.vault_path)
+            .context("Could not create temporary vault file")?;
         file.write_all(&bytes).context("Could not write vault")?;
         file.commit().context("Could not commit vault file")?;
         Ok(())
@@ -788,7 +807,10 @@ fn normalize_modules(modules: Vec<ItemModule>) -> Result<Vec<ItemModule>> {
             module.name.clear();
             module.value = module.value.trim().to_owned();
             if module.kind == "port" && !module.value.is_empty() {
-                let port = module.value.parse::<u16>().context("Port must be 1–65535")?;
+                let port = module
+                    .value
+                    .parse::<u16>()
+                    .context("Port must be 1–65535")?;
                 if port == 0 {
                     bail!("Port must be 1–65535");
                 }
@@ -920,7 +942,9 @@ fn normalize_connection(
             || !parsed.username().is_empty()
             || parsed.password().is_some()
         {
-            bail!("API URL must use HTTP/HTTPS and must not include an account or password in the address");
+            bail!(
+                "API URL must use HTTP/HTTPS and must not include an account or password in the address"
+            );
         }
         normalized
     } else {
@@ -1683,7 +1707,7 @@ mod tests {
                 .save_connection(missing_name)
                 .unwrap_err()
                 .to_string()
-                .contains("Name")
+                .contains("name")
         );
 
         let mut missing_modules = ssh_input(None);
@@ -1693,7 +1717,7 @@ mod tests {
                 .save_connection(missing_modules)
                 .unwrap_err()
                 .to_string()
-                .contains("Module")
+                .contains("module")
         );
     }
 
@@ -1708,7 +1732,7 @@ mod tests {
         let duplicate = vault
             .save_connection(api_input(None, "  production api  ", "second-token"))
             .unwrap_err();
-        assert!(duplicate.to_string().contains("Name already exists"));
+        assert!(duplicate.to_string().contains("name already exists"));
 
         let renamed = vault
             .save_connection(api_input(Some(saved.id), "PRODUCTION API", "first-token"))
@@ -1727,7 +1751,7 @@ mod tests {
         drop(vault);
 
         let error = Vault::open(vault_dir).err().expect("version 6 must fail");
-        assert!(format!("{error:#}").contains("Only modular v7 or v8 is supported"));
+        assert!(format!("{error:#}").contains("only supports modular v7 or v8"));
     }
 
     #[test]

@@ -179,7 +179,10 @@ impl AgentRegistry {
                 ok: false,
                 action: action.to_owned(),
                 client: AgentClientStatus {
-                    message: format!("Cannot perform this operation in the current state{}", action_label(action)),
+                    message: format!(
+                        "Cannot perform this operation in the current state{}",
+                        action_label(action)
+                    ),
                     ..before
                 },
             };
@@ -270,7 +273,8 @@ impl AgentRegistry {
                 let Some(executable) = executable else {
                     status.state = "error".to_owned();
                     status.can_register = false;
-                    status.message = "Configuration detected, but no callable CLI was found".to_owned();
+                    status.message =
+                        "Configuration detected, but no callable CLI was found".to_owned();
                     return status;
                 };
                 self.inspect_cli_client(client_id, &executable).await
@@ -426,7 +430,9 @@ impl AgentRegistry {
             return Ok(EntryState::Available);
         }
         let text = fs::read_to_string(&path).context("Unable to read Codex configuration")?;
-        let document = text.parse::<DocumentMut>().context("Invalid Codex TOML configuration")?;
+        let document = text
+            .parse::<DocumentMut>()
+            .context("Invalid Codex TOML configuration")?;
         let has_legacy = document
             .get("mcp_servers")
             .and_then(Item::as_table_like)
@@ -620,7 +626,9 @@ impl AgentRegistry {
                 .as_table_like_mut()
                 .context("Codex mcp_servers is not a table")?;
             let mut entry = previous_entry.unwrap_or_else(|| Item::Table(Table::new()));
-            let table = entry.as_table_like_mut().context("MCP configuration is not a table")?;
+            let table = entry
+                .as_table_like_mut()
+                .context("MCP configuration is not a table")?;
             table.insert(
                 "command",
                 value(self.executable.to_string_lossy().into_owned()),
@@ -640,8 +648,9 @@ impl AgentRegistry {
         let root = CstRootNode::parse(&original, &ParseOptions::default())
             .context("Invalid Agent JSON/JSONC configuration; no changes were made")?;
         let root_object = root.object_value_or_set();
-        let original_value: JsonValue = parse_to_serde_value(&original, &ParseOptions::default())
-            .context("Invalid Agent JSON/JSONC configuration; no changes were made")?;
+        let original_value: JsonValue =
+            parse_to_serde_value(&original, &ParseOptions::default())
+                .context("Invalid Agent JSON/JSONC configuration; no changes were made")?;
         let current_paths: &[&str] = if client_id == "cursor" {
             &["/mcpServers/openkeylet"]
         } else {
@@ -851,8 +860,13 @@ impl AgentRegistry {
     }
 
     async fn run_cli_action(&self, executable: &Path, args: &[&str]) -> Result<Output> {
-        self.run_cli(executable, args, ACTION_CLI_TIMEOUT, "Agent CLI operation timed out")
-            .await
+        self.run_cli(
+            executable,
+            args,
+            ACTION_CLI_TIMEOUT,
+            "Agent CLI operation timed out",
+        )
+        .await
     }
 
     async fn run_cli(
@@ -888,7 +902,9 @@ impl AgentRegistry {
             .and_then(|captures| captures.get(1))
             .map(|value| value.as_str().replace('\\', "/"))
             .context("This .cmd is not a supported standard npm launcher")?;
-        let root = executable.parent().context("Invalid npm launcher directory")?;
+        let root = executable
+            .parent()
+            .context("Invalid npm launcher directory")?;
         let target = normalize_path(root.join(relative));
         let modules = normalize_path(root.join("node_modules"));
         if !target.starts_with(&modules) || !target.is_file() {
@@ -1370,8 +1386,9 @@ fn remove_managed_instruction(path: &Path, dedicated_file: bool) -> Result<()> {
     }
     let updated = strip_managed_instruction(&original)?;
     if dedicated_file && updated.trim().is_empty() {
-        fs::remove_file(path)
-            .with_context(|| format!("Unable to remove OpenKeylet global rule {}", path.display()))?;
+        fs::remove_file(path).with_context(|| {
+            format!("Unable to remove OpenKeylet global rule {}", path.display())
+        })?;
         return Ok(());
     }
     write_atomic_checked(path, &original, &updated)
@@ -1418,11 +1435,14 @@ fn write_atomic_checked(path: &Path, expected: &str, value: &str) -> Result<()> 
     if current != expected {
         bail!("Agent configuration changed during modification; rescan and try again");
     }
-    let mut writer = AtomicWriteFile::open(path).context("Unable to create temporary Agent configuration file")?;
+    let mut writer = AtomicWriteFile::open(path)
+        .context("Unable to create temporary Agent configuration file")?;
     writer
         .write_all(value.as_bytes())
         .context("Unable to write Agent configuration")?;
-    writer.commit().context("Unable to save Agent configuration atomically")?;
+    writer
+        .commit()
+        .context("Unable to save Agent configuration atomically")?;
     Ok(())
 }
 

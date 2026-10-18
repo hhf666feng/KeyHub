@@ -3,6 +3,7 @@ pub mod backup;
 pub mod browser;
 pub mod crypto;
 pub mod executor;
+pub mod github_backup;
 pub mod mcp;
 pub mod model;
 pub mod policy;

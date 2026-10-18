@@ -307,7 +307,11 @@ pub async fn execute_api(
     }
     let mut bytes = Vec::new();
     let mut truncated = false;
-    while let Some(chunk) = response.chunk().await.context("Unable to read API response")? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .context("Unable to read API response")?
+    {
         if let Some(limit) = response_limit {
             let remaining = limit.saturating_sub(bytes.len());
             if remaining == 0 {
@@ -368,10 +372,14 @@ async fn prepare_api_response_destination(
             .file_type()
             .is_file()
         {
-            bail!("API response destination already exists but is not a regular file; refusing to overwrite");
+            bail!(
+                "API response destination already exists but is not a regular file; refusing to overwrite"
+            );
         }
         if !overwrite {
-            bail!("API response destination file already exists; to replace it, explicitly set overwriteResponseFile=true");
+            bail!(
+                "API response destination file already exists; to replace it, explicitly set overwriteResponseFile=true"
+            );
         }
     }
     Ok(destination)
@@ -383,7 +391,9 @@ async fn save_api_response_to_file(
     overwrite: bool,
 ) -> Result<(String, u64)> {
     if !overwrite && tokio::fs::try_exists(&destination).await? {
-        bail!("API response destination file already exists; to replace it, explicitly set overwriteResponseFile=true");
+        bail!(
+            "API response destination file already exists; to replace it, explicitly set overwriteResponseFile=true"
+        );
     }
     let file_name = destination
         .file_name()
@@ -401,7 +411,11 @@ async fn save_api_response_to_file(
             .await
             .context("Unable to create API response temporary file")?;
         let mut bytes_transferred = 0_u64;
-        while let Some(chunk) = response.chunk().await.context("Unable to read API response")? {
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .context("Unable to read API response")?
+        {
             file.write_all(&chunk)
                 .await
                 .context("Unable to write API response file")?;
@@ -409,8 +423,12 @@ async fn save_api_response_to_file(
                 .checked_add(chunk.len() as u64)
                 .context("API response file is too large")?;
         }
-        file.flush().await.context("Unable to flush API response file")?;
-        file.sync_all().await.context("Unable to sync API response file")?;
+        file.flush()
+            .await
+            .context("Unable to flush API response file")?;
+        file.sync_all()
+            .await
+            .context("Unable to sync API response file")?;
         commit_local_file(&temporary_path, destination, overwrite).await?;
         Ok(bytes_transferred)
     }
@@ -520,7 +538,10 @@ pub async fn execute_local(
     let execution = async {
         let mut child = process.spawn().context("Unable to start local command")?;
         let input_task = if let Some(input) = stdin {
-            let mut child_stdin = child.stdin.take().context("Unable to open local command standard input")?;
+            let mut child_stdin = child
+                .stdin
+                .take()
+                .context("Unable to open local command standard input")?;
             Some(tokio::spawn(async move {
                 child_stdin.write_all(&input).await?;
                 child_stdin.shutdown().await
@@ -528,16 +549,24 @@ pub async fn execute_local(
         } else {
             None
         };
-        let output = child.wait_with_output().await.context("Unable to wait for local command")?;
+        let output = child
+            .wait_with_output()
+            .await
+            .context("Unable to wait for local command")?;
         if let Some(task) = input_task {
-            task.await.context("Local command standard input task ended unexpectedly")??;
+            task.await
+                .context("Local command standard input task ended unexpectedly")??;
         }
         Ok::<_, anyhow::Error>(output)
     };
     let output = match timeout_seconds.filter(|seconds| *seconds > 0) {
         Some(seconds) => tokio::time::timeout(Duration::from_secs(seconds), execution)
             .await
-            .map_err(|_| anyhow::anyhow!("Local command exceeded the timeout set by the caller of {seconds} seconds"))??,
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Local command exceeded the timeout set by the caller of {seconds} seconds"
+                )
+            })??,
         None => execution.await?,
     };
     let mut stdout = String::from_utf8_lossy(&output.stdout).into_owned();
@@ -641,7 +670,8 @@ async fn execute_ssh_inner(
         }
     }
     if let Some(task) = send_task {
-        task.await.context("SSH long command sending task ended unexpectedly")??;
+        task.await
+            .context("SSH long command sending task ended unexpectedly")??;
     }
     let _ = session
         .disconnect(Disconnect::ByApplication, "", "en")
@@ -872,8 +902,14 @@ async fn upload_local_file(
         let bytes = tokio::io::copy(&mut local, &mut remote)
             .await
             .context("SFTP upload interrupted")?;
-        remote.flush().await.context("Unable to flush remote file")?;
-        remote.shutdown().await.context("Unable to close remote file")?;
+        remote
+            .flush()
+            .await
+            .context("Unable to flush remote file")?;
+        remote
+            .shutdown()
+            .await
+            .context("Unable to close remote file")?;
         commit_remote_file(sftp, &temporary_path, remote_path, overwrite).await?;
         Ok(bytes)
     }
@@ -916,7 +952,12 @@ async fn upload_local_directory(
         while let Some((local_directory, relative_directory)) = stack.pop() {
             let mut entries = tokio::fs::read_dir(&local_directory)
                 .await
-                .with_context(|| format!("Unable to read local directory {}", local_directory.display()))?;
+                .with_context(|| {
+                    format!(
+                        "Unable to read local directory {}",
+                        local_directory.display()
+                    )
+                })?;
             while let Some(entry) = entries.next_entry().await? {
                 let name = entry.file_name();
                 let relative_path = if relative_directory.is_empty() {
@@ -935,11 +976,14 @@ async fn upload_local_directory(
                 if metadata.is_dir() {
                     let canonical = tokio::fs::canonicalize(&entry_path).await?;
                     if !visited.insert(canonical) {
-                        bail!("Local directory contains a cyclic link:{}", entry_path.display());
+                        bail!(
+                            "Local directory contains a cyclic link:{}",
+                            entry_path.display()
+                        );
                     }
-                    sftp.create_dir(remote_entry)
-                        .await
-                        .with_context(|| format!("Unable to create remote directory {relative_remote}"))?;
+                    sftp.create_dir(remote_entry).await.with_context(|| {
+                        format!("Unable to create remote directory {relative_remote}")
+                    })?;
                     stats.directories += 1;
                     stack.push((entry_path, relative_remote));
                 } else if metadata.is_file() {
@@ -957,7 +1001,10 @@ async fn upload_local_directory(
                     remote.shutdown().await?;
                     stats.files += 1;
                 } else {
-                    bail!("Local directory contains a special file that cannot be transferred:{}", entry_path.display());
+                    bail!(
+                        "Local directory contains a special file that cannot be transferred:{}",
+                        entry_path.display()
+                    );
                 }
             }
         }
@@ -1011,8 +1058,14 @@ async fn download_remote_file(
             .await
             .context("SFTP download interrupted")?;
         local.flush().await.context("Unable to flush local file")?;
-        local.sync_all().await.context("Unable to sync local file")?;
-        remote.shutdown().await.context("Unable to close remote file")?;
+        local
+            .sync_all()
+            .await
+            .context("Unable to sync local file")?;
+        remote
+            .shutdown()
+            .await
+            .context("Unable to close remote file")?;
         commit_local_file(&temporary_path, local_path, overwrite).await?;
         Ok(bytes)
     }
@@ -1135,7 +1188,9 @@ async fn resolve_remote_path(sftp: &SftpSession, path: &str) -> Result<String> {
             .await
             .context("Unable to expand remote home directory")?
         else {
-            bail!("Remote SFTP service does not support expanding ~ paths; use an absolute path instead");
+            bail!(
+                "Remote SFTP service does not support expanding ~ paths; use an absolute path instead"
+            );
         };
         return Ok(if remainder.is_empty() {
             expanded_home
@@ -1252,7 +1307,8 @@ async fn commit_remote_file(
                 "Unable to install new remote file ({install_error}), and unable to automatically restore the original file ({restore_error}; original file is retained at {backup_path}"
             );
         }
-        return Err(anyhow::anyhow!(install_error)).context("Unable to install new remote file; original file has been restored");
+        return Err(anyhow::anyhow!(install_error))
+            .context("Unable to install new remote file; original file has been restored");
     }
 
     if let Err(cleanup_error) = remove_remote_tree(sftp, &backup_path).await {
@@ -1306,7 +1362,9 @@ async fn commit_remote_directory(
                 "Unable to install new remote directory ({install_error}), and unable to automatically restore the original directory ({restore_error}; original directory is retained at {backup_path}"
             );
         }
-        return Err(anyhow::anyhow!(install_error)).context("Unable to install new remote directory; original directory has been restored");
+        return Err(anyhow::anyhow!(install_error)).context(
+            "Unable to install new remote directory; original directory has been restored",
+        );
     }
 
     if let Err(cleanup_error) = remove_remote_tree(sftp, &backup_path).await {
@@ -1396,7 +1454,8 @@ async fn commit_local_file(
                 backup_path.display()
             );
         }
-        return Err(install_error).context("Unable to install new local file; original file has been restored");
+        return Err(install_error)
+            .context("Unable to install new local file; original file has been restored");
     }
 
     if let Err(cleanup_error) = remove_local_path(&backup_path).await {
@@ -1445,7 +1504,9 @@ async fn commit_local_directory(
                 backup_path.display()
             );
         }
-        return Err(install_error).context("Unable to install new local directory; original directory has been restored");
+        return Err(install_error).context(
+            "Unable to install new local directory; original directory has been restored",
+        );
     }
 
     if let Err(cleanup_error) = remove_local_path(&backup_path).await {
@@ -1567,7 +1628,8 @@ fn build_api_url(
         if !base.path().ends_with('/') {
             base.set_path(&format!("{}/", base.path()));
         }
-        base.join(request_url).context("Invalid relative path for API request")?
+        base.join(request_url)
+            .context("Invalid relative path for API request")?
     };
     if !query.is_empty() {
         let mut pairs = target.query_pairs_mut();

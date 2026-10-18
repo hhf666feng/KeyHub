@@ -9,14 +9,15 @@ use chacha20poly1305::{
 use serde::{Serialize, de::DeserializeOwned};
 use std::{fs, path::Path};
 use subtle::ConstantTimeEq;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 const SECRET_AAD: &[u8] = b"mcp-vault/secret/v2";
 
 pub fn create_owner_pin_verifier(pin: &str) -> Result<OwnerPinVerifier> {
     validate_owner_pin(pin)?;
     let mut salt = [0_u8; 16];
-    getrandom::fill(&mut salt).map_err(|error| anyhow::anyhow!("Unable to generate PIN salt:{error}"))?;
+    getrandom::fill(&mut salt)
+        .map_err(|error| anyhow::anyhow!("Unable to generate PIN salt:{error}"))?;
     let hash = derive_owner_pin_hash(pin, &salt)?;
     Ok(OwnerPinVerifier {
         version: 1,
@@ -103,7 +104,8 @@ impl MasterKey {
 
         if key_file.exists() {
             harden_private_file(&key_file)?;
-            let encoded = fs::read_to_string(&key_file).context("Unable to read the local permissions key file")?;
+            let encoded = fs::read_to_string(&key_file)
+                .context("Unable to read the local permissions key file")?;
             return Ok(Self {
                 bytes: decode_key(encoded.trim())?,
                 source: "Application-private master key file".to_owned(),
@@ -156,7 +158,8 @@ impl MasterKey {
 
         if key_file.exists() {
             harden_private_file(&key_file)?;
-            let encoded = fs::read_to_string(&key_file).context("Unable to read the local permissions key file")?;
+            let encoded = fs::read_to_string(&key_file)
+                .context("Unable to read the local permissions key file")?;
             return Ok(Self {
                 bytes: decode_key(encoded.trim())?,
                 source: "Local permissions key file".to_owned(),
@@ -164,7 +167,9 @@ impl MasterKey {
         }
 
         if vault_exists {
-            bail!("Vault master key is missing; to avoid overwriting data, the program refused to generate a new key");
+            bail!(
+                "Vault master key is missing; to avoid overwriting data, the program refused to generate a new key"
+            );
         }
 
         let mut bytes = [0_u8; 32];
@@ -217,18 +222,21 @@ impl MasterKey {
     }
 
     pub fn encrypt<T: Serialize>(&self, value: &T) -> Result<SecretEnvelope> {
-        let bytes = serde_json::to_vec(value).context("Unable to serialize secret")?;
+        let bytes =
+            Zeroizing::new(serde_json::to_vec(value).context("Unable to serialize secret")?);
         encrypt_bytes(&self.bytes, &bytes, SECRET_AAD)
     }
 
     pub fn decrypt<T: DeserializeOwned>(&self, envelope: &SecretEnvelope) -> Result<T> {
-        let plain = decrypt_bytes(&self.bytes, envelope, SECRET_AAD)?;
+        let plain = Zeroizing::new(decrypt_bytes(&self.bytes, envelope, SECRET_AAD)?);
         serde_json::from_slice(&plain).context("Invalid secret content format")
     }
 }
 
 fn decode_key(encoded: &str) -> Result<[u8; 32]> {
-    let decoded = STANDARD_NO_PAD.decode(encoded).context("Invalid master key format")?;
+    let decoded = STANDARD_NO_PAD
+        .decode(encoded)
+        .context("Invalid master key format")?;
     decoded
         .try_into()
         .map_err(|_| anyhow::anyhow!("Invalid master key length"))
@@ -257,7 +265,8 @@ fn load_legacy_macos_key_without_ui() -> Option<[u8; 32]> {
 pub fn encrypt_bytes(key: &[u8; 32], bytes: &[u8], aad: &[u8]) -> Result<SecretEnvelope> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     let mut nonce = [0_u8; 24];
-    getrandom::fill(&mut nonce).map_err(|error| anyhow::anyhow!("Unable to generate encryption nonce:{error}"))?;
+    getrandom::fill(&mut nonce)
+        .map_err(|error| anyhow::anyhow!("Unable to generate encryption nonce:{error}"))?;
     let ciphertext = cipher
         .encrypt(XNonce::from_slice(&nonce), Payload { msg: bytes, aad })
         .map_err(|_| anyhow::anyhow!("Secret encryption failed"))?;
@@ -303,8 +312,10 @@ fn write_private_file(path: &Path, bytes: &[u8]) -> Result<()> {
             .mode(0o600)
             .open(path)
             .context("Unable to create local permissions key file")?;
-        file.write_all(bytes).context("Unable to write local permissions key file")?;
-        file.sync_all().context("Unable to sync local permissions key file")?;
+        file.write_all(bytes)
+            .context("Unable to write local permissions key file")?;
+        file.sync_all()
+            .context("Unable to sync local permissions key file")?;
     }
     #[cfg(not(unix))]
     fs::write(path, bytes).context("Unable to write local permissions key file")?;

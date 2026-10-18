@@ -351,7 +351,10 @@ impl BrowserBridge {
                 response.text().await.unwrap_or_default()
             );
         }
-        response.json().await.context("Invalid browser result format")
+        response
+            .json()
+            .await
+            .context("Invalid browser result format")
     }
 
     async fn ensure_started(&self, port: u16) -> Result<()> {
@@ -526,7 +529,10 @@ async fn claim(
         .ok_or((StatusCode::UNAUTHORIZED, "No pending pairing".to_owned()))?;
     if std::time::Instant::now() > current.expires_at {
         *pairing = None;
-        return Err((StatusCode::UNAUTHORIZED, "Automatic pairing window is closed".to_owned()));
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Automatic pairing window is closed".to_owned(),
+        ));
     }
     *pairing = None;
     state
@@ -552,7 +558,10 @@ async fn submit_job(
     if !delivered {
         state.pending.lock().await.remove(&job.id);
         if job.is_expired() {
-            return Err((StatusCode::GATEWAY_TIMEOUT, "Browser fill timed out".to_owned()));
+            return Err((
+                StatusCode::GATEWAY_TIMEOUT,
+                "Browser fill timed out".to_owned(),
+            ));
         }
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
@@ -569,7 +578,10 @@ async fn submit_job(
         }
         _ => {
             state.pending.lock().await.remove(&job.id);
-            Err((StatusCode::GATEWAY_TIMEOUT, "Browser fill timed out".to_owned()))
+            Err((
+                StatusCode::GATEWAY_TIMEOUT,
+                "Browser fill timed out".to_owned(),
+            ))
         }
     }
 }

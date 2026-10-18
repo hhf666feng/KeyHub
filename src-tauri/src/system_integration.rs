@@ -30,7 +30,9 @@ pub fn set_desktop_shortcut(executable: &Path, enabled: bool) -> Result<SystemIn
 #[cfg(target_os = "macos")]
 pub fn set_desktop_shortcut(executable: &Path, enabled: bool) -> Result<SystemIntegrationState> {
     if enabled {
-        bail!("macOS does not create desktop shortcuts; launch OpenKeylet from Applications, the Dock, or Spotlight")
+        bail!(
+            "macOS does not create desktop shortcuts; launch OpenKeylet from Applications, the Dock, or Spotlight"
+        )
     }
     remove_entry(&desktop_entry_path(executable)?)?;
     status(executable)
@@ -100,13 +102,17 @@ fn desktop_shortcut_status(_executable: &Path) -> Result<bool> {
 fn remove_entry(path: &Path) -> Result<()> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {
-            bail!("Refusing to delete a non-shortcut directory:{}", path.display())
+            bail!(
+                "Refusing to delete a non-shortcut directory:{}",
+                path.display()
+            )
         }
-        Ok(_) => {
-            fs::remove_file(path).with_context(|| format!("Unable to delete system entry:{}", path.display()))
-        }
+        Ok(_) => fs::remove_file(path)
+            .with_context(|| format!("Unable to delete system entry:{}", path.display())),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(error) => Err(error).with_context(|| format!("Unable to read system entry:{}", path.display())),
+        Err(error) => {
+            Err(error).with_context(|| format!("Unable to read system entry:{}", path.display()))
+        }
     }
 }
 
@@ -145,7 +151,9 @@ fn create_windows_shortcut(path: &Path, executable: &Path) -> Result<()> {
         core::{HSTRING, IUnknown, Interface},
     };
 
-    let parent = path.parent().context("Shortcut path is missing a parent directory")?;
+    let parent = path
+        .parent()
+        .context("Shortcut path is missing a parent directory")?;
     fs::create_dir_all(parent)
         .with_context(|| format!("Unable to create shortcut directory:{}", parent.display()))?;
     let executable = executable
@@ -208,7 +216,9 @@ fn desktop_entry_path(executable: &Path) -> Result<PathBuf> {
     } else {
         "OpenKeylet"
     };
-    Ok(dirs::desktop_dir().context("Desktop directory not found")?.join(name))
+    Ok(dirs::desktop_dir()
+        .context("Desktop directory not found")?
+        .join(name))
 }
 
 #[cfg(target_os = "macos")]
@@ -231,9 +241,15 @@ fn set_entry(path: &Path, executable: &Path, enabled: bool, kind: EntryKind) -> 
     if !enabled {
         return remove_entry(path);
     }
-    let parent = path.parent().context("System entry path is missing a parent directory")?;
-    fs::create_dir_all(parent)
-        .with_context(|| format!("Could not create system entry directory:{}", parent.display()))?;
+    let parent = path
+        .parent()
+        .context("System entry path is missing a parent directory")?;
+    fs::create_dir_all(parent).with_context(|| {
+        format!(
+            "Could not create system entry directory:{}",
+            parent.display()
+        )
+    })?;
     remove_entry(path)?;
     match kind {
         EntryKind::Autostart => {
@@ -241,8 +257,12 @@ fn set_entry(path: &Path, executable: &Path, enabled: bool, kind: EntryKind) -> 
             let content = format!(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key><string>dev.openkeylet.app</string>\n  <key>ProgramArguments</key><array><string>{executable}</string><string>gui</string></array>\n  <key>RunAtLoad</key><true/>\n</dict>\n</plist>\n"
             );
-            fs::write(path, content)
-                .with_context(|| format!("Could not write login startup configuration:{}", path.display()))
+            fs::write(path, content).with_context(|| {
+                format!(
+                    "Could not write login startup configuration:{}",
+                    path.display()
+                )
+            })
         }
     }
 }
@@ -278,14 +298,21 @@ fn set_entry(path: &Path, executable: &Path, enabled: bool, _kind: EntryKind) ->
     if !enabled {
         return remove_entry(path);
     }
-    let parent = path.parent().context("System entry path is missing a parent directory")?;
-    fs::create_dir_all(parent)
-        .with_context(|| format!("Could not create system entry directory:{}", parent.display()))?;
+    let parent = path
+        .parent()
+        .context("System entry path is missing a parent directory")?;
+    fs::create_dir_all(parent).with_context(|| {
+        format!(
+            "Could not create system entry directory:{}",
+            parent.display()
+        )
+    })?;
     let executable = desktop_exec_quote(executable.to_string_lossy().as_ref());
     let content = format!(
         "[Desktop Entry]\nType=Application\nVersion=1.0\nName=OpenKeylet\nComment=Local credential relay for AI agents\nExec={executable} gui\nTryExec={executable}\nIcon=openkeylet\nTerminal=false\nCategories=Utility;Security;\n"
     );
-    fs::write(path, content).with_context(|| format!("Could not write system entry:{}", path.display()))?;
+    fs::write(path, content)
+        .with_context(|| format!("Could not write system entry:{}", path.display()))?;
     fs::set_permissions(path, fs::Permissions::from_mode(0o755))
         .with_context(|| format!("Could not set system entry permissions:{}", path.display()))
 }

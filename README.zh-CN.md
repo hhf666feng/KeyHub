@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  完全本地&nbsp;&nbsp;·&nbsp;&nbsp;免费开源&nbsp;&nbsp;·&nbsp;&nbsp;无需账号&nbsp;&nbsp;·&nbsp;&nbsp;Windows / macOS / Linux
+  本地优先&nbsp;&nbsp;·&nbsp;&nbsp;免费开源&nbsp;&nbsp;·&nbsp;&nbsp;无需 OpenKeylet 账号&nbsp;&nbsp;·&nbsp;&nbsp;Windows / macOS / Linux
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@ OpenKeylet 是一个用于保存和使用凭据的小型本地 MCP 工具。Agen
 
 OpenKeylet 不再把项目固定分成“登录 / SSH / API”类型。账号、密码、API 凭据、私钥、私钥口令、TOTP、主机、端口、URL 和自定义字段都是独立模块，可以自由组合在同一项目中；OpenKeylet 根据模块组合自动推导可用动作。
 
-OpenKeylet 没有账号、订阅、云端密码库或远程 MCP 服务。它免费开源，支持 Windows、macOS 和 Linux，保险库数据始终在当前设备本地加密保存。本地 `stdio` MCP 只在 Agent 调用时启动。
+OpenKeylet 没有自有账号、订阅、托管密码库或远程 MCP 服务。它免费开源，支持 Windows、macOS 和 Linux，保险库在当前设备本地加密保存。可选的 GitHub 备份将加密快照保存到用户自己的私有仓库。本地 `stdio` MCP 只在 Agent 调用时启动。
 
 <table>
   <tr>
@@ -135,6 +135,7 @@ OpenKeylet 会识别常见 API 服务与 Basic 认证组合，无法识别时使
 - 可选六位本地 PIN；
 - Agent 接入、扫描与修复；
 - Browser Bridge 配对；
+- 可选的 GitHub 私有仓库加密备份与换机恢复；
 - 加密备份导入、导出与打开本地数据目录。
 
 替换或升级可执行文件不会删除保险库。OpenKeylet 会继续读取当前系统用户的数据目录：
@@ -146,6 +147,22 @@ OpenKeylet 会识别常见 API 服务与 Basic 认证组合，无法识别时使
 | Linux | `${XDG_DATA_HOME:-~/.local/share}/mcp-vault/v2` |
 
 导出的 `.mvault` 包经过加密并可跨设备导入，但为了免密码导入，包内同时携带自动解锁材料。请像保护原始凭据一样保护备份文件。
+
+### 可选 GitHub 加密备份
+
+在 **设置 → GitHub 加密备份** 中连接自己的私有仓库：
+
+1. 建立专用私有仓库，例如 `openkeylet-vault`。
+2. 创建 [GitHub 细粒度访问令牌](https://github.com/settings/personal-access-tokens/new)，只选择这个仓库，并授予 **Contents: Read and write** 权限。
+3. 填写 `owner/repository` 和令牌，选择“创建新备份”，生成恢复密钥，并将它保存在仓库之外。
+4. 连接成功后点击“立即备份”。连接本身不会上传保险库，上传始终由用户手动触发。
+5. 换机时选择“连接已有备份”，填写同一仓库、原恢复密钥及有权限的令牌，再点击“从云端恢复”。
+
+完整的便携数据（包括项目名、地址、备注和凭据）在本地使用 XChaCha20-Poly1305 和独立随机生成的 256 位恢复密钥加密。GitHub 只接收 `openkeylet.vault.json`，其中没有解锁密钥。令牌与恢复密钥由当前设备的保险库主密钥加密保存，不包含在备份里。浏览器配对、PIN、Agent 接入配置、操作记录和草稿仍保留在各自设备；已解锁 GUI 可以查看保存的恢复密钥。
+
+第一版提供**手动快照备份与合并恢复**，不自动进行双向同步。恢复时跳过相同项目，将同名但内容不同的项目另存，不覆盖或删除本机项目。新连接的设备必须先恢复已有快照才能上传；远端版本发生变化或存在并发写入时会停止上传。每次上传和恢复都会检查仓库仍为私有。当前支持 GitHub.com 仓库，加密快照最大为 8 MiB。
+
+恢复密钥丢失且没有仍连接的设备时，云端备份无法找回。Git 历史会保留旧版密文，包括已删除凭据；“断开”仅移除本机连接，不删除仓库历史或撤销 GitHub 令牌。现有 `.mvault` 是不同的自解锁格式，不能直接作为安全的云同步密文上传。
 
 新导出使用精简的 v4 备份格式，仍可导入原有 v3 备份；v4 备份需要支持该格式的 OpenKeylet 版本。现有 v7 保险库可直接读取，首次修改时自动保存为 v8，并保留已有凭据。升级到此格式后，请重新建立 Agent 会话，使其使用新版 OpenKeylet；旧版程序不能读取 v8 保险库。
 
@@ -165,7 +182,7 @@ OpenKeylet 支持账号、密码、API Key 与 Token、SSH 私钥与口令、TOT
 
 ### OpenKeylet 需要云端账号吗？
 
-不需要。OpenKeylet 是一个本地优先、无需账号的秘密管理工具；应用、保险库、MCP 服务、操作记录与备份都由用户在当前设备上控制。
+日常本地使用不需要账号。可选的 GitHub 加密备份需要用户自己的 GitHub 账号和私有仓库，不需要注册 OpenKeylet 账号。
 
 ## 下载
 

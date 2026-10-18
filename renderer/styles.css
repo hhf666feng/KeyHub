@@ -62,7 +62,6 @@ html.platform-macos #desktop-shortcut-option { display: none; }
 
 *, *::before, *::after {
   box-sizing: border-box;
-  border-radius: 0 !important;
 }
 
 html, body {
@@ -1049,22 +1048,6 @@ html.platform-macos .nav-item small { line-height: 7px; }
 .connections-grid::-webkit-scrollbar,
 .activity-panel::-webkit-scrollbar,
 .settings-layout::-webkit-scrollbar { width: 0; height: 0; }
-
-.fixed-scroll-thumb {
-  position: absolute;
-  z-index: 6;
-  top: 0;
-  right: 2px;
-  display: block;
-  width: 5px;
-  height: 48px;
-  background: #8f8c89;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms linear;
-  will-change: transform;
-}
-.fixed-scroll-thumb.visible { opacity: 1; }
 
 .settings-heading { position: relative; display: grid; min-height: 34px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .settings-heading::before { position: absolute; top: 6px; left: -73px; width: 5px; height: 5px; background: var(--orange); box-shadow: 0 0 3px rgb(237 74 26 / 38%); content: ""; }

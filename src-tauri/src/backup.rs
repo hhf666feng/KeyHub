@@ -9,7 +9,7 @@ use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::Path};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 const BACKUP_VERSION: u8 = 4;
 
@@ -67,7 +67,8 @@ pub fn export_to_file(vault: &Vault, path: impl AsRef<Path>) -> Result<()> {
     let payload = backup_payload(vault)?;
     let mut plain = serde_json::to_vec(&payload).context("Unable to serialize backup")?;
     let mut key = [0_u8; 32];
-    getrandom::fill(&mut key).map_err(|error| anyhow::anyhow!("Unable to generate backup key:{error}"))?;
+    getrandom::fill(&mut key)
+        .map_err(|error| anyhow::anyhow!("Unable to generate backup key:{error}"))?;
     let encrypted = encrypt_bytes(&key, &plain, backup_aad(BACKUP_VERSION)?);
     plain.zeroize();
     let payload = encrypted?;
@@ -100,16 +101,38 @@ fn backup_payload(vault: &Vault) -> Result<BackupPayload> {
     })
 }
 
+// Cloud snapshots reuse the portable payload, never the self-unlocking .mvault
+// container. The caller must encrypt these bytes with a separately held key.
+pub(crate) fn cloud_snapshot(vault: &Vault) -> Result<Zeroizing<Vec<u8>>> {
+    Ok(Zeroizing::new(serde_json::to_vec(&backup_payload(vault)?)?))
+}
+
+pub(crate) fn inspect_cloud_snapshot(plain: &[u8]) -> Result<(String, usize)> {
+    let payload: BackupPayload = serde_json::from_slice(plain)?;
+    if payload.format != "mcp-vault-portable" || payload.version != BACKUP_VERSION {
+        bail!("Unsupported cloud backup content version");
+    }
+    chrono::DateTime::parse_from_rfc3339(&payload.created_at)?;
+    Ok((payload.created_at, payload.connections.len()))
+}
+
+pub(crate) fn restore_cloud_snapshot(vault: &Vault, plain: &[u8]) -> Result<ImportSummary> {
+    merge_backup_payload(vault, plain, BACKUP_VERSION)
+}
+
 fn write_backup_file(path: &Path, file: &BackupFile) -> Result<()> {
     let bytes = serde_json::to_vec_pretty(&file).context("Unable to generate backup file")?;
     let mut writer = AtomicWriteFile::open(path).context("Unable to create backup file")?;
-    writer.write_all(&bytes).context("Unable to write backup file")?;
+    writer
+        .write_all(&bytes)
+        .context("Unable to write backup file")?;
     writer.commit().context("Unable to commit backup file")?;
     Ok(())
 }
 
 fn reject_vault_internal_export_path(vault: &Vault, path: &Path) -> Result<()> {
-    let data_dir = fs::canonicalize(vault.data_dir()).context("Unable to confirm vault directory")?;
+    let data_dir =
+        fs::canonicalize(vault.data_dir()).context("Unable to confirm vault directory")?;
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
@@ -120,14 +143,18 @@ fn reject_vault_internal_export_path(vault: &Vault, path: &Path) -> Result<()> {
     let target = if absolute.exists() {
         fs::canonicalize(&absolute).context("Unable to confirm backup destination path")?
     } else {
-        let parent = absolute.parent().context("Invalid backup destination path")?;
+        let parent = absolute
+            .parent()
+            .context("Invalid backup destination path")?;
         let name = absolute.file_name().context("Invalid backup file name")?;
         fs::canonicalize(parent)
             .context("Unable to confirm backup destination directory")?
             .join(name)
     };
     if target.starts_with(&data_dir) {
-        bail!("Backup files cannot be saved inside the OpenKeylet data directory. Choose another location");
+        bail!(
+            "Backup files cannot be saved inside the OpenKeylet data directory. Choose another location"
+        );
     }
     Ok(())
 }
@@ -171,7 +198,8 @@ fn decrypt_automatic_backup(file: &BackupFile) -> Result<Vec<u8>> {
 
 fn merge_backup_payload(vault: &Vault, plain: &[u8], version: u8) -> Result<ImportSummary> {
     if version == 3 {
-        let payload: V3BackupPayload = serde_json::from_slice(plain).context("Backup contents are corrupted")?;
+        let payload: V3BackupPayload =
+            serde_json::from_slice(plain).context("Backup contents are corrupted")?;
         if payload.format != "mcp-vault-portable" || payload.version != 3 {
             bail!("Unsupported backup content version");
         }
@@ -188,12 +216,14 @@ fn merge_backup_payload(vault: &Vault, plain: &[u8], version: u8) -> Result<Impo
                     connection.remove(obsolete);
                 }
             }
-            let connection = serde_json::from_value(item.connection).context("Invalid backup item format")?;
+            let connection =
+                serde_json::from_value(item.connection).context("Invalid backup item format")?;
             connections.push((connection, item.secrets));
         }
         return vault.merge_connections(connections);
     }
-    let payload: BackupPayload = serde_json::from_slice(plain).context("Backup contents are corrupted")?;
+    let payload: BackupPayload =
+        serde_json::from_slice(plain).context("Backup contents are corrupted")?;
     if payload.format != "mcp-vault-portable"
         || payload.version != BACKUP_VERSION
         || version != BACKUP_VERSION
@@ -381,7 +411,7 @@ mod tests {
 
         for name in ["vault.json", "master.key", "vault.lock", "backup.mvault"] {
             let error = export_to_file(&vault, vault.data_dir().join(name)).unwrap_err();
-            assert!(error.to_string().contains("Data directory"));
+            assert!(error.to_string().contains("data directory"));
         }
     }
 

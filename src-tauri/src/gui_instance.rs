@@ -51,7 +51,9 @@ impl GuiInstance {
                     }
                     thread::sleep(TAKEOVER_RETRY);
                 }
-                Err(error) => return Err(error).context("Unable to lock the OpenKeylet GUI instance"),
+                Err(error) => {
+                    return Err(error).context("Unable to lock the OpenKeylet GUI instance");
+                }
             }
         }
     }
@@ -135,7 +137,8 @@ fn request_takeover(descriptor_path: &Path) {
 }
 
 fn write_descriptor(path: &Path, value: &[u8]) -> Result<()> {
-    let mut file = AtomicWriteFile::open(path).context("Unable to create the OpenKeylet GUI instance descriptor file")?;
+    let mut file = AtomicWriteFile::open(path)
+        .context("Unable to create the OpenKeylet GUI instance descriptor file")?;
     file.write_all(value)
         .context("Unable to write the OpenKeylet GUI instance descriptor file")?;
     file.commit()

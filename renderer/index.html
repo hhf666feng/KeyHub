@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>OpenKeylet</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="bricktone.css" />
+    <link rel="stylesheet" href="github-backup.css" />
   </head>
   <body>
     <div class="title-drag-region" data-tauri-drag-region="deep">
@@ -15,6 +17,7 @@
         <i aria-hidden="true"></i>
         <small>LOCAL KEYRING</small>
       </div>
+      <div class="title-tools">
       <div class="language-switch" id="language-switch" role="group" aria-label="Language">
         <button class="active" type="button" data-language="en">EN</button>
         <button type="button" data-language="zh">ZH</button>
@@ -24,12 +27,13 @@
         <button class="window-control" data-window-action="minimize" aria-label="Minimize"><svg viewBox="0 0 12 12"><path d="M2 8.5h8" /></svg></button>
         <button class="window-control close" data-window-action="close" aria-label="Close"><svg viewBox="0 0 12 12"><path d="m2.5 2.5 7 7m0-7-7 7" /></svg></button>
       </div>
+      </div>
     </div>
 
     <div class="app-shell">
       <aside class="sidebar">
-        <nav class="nav" data-active="connections">
-          <button class="nav-item active" data-page="connections"><b>A</b><i aria-hidden="true"></i><span>Projects<small>ITEMS</small></span></button>
+        <nav class="nav" data-active="connections" aria-label="Main navigation">
+          <button class="nav-item active" data-page="connections" aria-current="page"><b>A</b><i aria-hidden="true"></i><span>Projects<small>ITEMS</small></span></button>
           <button class="nav-item" data-page="activity"><b>B</b><i aria-hidden="true"></i><span>History<small>LOG</small></span></button>
           <button class="nav-item" data-page="settings"><b>C</b><i aria-hidden="true"></i><span>Settings<small>SYSTEM</small></span></button>
         </nav>
@@ -39,20 +43,18 @@
         <div class="metric-grid" id="metrics"></div>
 
         <section class="page active" id="page-connections">
-          <header class="page-header connections-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="connections" type="search" placeholder="SEARCH" aria-label="Search secret projects" autocomplete="off" /></label><div class="panel-controls"><div class="draft-control"><button class="button quiet panel-add-button" id="drafts-button" type="button" disabled>Draft</button><button class="draft-delete-button hidden" id="delete-draft-button" type="button" aria-label="Delete draft" title="Delete draft">×</button></div><button class="button primary panel-add-button" id="add-connection-button">＋ Add</button></div></header>
-          <div class="connections-grid" id="connections-list"></div>
-          <i class="fixed-scroll-thumb" data-scroll-for="#connections-list" aria-hidden="true"></i>
+          <header class="page-header connections-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="connections" type="search" placeholder="SEARCH" aria-label="Search secret projects" autocomplete="off" /></label><div class="panel-controls"><div class="draft-control"><button class="button quiet panel-add-button" id="drafts-button" type="button" disabled>Draft</button><button class="draft-delete-button hidden" id="delete-draft-button" type="button" aria-label="Delete draft" title="Delete draft">×</button></div><div class="command-well"><button class="button primary panel-add-button" id="add-connection-button">＋ Add</button></div></div></header>
+          <div class="list-well"><div class="connections-grid" id="connections-list" tabindex="0" aria-label="Vault items"></div></div>
         </section>
 
         <section class="page" id="page-activity">
           <header class="page-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="activity" type="search" placeholder="SEARCH" aria-label="Search activity history" autocomplete="off" /></label><div class="page-header-actions"><div class="filter-control"><button class="filter-trigger" id="activity-filter-menu-button" type="button" aria-expanded="false" aria-controls="activity-filter-menu" aria-label="History filters"><b id="activity-filter-current-key">A</b><span id="activity-filter-current-label">ALL</span><i aria-hidden="true"></i></button><div class="filter-menu activity-filter-menu hidden" id="activity-filter-menu" role="menu" aria-label="History filters"><button class="filter-pill active" type="button" role="menuitem" data-activity-filter="all"><b>A</b><span>ALL</span></button><button class="filter-pill" type="button" role="menuitem" data-activity-filter="error"><b>B</b><span>ERROR</span></button><button class="filter-pill" type="button" role="menuitem" data-activity-filter="success"><b>C</b><span>PASS</span></button></div></div><button class="button quiet" id="clear-activity-button">CLEAR LOG</button></div></header>
-          <section class="content-panel activity-panel"><div class="activity-list" id="activity-list"></div></section>
-          <i class="fixed-scroll-thumb" data-scroll-for="#page-activity .activity-panel" aria-hidden="true"></i>
+          <div class="list-well"><section class="content-panel activity-panel" tabindex="0" aria-label="Activity log"><div class="activity-list" id="activity-list"></div></section></div>
         </section>
 
         <section class="page" id="page-settings">
           <header class="page-header"><label class="page-search"><i aria-hidden="true"></i><input class="page-search-input" data-page-search="settings" type="search" placeholder="SEARCH" aria-label="Search system settings" autocomplete="off" /></label><div class="page-header-actions"><button class="button primary" id="header-export-backup-button" type="button">One-click export package</button><button class="button quiet" id="header-import-backup-button" type="button">One-click import package</button></div></header>
-          <div class="settings-layout">
+          <div class="list-well"><div class="settings-layout" tabindex="0" aria-label="Settings">
             <section class="content-panel settings-card" data-module="SYSTEM / 01">
               <div class="settings-heading"><div><h2>System shortcuts</h2><p>Control OpenKeylet desktop shortcuts and startup behavior.</p></div></div>
               <div class="desktop-options">
@@ -86,13 +88,23 @@
               <div class="button-row bridge-actions"><button class="button primary" id="quick-pairing-button">Connect browser in one click</button><button class="button quiet" id="open-extension-button">Extension directory</button><button class="button danger-soft" id="reset-pairing-button">Reset</button></div>
             </section>
 
+            <section class="content-panel settings-card wide github-card" data-module="CLOUD / 05" id="github-backup-card">
+              <div class="settings-heading"><div><h2 id="github-heading">Encrypted GitHub backup</h2><p id="github-description">Back up the encrypted vault to your own private repository.</p></div></div>
+              <div class="status-strip offline" id="github-status" role="status"></div>
+              <dl class="github-details hidden" id="github-details"><dt id="github-repository-label">Repository</dt><dd id="github-repository-value"></dd><dt id="github-backup-label">Last upload</dt><dd id="github-backup-value"></dd><dt id="github-restore-label">Last restore</dt><dd id="github-restore-value"></dd></dl>
+              <p class="github-note" id="github-note"></p>
+              <p class="github-error hidden" id="github-error" role="alert"></p>
+              <div class="button-row github-actions"><button class="button primary" id="github-connect" type="button">Connect repository</button><button class="button primary hidden" id="github-upload" type="button">Back up now</button><button class="button secondary hidden" id="github-restore" type="button">Restore from cloud</button></div>
+              <div class="button-row github-manage hidden" id="github-manage"><button class="button quiet" id="github-show-key" type="button">View recovery key</button><button class="button quiet" id="github-reconfigure" type="button">Update connection</button><button class="button danger-soft" id="github-disconnect" type="button">Disconnect</button></div>
+              <div class="github-key-display hidden" id="github-key-display"><label for="github-saved-key" id="github-saved-key-label">Recovery key</label><textarea class="input github-key" id="github-saved-key" readonly rows="2" spellcheck="false" autocomplete="off"></textarea><p class="github-note" id="github-key-warning"></p><div class="button-row"><button type="button" class="button secondary" id="github-copy-saved-key">Copy</button><button type="button" class="button quiet" id="github-hide-key">Hide</button></div></div>
+            </section>
+
             <section class="content-panel settings-card wide" data-module="SAFE / 05">
               <div class="settings-heading"><div class="square-icon coral">BK</div><div><h2>Local data</h2><p>Export an encrypted package that OpenKeylet decrypts automatically, so secrets are not exposed directly as plaintext.</p></div></div>
               <div class="security-actions"><button class="button quiet" id="open-data-button">Open data directory</button></div>
             </section>
             <div class="settings-search-empty hidden" id="settings-search-empty">NO MATCHING SETTINGS</div>
-          </div>
-          <i class="fixed-scroll-thumb" data-scroll-for="#page-settings .settings-layout" aria-hidden="true"></i>
+          </div></div>
         </section>
       </main>
     </div>
@@ -109,7 +121,7 @@
       </form>
     </div>
 
-    <div class="modal-backdrop hidden" id="connection-modal" role="dialog" aria-modal="true">
+    <div class="modal-backdrop hidden" id="connection-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-card">
         <div class="modal-header"><div class="modal-title-mark"><i aria-hidden="true"></i><h2 id="modal-title">Add project</h2><span aria-hidden="true"></span><small>LOCAL VAULT ITEM</small></div><button class="icon-button" data-close-modal aria-label="Close editor">×</button></div>
         <form id="connection-form">
@@ -119,11 +131,11 @@
 
             <section class="template-picker hidden" id="template-picker">
               <div class="template-copy"><strong>Start with a combination</strong><small>Templates only add modules; they do not limit later changes.</small></div>
-              <div class="template-grid"><button type="button" data-item-template="login"><b>A</b><span>Sign in<small>Account + password</small></span></button><button type="button" data-item-template="ssh"><b>B</b><span>SSH<small>Host + port + account + password</small></span></button><button type="button" data-item-template="api"><b>C</b><span>API<small>API credentials</small></span></button><button type="button" data-item-template="blank"><b>D</b><span>Blank<small>Add modules from scratch</small></span></button></div>
+              <div class="template-grid"><button type="button" data-item-template="login"><b>A</b><span>Login<small>Account + password</small></span></button><button type="button" data-item-template="ssh"><b>B</b><span>SSH<small>Host + port + account + password</small></span></button><button type="button" data-item-template="api"><b>C</b><span>API<small>API credentials</small></span></button><button type="button" data-item-template="blank"><b>D</b><span>Blank<small>Add modules from scratch</small></span></button></div>
             </section>
 
             <section class="module-editor">
-              <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>The switch on the left controls whether plaintext is visible to the Agent</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Username</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button></div></div></div>
+              <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>The switch on the left controls whether plaintext is visible to the Agent</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Account</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button></div></div></div>
               <div class="module-list" id="module-list"></div>
               <div class="module-reorder-status" id="module-reorder-status" role="status" aria-live="polite"></div>
             </section>
@@ -132,6 +144,27 @@
             <label class="check-row"><input type="checkbox" id="connection-enabled" checked /><span class="check-mark"></span><span><strong>Enable this project</strong><small>When disabled, the Agent cannot use it</small></span></label>
           </div>
           <div class="modal-footer"><div class="secret-hint">Plaintext for the current project is shown only in the unlocked GUI</div><div class="button-row"><button type="button" class="button quiet" data-close-modal>Close</button><button type="submit" class="button primary" id="save-connection-button">Save</button></div></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="github-modal" role="dialog" aria-modal="true" aria-labelledby="github-modal-title">
+      <div class="modal-card github-modal-card">
+        <div class="modal-header"><h2 id="github-modal-title">Connect GitHub</h2><button class="icon-button" type="button" id="github-modal-close" aria-label="Close">×</button></div>
+        <form id="github-form" class="github-form" autocomplete="off">
+          <div class="github-form-scroll">
+            <label class="field" for="github-repository"><span id="github-repository-input-label">Private repository</span><input class="input" id="github-repository" placeholder="owner/openkeylet-vault" maxlength="240" required spellcheck="false" autocapitalize="off" /></label>
+            <div class="github-help-row"><button class="button quiet" type="button" data-github-help="repository" id="github-create-repo">Create private repository ↗</button><button class="button quiet" type="button" data-github-help="token" id="github-create-token">Create access token ↗</button></div>
+            <label class="field" for="github-token"><span id="github-token-label">GitHub access token</span><input class="input" type="password" id="github-token" maxlength="2048" required autocomplete="off" spellcheck="false" /></label>
+            <p class="github-note" id="github-token-help"></p>
+            <label class="field" for="github-mode"><span id="github-mode-label">Connection method</span><select class="input" id="github-mode"><option value="new" id="github-mode-new">Create a new backup</option><option value="existing" id="github-mode-existing">Connect an existing backup</option></select></label>
+            <label class="field" for="github-recovery-key"><span id="github-key-label">Recovery key</span><textarea class="input github-key" id="github-recovery-key" rows="2" maxlength="64" required spellcheck="false" autocapitalize="off" autocomplete="off" readonly placeholder="okv1_…"></textarea></label>
+            <div class="button-row github-key-actions"><button class="button secondary" id="github-generate-key" type="button">Generate a recovery key</button><button class="button quiet" id="github-copy-key" type="button">Copy key</button></div>
+            <p class="github-note" id="github-recovery-help"></p>
+            <label class="github-key-confirm"><input type="checkbox" id="github-key-saved" required /><span id="github-key-saved-label">Recovery key saved outside the repository</span></label>
+            <p class="github-error hidden" id="github-form-error" role="alert"></p>
+          </div>
+          <div class="modal-footer github-modal-footer"><span class="github-note" id="github-local-only"></span><button class="button primary" id="github-submit" type="submit">Connect repository</button></div>
         </form>
       </div>
     </div>
@@ -147,6 +180,8 @@
     </div>
 
     <div class="toast-region" id="toast-region" aria-live="polite"></div>
+    <script src="lettering.js"></script>
+    <script src="github-backup.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

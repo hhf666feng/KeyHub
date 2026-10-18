@@ -75,7 +75,8 @@ fn with_epoch_lock<T>(data_dir: &Path, action: impl FnOnce() -> Result<T>) -> Re
 
 fn write_epoch_unlocked(data_dir: &Path, value: &str) -> Result<()> {
     let path = data_dir.join(BUILD_EPOCH_FILE);
-    let mut file = AtomicWriteFile::open(&path).context("Unable to create the OpenKeylet MCP lifecycle file")?;
+    let mut file = AtomicWriteFile::open(&path)
+        .context("Unable to create the OpenKeylet MCP lifecycle file")?;
     file.write_all(value.as_bytes())
         .context("Unable to write the OpenKeylet MCP lifecycle file")?;
     file.commit()

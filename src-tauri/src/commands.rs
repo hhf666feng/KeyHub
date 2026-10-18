@@ -3,6 +3,7 @@ use crate::{
     backup,
     browser::BrowserBridge,
     executor,
+    github_backup::{self, BackupStatus, ConnectInput, GithubBackup, RestoreResult},
     gui_instance::GuiInstance,
     mcp,
     model::{
@@ -37,6 +38,7 @@ pub struct AppRuntime {
     browser: BrowserBridge,
     pending_private_key: Mutex<Option<PathBuf>>,
     owner_session: Mutex<OwnerSession>,
+    github_backup: Mutex<GithubBackup>,
     agent_registry: AgentRegistry,
     tray_available: AtomicBool,
 }
@@ -502,10 +504,9 @@ fn browser_extension_path(app: &AppHandle) -> Result<PathBuf, String> {
         .parent()
         .map(|path| path.join("browser-extension"))
         .filter(|path| path.is_dir());
-    let path = portable
-        .or(bundled)
-        .or(development)
-        .ok_or_else(|| "browser-extension directory not found; use the complete portable ZIP".to_owned())?;
+    let path = portable.or(bundled).or(development).ok_or_else(|| {
+        "browser-extension directory not found; use the complete portable ZIP".to_owned()
+    })?;
     Ok(path)
 }
 
@@ -580,6 +581,101 @@ async fn export_backup(
     let path = path.into_path().map_err(command_error)?;
     backup::export_to_file(&runtime.vault, &path).map_err(command_error)?;
     Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+async fn github_backup_status(runtime: State<'_, AppRuntime>) -> Result<BackupStatus, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .status()
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_generate_key(runtime: State<'_, AppRuntime>) -> Result<String, String> {
+    require_owner_unlocked(&runtime).await?;
+    github_backup::generate_recovery_key().map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_recovery_key(runtime: State<'_, AppRuntime>) -> Result<String, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .recovery_key()
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_connect(
+    runtime: State<'_, AppRuntime>,
+    input: ConnectInput,
+) -> Result<BackupStatus, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .connect(input)
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_upload(runtime: State<'_, AppRuntime>) -> Result<BackupStatus, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .upload()
+        .await
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_restore(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+) -> Result<RestoreResult, String> {
+    require_owner_unlocked(&runtime).await?;
+    let result = runtime
+        .github_backup
+        .lock()
+        .await
+        .restore()
+        .await
+        .map_err(command_error)?;
+    emit_changed(&app);
+    Ok(result)
+}
+
+#[tauri::command]
+async fn github_backup_disconnect(runtime: State<'_, AppRuntime>) -> Result<BackupStatus, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .disconnect()
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_help(app: AppHandle, page: String) -> Result<(), String> {
+    let url = match page.as_str() {
+        "repository" => "https://github.com/new",
+        "token" => "https://github.com/settings/personal-access-tokens/new",
+        _ => return Err("GITHUB_HELP_INVALID".to_owned()),
+    };
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(command_error)
 }
 
 #[tauri::command]
@@ -756,6 +852,7 @@ pub fn run_gui() -> Result<()> {
             agent_registry.refresh_managed_instructions();
             app.manage(AppRuntime {
                 _gui_instance: gui_instance,
+                github_backup: Mutex::new(GithubBackup::new(vault.clone())?),
                 vault,
                 executable,
                 browser,
@@ -852,6 +949,14 @@ pub fn run_gui() -> Result<()> {
             open_browser_extension_folder,
             export_backup,
             import_backup,
+            github_backup_status,
+            github_backup_generate_key,
+            github_backup_recovery_key,
+            github_backup_connect,
+            github_backup_upload,
+            github_backup_restore,
+            github_backup_disconnect,
+            github_backup_help,
             open_data_folder,
             window_action,
         ])

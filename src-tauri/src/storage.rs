@@ -12,7 +12,8 @@ pub fn app_data_dir() -> Result<PathBuf> {
 }
 
 pub fn resolve_user_path(value: &str) -> Result<PathBuf> {
-    let current_dir = env::current_dir().context("Unable to determine the current working directory")?;
+    let current_dir =
+        env::current_dir().context("Unable to determine the current working directory")?;
     let home_dir = dirs::home_dir();
     resolve_user_path_from(value, &current_dir, home_dir.as_deref())
 }
@@ -27,12 +28,16 @@ fn resolve_user_path_from(
         bail!("Invalid local path");
     }
     let path = if value == "~" {
-        home_dir.context("Unable to determine the user home directory")?.to_path_buf()
+        home_dir
+            .context("Unable to determine the user home directory")?
+            .to_path_buf()
     } else if let Some(relative) = value
         .strip_prefix("~/")
         .or_else(|| value.strip_prefix("~\\"))
     {
-        home_dir.context("Unable to determine the user home directory")?.join(relative)
+        home_dir
+            .context("Unable to determine the user home directory")?
+            .join(relative)
     } else {
         PathBuf::from(value)
     };

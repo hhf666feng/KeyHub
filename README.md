@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Local only&nbsp;&nbsp;·&nbsp;&nbsp;Free and open source&nbsp;&nbsp;·&nbsp;&nbsp;No account&nbsp;&nbsp;·&nbsp;&nbsp;Windows / macOS / Linux
+  Local first&nbsp;&nbsp;·&nbsp;&nbsp;Free and open source&nbsp;&nbsp;·&nbsp;&nbsp;No OpenKeylet account&nbsp;&nbsp;·&nbsp;&nbsp;Windows / macOS / Linux
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@ OpenKeylet is a small local MCP tool for saving and using credentials without br
 
 OpenKeylet stores credentials as independent modules rather than fixed “login / SSH / API” item types. Username, password, API credential, private key, key passphrase, TOTP, host, port, URL, and custom fields can be combined in one item. The available MCP actions are derived automatically from that combination.
 
-There is no OpenKeylet account, subscription, cloud vault, or remote MCP service. OpenKeylet is free and open source, runs on Windows, macOS, and Linux, and keeps vault data encrypted on the current device. Its local `stdio` MCP starts only when an agent calls it.
+There is no OpenKeylet account, subscription, hosted vault, or remote MCP service. OpenKeylet is free and open source, runs on Windows, macOS, and Linux, and keeps vault data encrypted on the current device. Optional GitHub backup stores encrypted snapshots in your own private repository. Its local `stdio` MCP starts only when an agent calls it.
 
 <table>
   <tr>
@@ -147,6 +147,22 @@ Replacing or upgrading the executable does not remove your vault. OpenKeylet int
 
 Exported `.mvault` packages are encrypted and portable, but they contain their own unlock material for easy import. Protect a backup file as carefully as the original credentials.
 
+### Optional GitHub encrypted backup
+
+In **Settings → GitHub backup**, connect a private repository that you own:
+
+1. Create a dedicated private repository, such as `openkeylet-vault`.
+2. Create a [fine-grained GitHub token](https://github.com/settings/personal-access-tokens/new), select only that repository, and grant **Contents: Read and write**.
+3. Enter `owner/repository` and the token. Choose **Create a new backup**, generate a recovery key, and save that key somewhere outside the repository.
+4. Connect, then select **Back up now**. Upload is manual; connecting does not upload your vault.
+5. On another device, choose **Connect an existing backup**, enter the same repository and recovery key, provide a token with access, then select **Restore**.
+
+The entire portable payload, including item names, addresses, notes and credentials, is encrypted locally with XChaCha20-Poly1305 and a separate random 256-bit recovery key. GitHub receives `openkeylet.vault.json` without any unlock key. The token and recovery key are encrypted under the device's local vault key and never included in backups. Browser pairing, PIN, agent configuration, activity logs and editor drafts stay local. You can view the saved recovery key from the unlocked GUI.
+
+This first version provides **manual snapshots and merge restore**, not automatic two-way synchronization. Restoring skips identical items and keeps conflicting items separately; it never deletes or overwrites local items. A newly connected device must restore an existing snapshot before uploading. Remote version changes and concurrent writes stop the upload instead of forcing an overwrite. Repository privacy is checked before every upload and restore. GitHub.com repositories are supported, with an 8 MiB encrypted snapshot limit.
+
+Keep the recovery key: without it or a still-connected device, a backup cannot be recovered. Git history retains older encrypted snapshots, including deleted credentials. Disconnecting removes this device's saved connection only; it does not delete repository history or revoke the GitHub token. Existing `.mvault` exports are a different, self-unlocking format and must not be uploaded as cloud-safe encrypted backups.
+
 New exports use the leaner v4 backup format. Existing v3 backups can still be imported; v4 backups require an OpenKeylet version that supports that format. Existing v7 vaults remain readable and are saved as v8 on their first modification, preserving existing credentials. After this format upgrade, start new Agent sessions so they use the updated OpenKeylet; older versions cannot read v8 vaults.
 
 ## Common questions
@@ -165,7 +181,7 @@ OpenKeylet supports usernames, passwords, API keys and tokens, SSH private keys 
 
 ### Does OpenKeylet require a cloud account?
 
-No. OpenKeylet is a local-first, account-free secrets manager. The app, vault, MCP server, activity records, and backups remain under your control on the current device.
+Local use does not require an account. Optional GitHub encrypted backup uses your own GitHub account and private repository; no OpenKeylet account is needed.
 
 ## Downloads
 

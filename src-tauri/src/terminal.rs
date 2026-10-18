@@ -165,6 +165,15 @@ impl TerminalManager {
             })
             .context("Could not create local PTY")?;
         let mut command = CommandBuilder::new(&resolved.executable);
+        #[cfg(windows)]
+        {
+            // portable-pty reloads registry values on Windows, which can replace
+            // the caller's project PATH and cache directories with stale values.
+            command.env_clear();
+            for (name, value) in std::env::vars_os() {
+                command.env(name, value);
+            }
+        }
         command.args(resolved.prefix_args);
         command.args(args);
         for (name, value) in environment {
@@ -192,7 +201,9 @@ impl TerminalManager {
             .try_clone_reader()
             .context("Could not read PTY output")?;
         let writer = Arc::new(Mutex::new(Some(
-            pair.master.take_writer().context("Could not write to PTY")?,
+            pair.master
+                .take_writer()
+                .context("Could not write to PTY")?,
         )));
         let output = Arc::new(Mutex::new(OutputBuffer::default()));
         let reader_output = output.clone();
@@ -274,7 +285,9 @@ impl TerminalManager {
             }
         }
         let mut writer = session.writer.lock().map_err(lock_error)?;
-        let writer = writer.as_mut().context("Terminal session has already ended")?;
+        let writer = writer
+            .as_mut()
+            .context("Terminal session has already ended")?;
         writer
             .write_all(text.as_bytes())
             .context("Could not write to terminal session")
@@ -356,7 +369,9 @@ impl TerminalManager {
             .context("Terminal session not found")?;
         let mut child = session.child.lock().map_err(lock_error)?;
         if child.try_wait()?.is_none() {
-            child.kill().context("Could not terminate terminal process")?;
+            child
+                .kill()
+                .context("Could not terminate terminal process")?;
         }
         drop(child);
         session.close_pty_io();

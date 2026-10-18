@@ -117,7 +117,8 @@ impl VaultMcp {
                 .ok()
                 .and_then(|session_id| *session_id)
                 .ok_or_else(|| {
-                    "No current terminal session; call terminal_start first or provide sessionId".to_owned()
+                    "No current terminal session; call terminal_start first or provide sessionId"
+                        .to_owned()
                 })?
         } else {
             Uuid::parse_str(session_id).map_err(|_| "Invalid terminal session ID".to_owned())?
@@ -419,7 +420,9 @@ impl VaultMcp {
             return Err("The SSH project has no saved host; provide host in this call".to_owned());
         }
         if connection.secrets.get("username").is_none() {
-            return Err("The SSH project has no saved username; provide username in this call".to_owned());
+            return Err(
+                "The SSH project has no saved username; provide username in this call".to_owned(),
+            );
         }
         Ok(connection)
     }
@@ -678,7 +681,9 @@ fn resolve_secret_module(
             "This project contains multiple secret modules; specify which module to use in the item statement, or specify module:{names}"
         ))
     } else {
-        Err(format!("Unable to uniquely match the secret module; available modules:{names}"))
+        Err(format!(
+            "Unable to uniquely match the secret module; available modules:{names}"
+        ))
     }
 }
 
@@ -704,9 +709,9 @@ fn interpolate_http_text(
             return Err("Missing OpenKeylet secret placeholder }}".to_owned());
         };
         let alias = after_open[..end].trim();
-        let value = replacements
-            .get(alias)
-            .ok_or_else(|| format!("OpenKeylet HTTP secret placeholder has no corresponding binding:{alias}"))?;
+        let value = replacements.get(alias).ok_or_else(|| {
+            format!("OpenKeylet HTTP secret placeholder has no corresponding binding:{alias}")
+        })?;
         output.push_str(value);
         used.insert(alias.to_owned());
         rest = &after_open[end + 2..];
@@ -1624,7 +1629,10 @@ impl VaultMcp {
             let action = if injected_names.is_empty() {
                 "Start project terminal".to_owned()
             } else {
-                format!("Start terminal using hidden module:{}", injected_names.join("、"))
+                format!(
+                    "Start terminal using hidden module:{}",
+                    injected_names.join("、")
+                )
             };
             Some((connection.stored.id, action))
         };
@@ -2086,7 +2094,8 @@ pub fn launcher_executable() -> Result<std::path::PathBuf> {
     {
         return Ok(path);
     }
-    let current = std::env::current_exe().context("Unable to determine the OpenKeylet executable path")?;
+    let current =
+        std::env::current_exe().context("Unable to determine the OpenKeylet executable path")?;
     Ok(stable_launcher_executable(current))
 }
 

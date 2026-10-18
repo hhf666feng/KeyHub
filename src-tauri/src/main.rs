@@ -42,7 +42,9 @@ async fn dispatch() -> Result<()> {
         let data_dir = app_data_dir()?;
         if MasterKey::migrate_legacy_macos_key(&data_dir)? {
             Vault::open(data_dir)?;
-            println!("The legacy keychain master key has been migrated; future OpenKeylet launches will no longer request keychain permission");
+            println!(
+                "The legacy keychain master key has been migrated; future OpenKeylet launches will no longer request keychain permission"
+            );
         } else {
             println!("The app-private master key file already exists; no migration is needed");
         }
@@ -99,7 +101,9 @@ async fn dispatch() -> Result<()> {
 }
 
 fn parse_port(value: &str) -> Result<u16> {
-    let port = value.parse::<u16>().context("Invalid browser bridge port")?;
+    let port = value
+        .parse::<u16>()
+        .context("Invalid browser bridge port")?;
     if port == 0 {
         anyhow::bail!("Browser bridge port must be between 1 and 65535");
     }
@@ -153,7 +157,9 @@ async fn pair_browser(vault: &Vault, port: Option<u16>) -> Result<()> {
         sleep(Duration::from_millis(250)).await;
     }
     bridge.stop().await;
-    anyhow::bail!("Browser extension pairing timed out; confirm that the extension port matches OpenKeylet and try again")
+    anyhow::bail!(
+        "Browser extension pairing timed out; confirm that the extension port matches OpenKeylet and try again"
+    )
 }
 
 async fn reset_browser(vault: &Vault) -> Result<()> {
