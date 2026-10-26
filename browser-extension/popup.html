@@ -9,19 +9,100 @@
   <body>
     <header>
       <img class="mark" src="icons/42x42.png" srcset="icons/42x42.png 1x, icons/53x53.png 1.25x, icons/63x63.png 1.5x, icons/84x84.png 2x, icons/105x105.png 2.5x, icons/126x126.png 3x, icons/168x168.png 4x" alt="">
-      <div><strong>OpenKeylet</strong><small>BROWSER BRIDGE / 0.6</small></div>
+      <div><strong>OpenKeylet</strong><small>LOCAL PASSWORDS & PASSKEYS</small></div>
     </header>
     <section class="status-row">
       <span id="lamp" class="lamp"></span>
-      <div><strong id="status">CHECKING</strong><small id="detail">127.0.0.1</small></div>
+      <div><strong id="status">正在检查 / CHECKING</strong><small id="detail">127.0.0.1</small></div>
     </section>
-    <form id="pair-form">
+    <main>
+      <section id="capture-complete" class="page-hint" hidden><strong>已保存到 OpenKeylet / Saved</strong><p>账号信息已写入本地加密密码库。</p><button id="capture-close" type="button">完成 / Done</button></section>
+      <p id="website" class="website" hidden></p>
+      <section id="capture-notice" class="page-hint" hidden>
+        <strong>检测到已提交的登录信息 / Login detected</strong>
+        <p id="capture-source"></p>
+        <p class="note">请确认账号及密码是否正确。提交表单不代表登录或注册成功。待保存信息最多保留 5 分钟。</p>
+        <button id="capture-review" type="button">预览并保存 / Review & save</button>
+        <button id="capture-dismiss" type="button" class="secondary">忽略 / Dismiss</button>
+      </section>
+      <section id="page-hint" class="page-hint" role="status" hidden>
+        <strong>下一步：打开需要登录的网站</strong>
+        <p>然后点击 OpenKeylet 插件，即可查看、填写或保存该网站的账号。</p>
+        <p class="note">扩展管理页、新标签页等浏览器页面无法填写密码，无需重新连接。</p>
+        <p class="note" lang="en">Open a sign-in website, then click OpenKeylet. Browser pages cannot be filled; no reconnection is needed.</p>
+      </section>
+      <form id="unlock-form" hidden><label for="pin">OpenKeylet PIN</label><input id="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required><button>解锁 / Unlock</button></form>
+      <section id="vault-panel" hidden>
+        <details class="personal-vault" id="full-vault">
+          <summary>完整密码库 / All vault items</summary>
+          <label for="vault-search">搜索 / Search</label><input id="vault-search" type="search" autocomplete="off">
+          <div class="vault-filter-row">
+            <select id="vault-view" aria-label="Vault or trash"><option value="active">密码库 / Vault</option><option value="trash">回收站 / Trash</option></select>
+            <select id="vault-kind" aria-label="Item type"><option value="">所有类型 / All types</option><option value="login">登录 / Login</option><option value="passkey">Passkey</option><option value="card">信用卡 / Card</option><option value="identity">身份 / Identity</option><option value="secureNote">笔记 / Note</option><option value="ssh">SSH</option><option value="api">API</option><option value="custom">其他 / Other</option></select>
+          </div>
+          <label for="vault-folder">文件夹 / Folder</label><select id="vault-folder"><option value="">所有文件夹 / All folders</option></select>
+          <label class="vault-check"><input id="vault-favorites" type="checkbox">仅收藏 / Favorites</label>
+          <div id="vault-all-items"></div>
+          <div class="vault-filter-row"><select id="vault-new-kind" aria-label="New item type"><option value="login">登录 / Login</option><option value="card">信用卡 / Card</option><option value="identity">身份 / Identity</option><option value="secureNote">笔记 / Note</option></select><button id="vault-new" type="button">＋ 新建 / New</button></div>
+        </details>
+        <form id="vault-editor" hidden autocomplete="off">
+          <strong id="vault-editor-title"></strong>
+          <label for="vault-item-name">名称 / Name</label><input id="vault-item-name" maxlength="80" required>
+          <label for="vault-item-folder">文件夹 / Folder</label><input id="vault-item-folder" maxlength="120">
+          <label class="vault-check"><input id="vault-item-favorite" type="checkbox">收藏 / Favorite</label>
+          <label class="vault-check"><input id="vault-item-enabled" type="checkbox" checked>启用 / Enabled</label>
+          <div id="vault-editor-fields"></div>
+          <fieldset id="vault-editor-websites"><legend>网站 / Websites</legend><div id="vault-uri-rows"></div><button id="vault-uri-add" type="button">＋ 网站 / Website</button></fieldset>
+          <div id="vault-editor-passkeys"></div>
+          <button type="submit">保存 / Save</button><button id="vault-editor-cancel" type="button" class="secondary">取消 / Cancel</button>
+        </form>
+        <section id="vault-history" hidden><strong>密码历史 / Password history</strong><p>最近 20 条旧密码 / Latest 20 previous passwords</p><div id="vault-history-rows"></div><button id="vault-history-clear" type="button">清除历史 / Clear history</button><button id="vault-history-close" type="button" class="secondary">关闭 / Close</button></section>
+        <dialog id="vault-confirm" hidden aria-label="Confirm vault action"><p id="vault-confirm-message"></p><div class="personal-actions"><button id="vault-confirm-accept" type="button">确认 / Confirm</button><button id="vault-confirm-cancel" type="button" class="secondary">取消 / Cancel</button></div></dialog>
+        <div id="entries" class="entries"></div>
+        <button id="read-form" type="button">保存当前网站的账号 / Save login</button>
+        <details class="personal-vault"><summary>密码生成器 / Password generator</summary>
+          <label for="generator-length">长度 / Length · 8–128</label><input id="generator-length" type="number" min="8" max="128" value="24">
+          <div class="generator-options"><label><input type="checkbox" id="gen-uppercase" checked>A–Z</label><label><input type="checkbox" id="gen-lowercase" checked>a–z</label><label><input type="checkbox" id="gen-digits" checked>0–9</label><label><input type="checkbox" id="gen-symbols" checked>!@#</label></div>
+          <input id="generator-output" readonly aria-label="Generated password" autocomplete="off">
+          <div class="personal-actions"><button id="generate-password" type="button">生成 / Generate</button><button id="copy-generated-password" type="button">复制 / Copy</button></div>
+        </details>
+        <form id="save-form" hidden autocomplete="off">
+          <p id="save-source" class="note"></p>
+          <label id="detected-form-label" for="detected-form" hidden>检测到多个表单 / Choose a form</label>
+          <select id="detected-form" hidden></select>
+          <p id="save-warning" class="note" role="status"></p>
+          <label for="save-target">保存位置 / Save to</label><select id="save-target"><option value="">新项目 / New item</option></select>
+          <label for="name">名称 / Name</label><input id="name" maxlength="64" required>
+          <label for="username">账号 / Username</label><input id="username" maxlength="4096" autocomplete="off">
+          <label for="password">密码 / Password</label><input id="password" type="password" maxlength="16384" autocomplete="new-password" required>
+          <button id="toggle-saved-password" type="button" class="secondary">显示密码 / Show password</button>
+          <button id="use-generated-password" type="button" class="secondary">生成新密码 / Generate password</button>
+          <button type="submit">保存到 OpenKeylet / Save</button><button id="cancel-save" type="button" class="secondary">取消 / Cancel</button>
+        </form>
+        <button id="lock" type="button" class="secondary" hidden>锁定 / Lock</button>
+        <details class="personal-vault">
+          <summary id="personal-vault-summary">信用卡、身份与笔记 / Cards, identities & notes</summary>
+          <div id="personal-entries"></div>
+          <div class="personal-actions"><button id="add-card" type="button">＋ 信用卡 / Card</button><button id="add-identity" type="button">＋ 身份 / Identity</button><button id="add-note" type="button">＋ 笔记 / Note</button></div>
+        </details>
+        <form id="personal-form" hidden autocomplete="off">
+          <strong id="personal-title"></strong>
+          <label for="personal-name">名称 / Name</label><input id="personal-name" maxlength="80" required>
+          <div id="personal-fields"></div>
+          <button type="submit">保存到 OpenKeylet / Save</button>
+          <button id="personal-cancel" type="button" class="secondary">取消 / Cancel</button>
+        </form>
+      </section>
+      <p id="error" role="status" aria-live="polite"></p>
+    </main>
+    <details><summary>连接设置 / Connection</summary><form id="pair-form">
       <label for="port">BRIDGE PORT</label>
       <input id="port" inputmode="numeric" value="39272" maxlength="5">
       <button type="submit">RECONNECT LOCAL BRIDGE</button>
-      <p id="error" role="alert"></p>
-    </form>
-    <footer>LOCAL ONLY · NO SECRET VIEW</footer>
-    <script src="popup.js"></script>
+    </form></details>
+    <p class="capture-disclosure" id="capture-disclosure">开启后，在你提交表单、点击登录／继续或按 Enter 时读取账号和密码，仅发送到本机 OpenKeylet。待保存密码最多暂存 5 分钟，确认后才写入密码库。<br><span lang="en">When enabled, reads login fields on submit, sign-in/continue clicks or Enter. Sent only to local OpenKeylet; drafts expire within 5 minutes and are saved only after confirmation.</span></p>
+    <label class="capture-setting"><input id="capture-enabled" type="checkbox" aria-describedby="capture-disclosure">开启登录保存提示 / Enable save suggestions</label>
+    <footer>与本机 OpenKeylet 共用密码库 · LOCAL VAULT<br><a href="privacy.html" target="_blank" rel="noopener">隐私说明 / Privacy</a></footer>
+    <script src="vault.js"></script><script src="popup.js"></script>
   </body>
 </html>

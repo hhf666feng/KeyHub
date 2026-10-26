@@ -22,6 +22,15 @@
 .github-error { color: var(--danger, #b13424); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; margin: 10px 0; }
 .github-key-display { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
 .github-key-display > label { display: block; margin-bottom: 8px; font-size: 11px; }
+/* The SYSTEM card follows the same compact rack spacing as local settings.
+   The connection dialog retains its own form layout. */
+.github-card .github-note, .github-card .github-error { margin: var(--well-inset) 0; font-size: 10px; line-height: 14px; }
+.github-card #github-status { min-height: var(--compact-control-height); margin: var(--well-inset) 0; padding: var(--well-inset) var(--region-gap); font-size: 10px; line-height: 14px; }
+.github-card .github-details { gap: var(--well-inset) var(--region-gap); margin: var(--well-inset) 0; padding: var(--region-gap); border-radius: var(--radius); background: var(--ui-well-face); box-shadow: var(--ui-well-shadow); font-size: 10px; line-height: 14px; }
+.github-card .github-manage { margin-top: var(--well-inset); }
+.github-card .github-key-display { margin-top: var(--region-gap); padding-top: var(--region-gap); }
+.github-card .github-key-display > label { margin-bottom: var(--control-inset); font-size: 10px; }
+.github-card .github-key-display > .button-row { margin-top: var(--well-inset); gap: var(--well-inset); }
 .github-key.input { width: 100%; min-height: 62px; height: auto; resize: none; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 11px; line-height: 1.7; padding: 9px 10px; user-select: text; }
 .github-modal-card textarea.github-key.input { height: auto; padding: 9px 10px; line-height: 1.7; }
 .github-modal-card { width: min(424px, calc(100vw - 24px)); max-height: calc(100vh - 40px); display: flex; flex-direction: column; }
@@ -33,6 +42,10 @@
 .github-form .field > span { font-size: 11px; color: var(--ink); }
 .github-form .field > .input { width: 100%; min-width: 0; }
 .github-help-row { display: flex; flex-wrap: wrap; gap: 6px; margin: -3px 0 14px; }
+.github-step { font-size: 13px; margin: 20px 0 12px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.github-step:first-child { margin-top: 0; padding-top: 0; border: 0; }
+#github-create-repository-field { margin-bottom: 14px; }
+#github-account-status { color: var(--ink); }
 .github-help-row .button { font-size: 9px; padding: 6px 9px; min-height: 28px; }
 .github-key-confirm { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; font-size: 11px; line-height: 1.5; cursor: pointer; }
 .github-key-confirm input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--accent, var(--orange)); }

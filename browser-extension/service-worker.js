@@ -5,13 +5,15 @@ let connectTask;
 let forceReconnectAfterCurrent = false;
 const focusedFrameByTab = new Map();
 const JOB_TIMEOUT_MS = 35_000;
+// Pairing tokens belong to the worker and extension UI, never content scripts.
+const storageReady = chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (["openkeylet-focus", "kru-focus"].includes(message?.type) && sender.tab?.id != null) {
     focusedFrameByTab.set(sender.tab.id, sender.frameId ?? 0);
     return;
   }
-  if (message?.type === "bridge-config-updated") {
+  if (message?.type === "bridge-config-updated" && trustedUi(sender, "popup.html")) {
     requestConnect({ force: true });
   }
 });
@@ -93,6 +95,7 @@ function disposeSocket(ws, close = false) {
 
 async function handleDisconnect(ws) {
   if (!disposeSocket(ws, true)) return;
+  failBridgeRequests();
   const { bridgePort = 39272 } = await chrome.storage.local.get("bridgePort");
   await setStatus("disconnected", `127.0.0.1:${bridgePort}`);
   reconnectAfter();
@@ -127,6 +130,7 @@ async function claimPairing(port) {
 }
 
 async function connectOnce(force = false) {
+  await storageReady;
   clearTimeout(reconnectTimer);
   if (!force && socketIsLive()) return;
   if (socket) {
@@ -156,6 +160,7 @@ async function connectOnce(force = false) {
     } catch {
       return;
     }
+    if (message.type === "rpc-result") { finishBridgeRequest(message); return; }
     if (message.type === "ready") {
       await setStatus("connected", `127.0.0.1:${bridgePort}`);
       startHeartbeat(ws);
@@ -263,4 +268,5 @@ function writeToFocusedControl(value, expiresAt, submit = false) {
   }
 }
 
+importScripts("form-reader.js", "provider.js", "capture.js");
 requestConnect();

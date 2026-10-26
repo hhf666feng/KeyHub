@@ -1,24 +1,49 @@
 {
   "manifest_version": 3,
   "minimum_chrome_version": "116",
-  "name": "OpenKeylet Browser Bridge",
-  "version": "0.9.0",
-  "description": "Writes a selected local OpenKeylet secret into the focused web control.",
+  "name": "OpenKeylet — Local Passwords & Passkeys",
+  "version": "0.16.0",
+  "description": "Local passwords, passkeys and autofill with your OpenKeylet desktop vault. Requires the OpenKeylet desktop app.",
   "icons": {
     "16": "icons/16x16.png",
     "32": "icons/32x32.png",
     "48": "icons/48x48.png",
     "128": "icons/128x128.png"
   },
-  "permissions": ["scripting", "storage", "tabs"],
-  "host_permissions": ["http://*/*", "https://*/*"],
-  "content_scripts": [{
-    "matches": ["http://*/*", "https://*/*"],
-    "js": ["content-script.js"],
-    "all_frames": true,
-    "run_at": "document_start",
-    "world": "ISOLATED"
-  }],
+  "permissions": [
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "form-reader.js",
+        "content-script.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": [
+        "https://*/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "webauthn-main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -32,5 +57,6 @@
       "16": "icons/16x16.png",
       "32": "icons/32x32.png"
     }
-  }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzesfPsufH+3chxkp9tpIJ/ysZpQaHcDF8Zba1+UMcbfH3qS27RXlG9VQKkPRh3PhvXE6RYYefyzcEj82Uveqol8cjkmYBe/7Q7r2fB9Aridw3ARVdMxoXjdmM0aN0aW/1LCN11H5ML6yl6ELy8rF8i2LABcdRrBgg/5ynnriLhv7BWsftUrer8Gbbv+jITCTmBeWtQyBzgbrEU2eoGy34NwvRfj53z8bjr1W0NhABj7pS7Z2UdDpKoYxU/hKuC9ooLKrglC3kXfTb281lsPWu9ggMNnSH5gdy/1quQtCaaEUPRZCMTcDVIYKpb/HeEWa+fyVauAAx82klJ4d7BemywIDAQAB"
 }

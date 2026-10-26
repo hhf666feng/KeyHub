@@ -3,7 +3,7 @@ use crate::{
     model::{ImportSummary, PortableConnection, SecretBundle, SecretEnvelope},
     vault::Vault,
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use atomic_write_file::AtomicWriteFile;
 use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
 use chrono::Utc;
@@ -11,12 +11,94 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io::Write, path::Path};
 use zeroize::{Zeroize, Zeroizing};
 
-const BACKUP_VERSION: u8 = 4;
+const BACKUP_VERSION: u8 = 8;
+const PASSWORD_BACKUP_AAD: &[u8] = b"openkeylet/password-backup/v1";
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PasswordBackupFile {
+    format: String,
+    version: u8,
+    kdf: String,
+    salt: String,
+    cipher: String,
+    payload: SecretEnvelope,
+}
+
+fn password_backup_key(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; 32]>> {
+    ensure!(salt.len() == 16, "Invalid backup salt");
+    ensure!(
+        !password.is_empty() && password.len() <= 4096,
+        "Enter the backup password"
+    );
+    let params = argon2::Params::new(65_536, 3, 1, Some(32))
+        .map_err(|e| anyhow::anyhow!("Invalid backup parameters: {e}"))?;
+    let mut key = Zeroizing::new([0; 32]);
+    argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params)
+        .hash_password_into(password.as_bytes(), salt, &mut *key)
+        .map_err(|e| anyhow::anyhow!("Unable to derive backup key: {e}"))?;
+    Ok(key)
+}
+
+pub fn export_protected(vault: &Vault, path: &Path, password: &str) -> Result<()> {
+    ensure!(
+        password.chars().count() >= 12 && password.len() <= 4096,
+        "Use a backup password of at least 12 characters"
+    );
+    reject_vault_internal_export_path(vault, path)?;
+    let mut salt = [0; 16];
+    getrandom::fill(&mut salt).map_err(|e| anyhow::anyhow!("Random generator unavailable: {e}"))?;
+    let key = password_backup_key(password, &salt)?;
+    let plain = cloud_snapshot(vault)?;
+    let file = PasswordBackupFile {
+        format: "openkeylet-password-backup".into(),
+        version: 1,
+        kdf: "argon2id-64m-t3-p1".into(),
+        salt: STANDARD_NO_PAD.encode(salt),
+        cipher: "xchacha20poly1305".into(),
+        payload: encrypt_bytes(&key, &plain, PASSWORD_BACKUP_AAD)?,
+    };
+    let mut writer = AtomicWriteFile::open(path).context("Unable to create backup file")?;
+    writer.write_all(&serde_json::to_vec_pretty(&file)?)?;
+    writer.commit()?;
+    Ok(())
+}
+
+pub fn import_with_password(vault: &Vault, path: &Path, password: &str) -> Result<ImportSummary> {
+    ensure!(
+        fs::metadata(path)?.len() <= 64 * 1024 * 1024,
+        "Backup exceeds 64 MiB"
+    );
+    let bytes = fs::read(path).context("Unable to read backup")?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).context("Invalid backup format")?;
+    if value["format"] != "openkeylet-password-backup" {
+        return import_from_file(vault, path);
+    }
+    let file: PasswordBackupFile = serde_json::from_value(value)?;
+    ensure!(
+        file.version == 1 && file.kdf == "argon2id-64m-t3-p1" && file.cipher == "xchacha20poly1305",
+        "Unsupported protected backup format"
+    );
+    let salt = STANDARD_NO_PAD
+        .decode(&file.salt)
+        .context("Invalid backup salt")?;
+    let key = password_backup_key(password, &salt)?;
+    let plain = Zeroizing::new(
+        decrypt_bytes(&key, &file.payload, PASSWORD_BACKUP_AAD)
+            .context("Incorrect backup password or damaged backup")?,
+    );
+    restore_cloud_snapshot(vault, &plain)
+}
 
 fn backup_aad(version: u8) -> Result<&'static [u8]> {
     match version {
         3 => Ok(b"kru/backup/v3"),
-        BACKUP_VERSION => Ok(b"kru/backup/v4"),
+        4 => Ok(b"kru/backup/v4"),
+        5 => Ok(b"kru/backup/v5"),
+        6 => Ok(b"kru/backup/v6"),
+        7 => Ok(b"kru/backup/v7"),
+        BACKUP_VERSION => Ok(b"kru/backup/v8"),
         _ => bail!("Unsupported backup file version"),
     }
 }
@@ -38,6 +120,8 @@ struct BackupPayload {
     version: u8,
     created_at: String,
     connections: Vec<BackupConnection>,
+    #[serde(default)]
+    trash: Vec<crate::model::PortableTrashItem>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -85,8 +169,8 @@ pub fn export_to_file(vault: &Vault, path: impl AsRef<Path>) -> Result<()> {
 }
 
 fn backup_payload(vault: &Vault) -> Result<BackupPayload> {
-    let connections = vault
-        .export_connections()?
+    let (connections, trash) = vault.export_backup_entries()?;
+    let connections = connections
         .into_iter()
         .map(|(connection, secrets)| BackupConnection {
             connection,
@@ -98,6 +182,7 @@ fn backup_payload(vault: &Vault) -> Result<BackupPayload> {
         version: BACKUP_VERSION,
         created_at: Utc::now().to_rfc3339(),
         connections,
+        trash,
     })
 }
 
@@ -109,15 +194,21 @@ pub(crate) fn cloud_snapshot(vault: &Vault) -> Result<Zeroizing<Vec<u8>>> {
 
 pub(crate) fn inspect_cloud_snapshot(plain: &[u8]) -> Result<(String, usize)> {
     let payload: BackupPayload = serde_json::from_slice(plain)?;
-    if payload.format != "mcp-vault-portable" || payload.version != BACKUP_VERSION {
+    if payload.format != "mcp-vault-portable"
+        || !matches!(payload.version, 4 | 5 | 6 | 7 | BACKUP_VERSION)
+    {
         bail!("Unsupported cloud backup content version");
     }
     chrono::DateTime::parse_from_rfc3339(&payload.created_at)?;
-    Ok((payload.created_at, payload.connections.len()))
+    Ok((
+        payload.created_at,
+        payload.connections.len() + payload.trash.len(),
+    ))
 }
 
 pub(crate) fn restore_cloud_snapshot(vault: &Vault, plain: &[u8]) -> Result<ImportSummary> {
-    merge_backup_payload(vault, plain, BACKUP_VERSION)
+    let payload: BackupPayload = serde_json::from_slice(plain)?;
+    merge_backup_payload(vault, plain, payload.version)
 }
 
 fn write_backup_file(path: &Path, file: &BackupFile) -> Result<()> {
@@ -225,22 +316,87 @@ fn merge_backup_payload(vault: &Vault, plain: &[u8], version: u8) -> Result<Impo
     let payload: BackupPayload =
         serde_json::from_slice(plain).context("Backup contents are corrupted")?;
     if payload.format != "mcp-vault-portable"
-        || payload.version != BACKUP_VERSION
-        || version != BACKUP_VERSION
+        || !matches!(payload.version, 4 | 5 | 6 | 7 | BACKUP_VERSION)
+        || version != payload.version
     {
         bail!("Unsupported backup content version");
     }
-    vault.merge_connections(
+    vault.merge_backup_entries(
         payload
             .connections
             .into_iter()
             .map(|item| (item.connection, item.secrets))
             .collect(),
+        payload.trash,
     )
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn protected_backup_requires_password_and_keeps_unlock_key_out_of_file() {
+        let d = tempdir().unwrap();
+        let source = Vault::open(d.path().join("source")).unwrap();
+        source
+            .save_connection(input(
+                Uuid::new_v4(),
+                "Protected",
+                "protected-secret-marker",
+            ))
+            .unwrap();
+        let path = d.path().join("protected.mvault");
+        assert!(export_protected(&source, &path, "short").is_err());
+        export_protected(&source, &path, "synthetic-backup-password").unwrap();
+        let bytes = fs::read_to_string(&path).unwrap();
+        assert!(!bytes.contains("unlockKey"));
+        assert!(!bytes.contains("protected-secret-marker"));
+        let target = Vault::open(d.path().join("target")).unwrap();
+        assert!(import_with_password(&target, &path, "wrong password").is_err());
+        assert!(target.list_connections().unwrap().is_empty());
+        assert_eq!(
+            import_with_password(&target, &path, "synthetic-backup-password")
+                .unwrap()
+                .added,
+            1
+        );
+    }
+    #[test]
+    fn older_untyped_v4_and_v5_backups_import_without_a_password() {
+        let d = tempdir().unwrap();
+        let source = Vault::open(d.path().join("source")).unwrap();
+        source
+            .save_connection(input(Uuid::new_v4(), "Legacy API", "legacy-marker"))
+            .unwrap();
+        for version in [4, 5] {
+            let mut payload = serde_json::to_value(backup_payload(&source).unwrap()).unwrap();
+            payload["version"] = serde_json::json!(version);
+            let metadata = payload["connections"][0]["connection"]
+                .as_object_mut()
+                .unwrap();
+            for field in ["itemType", "folder", "favorite"] {
+                metadata.remove(field);
+            }
+            let file = BackupFile {
+                format: "mcp-vault-backup".into(),
+                version,
+                cipher: "xchacha20poly1305".into(),
+                unlock_key: STANDARD_NO_PAD.encode([42; 32]),
+                payload: encrypt_bytes(
+                    &[42; 32],
+                    &serde_json::to_vec(&payload).unwrap(),
+                    backup_aad(version).unwrap(),
+                )
+                .unwrap(),
+            };
+            let path = d.path().join(format!("v{version}.mvault"));
+            write_backup_file(&path, &file).unwrap();
+            let target = Vault::open(d.path().join(format!("target-{version}"))).unwrap();
+            assert_eq!(import_with_password(&target, &path, "").unwrap().added, 1);
+            let items = target.list_decrypted_connections().unwrap();
+            assert_eq!(items[0].stored.item_type(), "api");
+            assert_eq!(items[0].secrets.get("apiCredential"), Some("legacy-marker"));
+        }
+    }
     use super::*;
     use crate::model::{ConnectionInput, SecretBundle};
     use tempfile::tempdir;
@@ -252,6 +408,10 @@ mod tests {
             .named_secrets
             .insert("apiCredential".into(), token.to_owned());
         ConnectionInput {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id: Some(id),
             modules: vec![
                 crate::model::ItemModule {
@@ -390,6 +550,54 @@ mod tests {
         let public = imported.stored.public(Some(&imported.secrets));
         assert_eq!(public.capabilities, ["fill", "http"]);
         assert!(public.can_test);
+    }
+
+    #[test]
+    fn v4_file_and_cloud_backups_remain_importable() {
+        let directory = tempdir().unwrap();
+        let source = Vault::open(directory.path().join("source-v4")).unwrap();
+        let id = Uuid::new_v4();
+        source
+            .save_connection(input(id, "Existing login", "v4-secret"))
+            .unwrap();
+        let mut payload = backup_payload(&source).unwrap();
+        payload.version = 4;
+        let plain = serde_json::to_vec(&payload).unwrap();
+        assert!(!String::from_utf8_lossy(&plain).contains("passkeys"));
+        let key = [41_u8; 32];
+        let file = BackupFile {
+            format: "mcp-vault-backup".into(),
+            version: 4,
+            cipher: "xchacha20poly1305".into(),
+            unlock_key: STANDARD_NO_PAD.encode(key),
+            payload: encrypt_bytes(&key, &plain, b"kru/backup/v4").unwrap(),
+        };
+        let path = directory.path().join("existing-v4.mvault");
+        write_backup_file(&path, &file).unwrap();
+        let target = Vault::open(directory.path().join("file-target")).unwrap();
+        assert_eq!(import_from_file(&target, &path).unwrap().added, 1);
+        assert_eq!(
+            target
+                .get_connection(id)
+                .unwrap()
+                .secrets
+                .get("apiCredential"),
+            Some("v4-secret")
+        );
+        assert_eq!(inspect_cloud_snapshot(&plain).unwrap().1, 1);
+        let cloud_target = Vault::open(directory.path().join("cloud-target")).unwrap();
+        assert_eq!(
+            restore_cloud_snapshot(&cloud_target, &plain).unwrap().added,
+            1
+        );
+        assert_eq!(
+            cloud_target
+                .get_connection(id)
+                .unwrap()
+                .secrets
+                .get("apiCredential"),
+            Some("v4-secret")
+        );
     }
 
     #[test]

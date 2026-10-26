@@ -5,10 +5,16 @@ $version = (Get-Content (Join-Path $projectRoot "package.json") -Raw | ConvertFr
 $packageName = "OpenKeylet_${version}_windows-x64"
 $releaseExe = if ($env:OPENKEYLET_RELEASE_EXE) {
   [System.IO.Path]::GetFullPath($env:OPENKEYLET_RELEASE_EXE)
+} elseif ($env:CARGO_TARGET_DIR) {
+  Join-Path $env:CARGO_TARGET_DIR "release\openkeylet.exe"
 } else {
   Join-Path $projectRoot "src-tauri\target\release\openkeylet.exe"
 }
-$distRoot = Join-Path $projectRoot "dist"
+$distRoot = if ($env:OPENKEYLET_DIST_ROOT) {
+  [System.IO.Path]::GetFullPath($env:OPENKEYLET_DIST_ROOT)
+} else {
+  Join-Path $projectRoot "dist"
+}
 $stageRoot = Join-Path $distRoot ".portable-stage"
 $packageRoot = Join-Path $stageRoot $packageName
 $archivePath = Join-Path $distRoot "${packageName}-portable.zip"
@@ -44,6 +50,9 @@ if (Test-Path -LiteralPath $stageRoot) {
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 Copy-Item -LiteralPath $releaseExe -Destination (Join-Path $packageRoot "openkeylet.exe")
 Copy-Item -LiteralPath (Join-Path $projectRoot "README.md") -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot "README.zh-CN.md") -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot "SECURITY.md") -Destination $packageRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot "SECURITY.zh-CN.md") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot "LICENSE") -Destination $packageRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot "browser-extension") -Destination $packageRoot -Recurse
 

@@ -11,6 +11,7 @@ window.OpenKeyletGithubBackup = {
     let inertElements = [];
     let lastError = '';
     let formError = '';
+    let accountLogin = '';
 
     const copy = {
       'github-heading': ['GitHub 加密备份', 'GITHUB BACKUP'],
@@ -18,7 +19,7 @@ window.OpenKeyletGithubBackup = {
       'github-repository-label': ['仓库', 'Repository'],
       'github-backup-label': ['上次上传', 'Last upload'],
       'github-restore-label': ['上次恢复', 'Last restore'],
-      'github-connect': ['连接仓库', 'CONNECT'],
+      'github-connect': ['设置 GitHub 备份', 'SET UP GITHUB BACKUP'],
       'github-upload': ['立即备份', 'BACK UP NOW'],
       'github-restore': ['从云端恢复', 'RESTORE'],
       'github-show-key': ['查看恢复密钥', 'RECOVERY KEY'],
@@ -29,11 +30,22 @@ window.OpenKeyletGithubBackup = {
       'github-hide-key': ['隐藏', 'HIDE'],
       'github-key-warning': ['请保存在仓库之外。拥有此密钥及备份文件的人可以读取整个备份。', 'Keep this outside the repository. Anyone with this key and the backup can read its contents.'],
       'github-modal-title': ['连接 GitHub', 'Connect GitHub'],
+      'github-step-auth': ['1 · 连接 GitHub 账号', '1 · Connect your GitHub account'],
+      'github-step-repository': ['2 · 选择私有仓库', '2 · Choose a private repository'],
+      'github-step-key': ['3 · 保管恢复密钥', '3 · Keep your recovery key'],
+      'github-auth-label': ['授权方式', 'Authorization'],
+      'github-auth-cli': ['使用本机 GitHub CLI 登录', 'Use local GitHub CLI login'],
+      'github-auth-token': ['使用访问令牌', 'Use an access token'],
+      'github-cli-help': ['已用 gh auth login 登录 GitHub 的用户可直接复用授权；仅安装 Git 不代表已登录。授权在连接后加密保存在本机。也可切换为访问令牌。', 'Reuse your gh auth login authorization. Installing Git alone does not sign you in. Authorization is stored encrypted on this device after connecting. You can also use an access token.'],
+      'github-check-account': ['检查账号', 'CHECK ACCOUNT'],
+      'github-login-help': ['GitHub 登录帮助 ↗', 'LOGIN HELP ↗'],
+      'github-create-repository-label': ['由 OpenKeylet 在我的账号下创建此私有仓库', 'Create this private repository in my account'],
+      'github-first-upload-label': ['连接成功后，立即上传第一份加密备份', 'Upload the first encrypted backup after connecting'],
       'github-repository-input-label': ['私有仓库', 'Private repository'],
       'github-create-repo': ['创建私有仓库 ↗', 'CREATE PRIVATE REPO ↗'],
       'github-create-token': ['创建访问令牌 ↗', 'CREATE ACCESS TOKEN ↗'],
       'github-token-label': ['GitHub 访问令牌', 'GitHub access token'],
-      'github-token-help': ['使用细粒度令牌，仅选择这个仓库，并授予 Contents 读写权限。令牌只在本机加密保存。', 'Use a fine-grained token for only this repository, with Contents: Read and write. It is stored encrypted on this device.'],
+      'github-token-help': ['连接现有仓库：细粒度令牌选择该仓库，授予 Contents 读写权限。由程序创建新仓库还需创建仓库的授权（Administration 写入）；也可在 GitHub 网页先建仓库。令牌仅在本机加密保存。', 'For an existing repository, use a fine-grained token with Contents read/write. Creating a repository also requires repository creation authorization (Administration write); alternatively create it on GitHub first. Tokens are stored encrypted locally.'],
       'github-mode-label': ['连接方式', 'Connection mode'],
       'github-mode-new': ['创建新备份', 'Create a new backup'],
       'github-mode-existing': ['连接已有备份', 'Connect an existing backup'],
@@ -47,6 +59,14 @@ window.OpenKeyletGithubBackup = {
     };
 
     const errors = {
+      GITHUB_CLI_MISSING: ['未找到 GitHub CLI（gh）。可安装并登录，或改用访问令牌。', 'GitHub CLI (gh) was not found. Install and sign in, or use an access token.'],
+      GITHUB_CLI_AUTH: ['未能读取 GitHub CLI 登录。请先运行 gh auth login，或改用访问令牌。', 'Sign in with gh auth login first, or use an access token.'],
+      GITHUB_CLI_TIMEOUT: ['读取本机 GitHub 登录超时，请重试或使用访问令牌。', 'Reading the local GitHub login timed out. Retry or use an access token.'],
+      GITHUB_AUTH_SOURCE: ['请选择受支持的授权方式。', 'Choose a supported authorization method.'],
+      GITHUB_CREATE_MODE: ['恢复已有备份时不能创建仓库。', 'Repository creation is unavailable when restoring an existing backup.'],
+      GITHUB_CREATE_OWNER: ['只能在当前授权账号下创建仓库，请先检查账号。组织仓库请在 GitHub 建好后连接。', 'Create under the authenticated account. Check the account first. Create organization repositories on GitHub before connecting.'],
+      GITHUB_REPOSITORY_EXISTS: ['仓库已存在或名称不可用。已有仓库请取消勾选“由 OpenKeylet 创建”，或使用其他名称。', 'The repository exists or its name is unavailable. Uncheck Create repository to connect an existing one, or choose another name.'],
+      GITHUB_CREATE_UNCONFIRMED: ['创建仓库的结果尚未确认。请在 GitHub 检查；若已创建，取消勾选“由 OpenKeylet 创建”后连接。', 'Repository creation could not be confirmed. Check GitHub; if it exists, uncheck Create repository and connect.'],
       GITHUB_REPOSITORY_INVALID: ['请输入 owner/repository 或 GitHub 仓库链接。', 'Enter owner/repository or a GitHub repository URL.'],
       GITHUB_TOKEN_INVALID: ['请输入有效的 GitHub 访问令牌。', 'Enter a valid GitHub access token.'],
       GITHUB_KEY_INVALID: ['恢复密钥格式不正确。请完整粘贴以 okv1_ 开头的密钥。', 'Paste the complete recovery key beginning with okv1_.'],
@@ -102,7 +122,7 @@ window.OpenKeyletGithubBackup = {
       $('github-restore-value').textContent = dateText(status.lastRestoreAt);
       $('github-note').textContent = connected && status.needsRestore
         ? localized('此设备需要先恢复合并云端内容，才能上传。现有本地项目会保留。', 'Restore and merge the remote contents before uploading. Existing local items are kept.')
-        : localized('仅在点击备份时上传。换机恢复需要独立密钥；本机配对、PIN 和 Agent 接入配置不会上传。', 'Uploads only when you choose Back up now. Restore requires your recovery key. Pairing, PIN and agent setup stay on this device.');
+        : localized('只在你确认上传时备份。换机恢复需要独立密钥；本机配对、PIN 和 Agent 接入配置不会上传。', 'Backups upload only when you confirm. Restore requires your recovery key. Pairing, PIN and agent setup stay on this device.');
       $('github-error').textContent = lastError ? errorText(lastError) : '';
       $('github-error').classList.toggle('hidden', !lastError);
       $('github-form-error').textContent = formError ? errorText(formError) : '';
@@ -112,10 +132,22 @@ window.OpenKeyletGithubBackup = {
       $('github-upload').disabled = busy || !isUnlocked() || status.needsRestore;
       $('github-restore').disabled = busy || !isUnlocked() || !status.hasRemoteBackup;
       const isNew = $('github-mode').value === 'new';
+      const useCli = $('github-auth-source').value === 'cli';
+      $('github-token-section').classList.toggle('hidden', useCli);
+      $('github-cli-help').classList.toggle('hidden', !useCli);
+      $('github-login-help').classList.toggle('hidden', !useCli);
+      $('github-create-token').classList.toggle('hidden', useCli);
+      $('github-token').required = !useCli;
+      $('github-account-status').textContent = accountLogin ? localized(`已验证 GitHub 账号：${accountLogin}`, `Verified GitHub account: ${accountLogin}`) : '';
+      $('github-create-repository-field').classList.toggle('hidden', !isNew);
+      $('github-first-upload-field').classList.toggle('hidden', !isNew);
       $('github-recovery-key').readOnly = isNew;
       $('github-generate-key').classList.toggle('hidden', !isNew);
       $('github-copy-key').disabled = busy || !$('github-recovery-key').value || !isUnlocked();
-      $('github-submit').textContent = busy ? localized('连接中…', 'CONNECTING…') : localized(...copy['github-submit']);
+      $('github-local-only').textContent = isNew && $('github-first-upload').checked
+        ? localized('将加密上传整个保险库。GitHub 不会收到恢复密钥。', 'The full vault will be encrypted and uploaded. GitHub never receives the recovery key.')
+        : localized('仅保存连接。之后由你选择上传或恢复。', 'Save the connection, then choose upload or restore.');
+      $('github-submit').textContent = busy ? localized('正在处理…', 'WORKING…') : isNew && $('github-first-upload').checked ? localized('连接并上传', 'CONNECT & UPLOAD') : localized(...copy['github-submit']);
     }
 
     async function refresh() {
@@ -133,6 +165,7 @@ window.OpenKeyletGithubBackup = {
       $('github-token').value = '';
       $('github-recovery-key').value = '';
       formError = '';
+      accountLogin = '';
       inertElements.forEach((element) => { element.inert = false; });
       inertElements = [];
       if (restoreFocus && previousFocus?.isConnected && !previousFocus.closest('.hidden')) previousFocus.focus();
@@ -190,6 +223,24 @@ window.OpenKeyletGithubBackup = {
       $('github-key-saved').checked = false;
       render();
     });
+    $('github-first-upload').addEventListener('change', render);
+    $('github-auth-source').addEventListener('change', () => {
+      secretEpoch++; accountLogin=''; formError=''; $('github-token').value=''; render();
+    });
+    $('github-token').addEventListener('input', () => { accountLogin=''; render(); });
+    $('github-check-account').addEventListener('click', async () => {
+      if (busy || !isUnlocked()) return;
+      const epoch = secretEpoch;
+      const input = {authSource:$('github-auth-source').value,token:$('github-token').value.trim()};
+      busy=true;formError='';render();
+      try {
+        const account = await invoke('github_backup_account',{input});
+        if(epoch!==secretEpoch || !isUnlocked() || modal.classList.contains('hidden'))return;
+        accountLogin=account.login;
+        if(!$('github-repository').value.trim()) $('github-repository').value=`${account.login}/openkeylet-vault`;
+      } catch(error) { if(epoch===secretEpoch)formError=error; }
+      finally { input.token='';busy=false;render(); }
+    });
     $('github-recovery-key').addEventListener('input', () => { $('github-key-saved').checked = false; render(); });
     $('github-generate-key').addEventListener('click', async () => {
       const epoch = secretEpoch;
@@ -230,14 +281,25 @@ window.OpenKeyletGithubBackup = {
       if (!/^okv1_[A-Za-z0-9_-]{43}$/.test($('github-recovery-key').value.trim())) {
         formError = 'GITHUB_KEY_INVALID'; render(); return;
       }
-      const input = { repository: $('github-repository').value.trim(), token: $('github-token').value.trim(), recoveryKey: $('github-recovery-key').value.trim(), mode: $('github-mode').value, recoveryKeySaved: $('github-key-saved').checked };
+      const input = { repository: $('github-repository').value.trim(), token: $('github-token').value.trim(), recoveryKey: $('github-recovery-key').value.trim(), mode: $('github-mode').value, recoveryKeySaved: $('github-key-saved').checked,
+        authSource:$('github-auth-source').value,createRepository:$('github-mode').value==='new'&&$('github-create-repository').checked };
+      const firstUpload = input.mode==='new' && $('github-first-upload').checked;
       busy = true; formError = ''; render();
+      let connected = false;
       try {
         status = await invoke('github_backup_connect', { input });
+        input.token=''; input.recoveryKey='';
+        connected = true;
         lastError = '';
         closeModal();
-        toast(status.needsRestore ? localized('连接成功，请先恢复云端备份', 'Connected. Restore the remote backup first.') : localized('连接成功，可以备份了', 'Connected. Ready to back up.'));
-      } catch (error) { formError = error; }
+        if(firstUpload) {
+          status=await invoke('github_backup_upload');
+          toast(localized('第一份加密备份已上传到你的私有仓库', 'Your first encrypted backup is in your private repository.'));
+        } else toast(status.needsRestore ? localized('连接成功，请先恢复云端备份', 'Connected. Restore the remote backup first.') : localized('连接成功，可以备份了', 'Connected. Ready to back up.'));
+      } catch (error) {
+        if(connected) { lastError=error;toast(localized('仓库已连接，但首次上传未完成。连接已保留，可按提示重试。', 'Connected, but the first upload did not complete. The connection is saved; follow the error to retry.'),'error'); }
+        else formError = error;
+      }
       finally { input.token = ''; input.recoveryKey = ''; busy = false; render(); }
     });
     $('github-upload').addEventListener('click', async () => {

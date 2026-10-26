@@ -31,4 +31,71 @@ button:focus-visible { outline: 2px solid #b7c5cb; outline-offset: 2px; }
 button:disabled { color: #8e979e; background: #3d4145; border-color: #20262b; cursor: default; }
 #error { min-height: 17px; margin: 10px 0 0; color: #d9a29c; font-size: 11px; line-height: 1.5; }
 footer { margin: 0 16px; padding: 12px 0; border-top: 1px solid #20262b; box-shadow: inset 0 1px 0 #ffffff08; color: var(--muted); font: 9px Consolas, monospace; letter-spacing: .06em; }
+.capture-disclosure { margin: 12px 16px 6px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+footer a { display: inline-block; margin-top: 8px; color: #b7cbd5; }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+body { width: 350px; }
+[hidden] { display: none !important; }
+main { padding: 0 16px 12px; }
+.website { overflow-wrap: anywhere; font-size: 12px; color: #b7cbd5; }
+.page-hint { margin-top: 16px; padding: 14px; border-radius: 4px; background: #292c2f; box-shadow: var(--well); font-size: 12px; line-height: 1.65; }
+.page-hint strong { color: #b7cbd5; font-size: 13px; }
+.page-hint p { margin: 8px 0 0; }
+.page-hint .note { font-size: 11px; }
+#error:empty { display: none; }
+main form { padding: 12px 0 0; }
+.entries { max-height: 220px; overflow: auto; margin-bottom: 12px; }
+.entries p, .note { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.login-entry { padding: 12px; margin-bottom: 8px; text-align: left; }
+.login-entry strong { display: block; overflow-wrap: anywhere; }
+.login-entry small { font-size: 11px; }
+.secondary { margin-top: 8px; background: #303336; }
+select { width: 100%; margin-bottom: 14px; padding: 9px; color: var(--ink); background: #292c2f; border: 1px solid #4d5358; border-radius: 4px; }
+details { padding: 8px 16px; }
+summary { cursor: pointer; font-size: 11px; color: var(--muted); }
+details form { padding: 12px 0; }
+.request-page { width: auto; min-width: 320px; }
+.request-page h1 { font-size: 20px; }
+.request-page .website { padding: 12px; background: #20292f; border-radius: 4px; }
+.personal-vault { padding: 16px 0 0; }
+.personal-vault summary { margin-bottom: 12px; }
+.personal-entry { margin-bottom: 12px; padding: 10px; background: #292c2f; border-radius: 4px; }
+.personal-entry > strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.personal-actions { display: flex; gap: 8px; margin-top: 8px; }
+.personal-actions button { flex: 1; }
+#personal-form { max-height: 320px; overflow: auto; padding-right: 6px; }
+#personal-form > strong { display: block; margin: 10px 0; }
+#personal-fields label { margin-top: 5px; letter-spacing: 0; }
+.generator-options { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+.generator-options label { display: flex; align-items: center; gap: 4px; }
+.generator-options input { width: 14px; height: 14px; margin: 0; padding: 0; }
+#generator-output { font-size: 12px; }
+#personal-fields textarea, #vault-editor-fields textarea { width: 100%; margin: 8px 0; padding: 10px; resize: vertical; color: var(--ink); background: #292c2f; border: 1px solid #4d5358; border-radius: 4px; font: 12px/1.6 "Segoe UI", sans-serif; }
+ .vault-filter-row { display:flex; gap:8px; align-items:center; }
+ .vault-filter-row > * { flex:1; min-width:0; }
+ .vault-check { display:flex; gap:8px; align-items:center; }
+ .vault-check input { width:auto; margin:0; }
+ .vault-row { display:grid; gap:8px; padding:12px 0; border-bottom:1px solid #4b5358; overflow-wrap:anywhere; }
+ .vault-row small { color:#a7b3ba; }
+ .vault-uri-row { display:grid; grid-template-columns:minmax(0,1fr) 105px 32px; gap:6px; align-items:center; }
+ .vault-uri-row input,.vault-uri-row select { min-width:0; }
+ .vault-field { margin:12px 0; }
+ #vault-editor,#vault-history,#vault-confirm { border:1px solid #5b6970; padding:12px; border-radius:5px; margin:12px 0; }
+ #vault-confirm { border-color:#d99c85; background:#343b40; color:inherit; width:calc(100% - 32px); max-height:75vh; overflow:auto; margin:auto; box-sizing:border-box; }
+ #vault-confirm::backdrop { background:#0009; }
+ #vault-editor fieldset { border:1px solid #5b6970; min-width:0; padding:10px; }
+ #vault-editor legend { font-size:12px; }
+/* Save suggestions contain no secret values until the vault is unlocked. */
+.capture-setting { display:flex; align-items:center; gap:8px; padding:0 18px 12px; font-size:12px; }
+.capture-setting input { width:auto; margin:0; }
+#capture-notice button { margin-top:8px; }
+#save-source, #capture-source, #save-warning { overflow-wrap:anywhere; }
+.capture-page { width:100%; min-width:320px; max-width:480px; }
+.capture-page #full-vault, .capture-page #entries, .capture-page #read-form,
+.capture-page .personal-vault, .capture-page #lock, .capture-page #page-hint,
+.capture-page > details, .capture-page > .status-row, .capture-page #website,
+.capture-page #save-source, .capture-page .capture-setting, .capture-page #capture-review { display:none !important; }
+.capture-page #save-form { padding-top:8px; }
+.capture-page .page-hint { margin-top:10px; padding:12px; }
+#save-form button { margin-top:8px; }
+#capture-complete button { margin-top:12px; }

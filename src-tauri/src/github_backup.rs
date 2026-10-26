@@ -35,6 +35,9 @@ const CLOUD_AAD: &[u8] = b"openkeylet/cloud-backup/v1";
 const MAX_CLOUD_BYTES: usize = 8 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = MAX_CLOUD_BYTES * 2;
 
+mod auth;
+pub use auth::{AccountStatus, AuthInput};
+
 #[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectInput {
@@ -43,6 +46,10 @@ pub struct ConnectInput {
     pub recovery_key: String,
     pub mode: String,
     pub recovery_key_saved: bool,
+    #[serde(default)]
+    pub auth_source: String,
+    #[serde(default)]
+    pub create_repository: bool,
 }
 
 #[derive(Default, Serialize)]
@@ -121,6 +128,11 @@ struct Repository {
 }
 
 #[derive(Deserialize)]
+struct GithubUser {
+    login: String,
+}
+
+#[derive(Deserialize)]
 struct ContentFile {
     #[serde(rename = "type")]
     kind: String,
@@ -176,6 +188,24 @@ impl GithubBackup {
             .unwrap_or_default())
     }
 
+    pub async fn account(&self, input: AuthInput) -> Result<AccountStatus> {
+        let token = auth::token(&input.auth_source, &input.token).await?;
+        let user = self.user(&token).await?;
+        Ok(AccountStatus { login: user.login })
+    }
+
+    async fn user(&self, token: &str) -> Result<GithubUser> {
+        let response = self
+            .api_request(Method::GET, &["user"], token)?
+            .send()
+            .await
+            .context("GITHUB_NETWORK")?;
+        check_response(&response)?;
+        let user: GithubUser = read_json(response).await?;
+        parse_repository(&format!("{}/vault", user.login)).context("GITHUB_RESPONSE_INVALID")?;
+        Ok(user)
+    }
+
     pub fn recovery_key(&self) -> Result<String> {
         Ok(self.connected()?.recovery_key.clone())
     }
@@ -197,18 +227,54 @@ impl GithubBackup {
             bail!("GITHUB_MODE_INVALID");
         }
         let (owner, repo) = parse_repository(&input.repository)?;
-        let token = input.token.trim();
-        validate_token(token)?;
         let recovery_key = input.recovery_key.trim();
         parse_recovery_key(recovery_key)?;
-        let repository = self.repository(&owner, &repo, token).await?;
+        let token = auth::token(&input.auth_source, &input.token).await?;
+        if input.create_repository {
+            if input.mode != "new" {
+                bail!("GITHUB_CREATE_MODE");
+            }
+            let user = self.user(&token).await?;
+            if !user.login.eq_ignore_ascii_case(&owner) {
+                bail!("GITHUB_CREATE_OWNER");
+            }
+            // Creating is opt-in. Never adopt or change an existing repository.
+            let existing = self
+                .request(Method::GET, &owner, &repo, &[], &token)?
+                .send()
+                .await
+                .context("GITHUB_NETWORK")?;
+            if existing.status().is_success() {
+                bail!("GITHUB_REPOSITORY_EXISTS");
+            }
+            if existing.status() != StatusCode::NOT_FOUND {
+                check_response(&existing)?;
+            }
+            let response = self.api_request(Method::POST, &["user", "repos"], &token)?
+                .json(&serde_json::json!({"name":repo,"private":true,"auto_init":true,"description":"Encrypted OpenKeylet vault backups"}))
+                .send().await.context("GITHUB_CREATE_UNCONFIRMED")?;
+            if response.status() == StatusCode::UNPROCESSABLE_ENTITY {
+                bail!("GITHUB_REPOSITORY_EXISTS");
+            }
+            if response.status().is_server_error() {
+                bail!("GITHUB_CREATE_UNCONFIRMED");
+            }
+            check_response(&response)?;
+            let created: Repository = read_json(response)
+                .await
+                .context("GITHUB_CREATE_UNCONFIRMED")?;
+            if !created.private || created.id == 0 {
+                bail!("GITHUB_PRIVATE_REQUIRED");
+            }
+        }
+        let repository = self.repository(&owner, &repo, &token).await?;
         let mut config = DeviceConfig {
             format: LOCAL_FORMAT.to_owned(),
             owner,
             repo,
             repository_id: repository.id,
             branch: repository.default_branch,
-            token: token.to_owned(),
+            token: token.to_string(),
             recovery_key: recovery_key.to_owned(),
             base_sha: None,
             needs_restore: false,
@@ -371,11 +437,21 @@ impl GithubBackup {
         suffix: &[&str],
         token: &str,
     ) -> Result<reqwest::RequestBuilder> {
+        let mut segments = vec!["repos", owner, repo];
+        segments.extend(suffix);
+        self.api_request(method, &segments, token)
+    }
+
+    fn api_request(
+        &self,
+        method: Method,
+        segments: &[&str],
+        token: &str,
+    ) -> Result<reqwest::RequestBuilder> {
         let mut url = self.api_base.clone();
         url.path_segments_mut()
             .expect("HTTP base URL")
-            .extend(["repos", owner, repo])
-            .extend(suffix);
+            .extend(segments);
         let mut authorization = HeaderValue::from_str(&format!("Bearer {token}"))
             .map_err(|_| anyhow::anyhow!("GITHUB_TOKEN_INVALID"))?;
         authorization.set_sensitive(true);

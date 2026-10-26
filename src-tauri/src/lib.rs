@@ -1,11 +1,17 @@
 pub mod api_catalog;
 pub mod backup;
 pub mod browser;
+pub mod browser_vault;
 pub mod crypto;
 pub mod executor;
+pub mod generator;
 pub mod github_backup;
+pub mod item_types;
+pub mod login_uri;
 pub mod mcp;
+pub mod migration;
 pub mod model;
+pub mod passkey;
 pub mod policy;
 pub mod runtime_epoch;
 pub mod storage;

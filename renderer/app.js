@@ -30,7 +30,7 @@ const staticCopy = [
   ['#connections-list', 'aria-label', '项目列表', 'Vault items'],
   ['.activity-panel', 'aria-label', '操作记录', 'Activity log'],
   ['.settings-layout', 'aria-label', '设置', 'Settings'],
-  ['#page-connections .page-search-input', 'placeholder', '搜索项目…', 'Search items…'],
+  ['#title-search-input', 'placeholder', '搜索项目…', 'Search items…'],
   ['#page-activity .page-search-input', 'placeholder', '搜索记录…', 'Search activity…'],
   ['#page-settings .page-search-input', 'placeholder', '搜索设置…', 'Search settings…'],
   ['#desktop-shortcut-enabled', 'aria-label', '创建桌面快捷方式', 'Create desktop shortcut'],
@@ -39,17 +39,18 @@ const staticCopy = [
   ['#browser-enabled', 'aria-label', '启用 Browser Bridge', 'Enable Browser Bridge'],
   ['.window-control[data-window-action="minimize"]', 'aria-label', '最小化', 'Minimize'],
   ['.window-control[data-window-action="close"]', 'aria-label', '关闭', 'Close'],
-  ['.nav-item[data-page="connections"] > span', 'html', '项目<small>ITEMS</small>', 'ITEMS<small>VAULT</small>'],
-  ['.nav-item[data-page="activity"] > span', 'html', '记录<small>LOG</small>', 'LOG<small>AUDIT</small>'],
-  ['.nav-item[data-page="settings"] > span', 'html', '设置<small>SYSTEM</small>', 'SYSTEM<small>LOCAL</small>'],
+  ['.nav-item[data-page="connections"] > span', 'text', '项目', 'ITEMS'],
+  ['.nav-item[data-page="activity"] > span', 'text', '记录', 'LOG'],
+  ['.nav-item[data-page="settings"] > span', 'text', '设置', 'SYSTEM'],
   ['#page-connections .page-header h1', 'text', '秘密项目', 'VAULT ITEMS'],
-  ['#page-connections .page-search-input', 'aria-label', '搜索秘密项目', 'Search vault items'],
+  ['#title-search-input', 'aria-label', '搜索秘密项目', 'Search vault items'],
   ['#add-connection-button', 'text', '＋ 添加', '+ ADD'],
   ['#drafts-button', 'text', '草稿', 'DRAFT'],
+  ['.creation-control', 'aria-label', '添加 / 草稿切换', 'Add / draft selector'],
+  ['#generator-open', 'text', '生成器', 'GENERATE'],
+  ['#trash-open', 'text', '回收站', 'TRASH'],
   ['#delete-draft-button', 'aria-label', '删除草稿', 'Delete draft'],
   ['#page-activity .page-search-input', 'aria-label', '搜索操作记录', 'Search activity'],
-  ['#activity-filter-menu-button', 'aria-label', '记录筛选', 'Filter activity'],
-  ['#activity-filter-menu', 'aria-label', '记录筛选', 'Activity filters'],
   ['#page-settings .page-search-input', 'aria-label', '搜索系统设置', 'Search settings'],
   ['#header-export-backup-button', 'text', '一键打包', 'EXPORT'],
   ['#header-import-backup-button', 'text', '一键导入包', 'IMPORT'],
@@ -75,24 +76,38 @@ const staticCopy = [
   ['.manual-config-steps > div:nth-child(1) span', 'text', '打开目标 Agent 的 MCP 配置', 'Open the target agent MCP configuration'],
   ['.manual-config-steps > div:nth-child(2) span', 'text', '按配置格式复制 JSON 或 TOML', 'Copy JSON or TOML to match its config format'],
   ['.manual-config-steps > div:nth-child(3) span', 'text', '粘贴保存并重新启动 Agent', 'Paste, save, and restart the agent'],
+  ['[data-module="WEB / 04"] .settings-heading h2', 'text', '浏览器接入', 'BROWSER BRIDGE'],
   ['[data-module="WEB / 04"] .settings-heading p', 'text', '通过已配对扩展填写当前浏览器控件。', 'Fill the focused browser field through the paired extension.'],
   ['label[for="browser-port"]', 'text', '本地端口', 'LOCAL PORT'],
   ['#save-browser-settings-button', 'text', '保存', 'SAVE'],
-  ['.browser-connect-note span', 'text', '首次加载扩展目录，之后自动配对。', 'Load the extension once; pairing is automatic.'],
-  ['#quick-pairing-button', 'text', '一键接入浏览器', 'CONNECT BROWSER'],
+  ['#browser-install-heading', 'text', '安装插件 · 只需两步', 'INSTALL IN TWO STEPS'],
+  ['#browser-step-open-title', 'text', '打开扩展页', 'Open the extensions page'],
+  ['#browser-step-open-description', 'text', '点击下方按钮，然后开启扩展页右上角的“开发者模式”。', 'Click below, then turn on Developer mode in the top-right corner of the extensions page.'],
+  ['#browser-open-help', 'text', '未能自动打开。请在 Chrome 地址栏输入 chrome://extensions，再开启“开发者模式”。', "Could not open it automatically. Enter chrome://extensions in Chrome's address bar, then turn on Developer mode."],
+  ['#browser-step-drag-title', 'text', '拖入插件', 'Drag in the extension'],
+  ['#browser-step-drag-description', 'text', '按住下方标识，拖到扩展页的空白区域，松开即可安装。', 'Hold the icon below, drag it onto an empty area of the extensions page, and release to install.'],
+  ['#browser-install-complete', 'text', '安装后会自动连接，请保持 OpenKeylet 运行。', 'Once installed, the extension connects automatically. Keep OpenKeylet running.'],
+  ['#browser-fallback-title', 'text', '拖拽无法安装？', "Can't install by dragging?"],
+  ['#browser-fallback-description', 'text', '打开下方扩展目录，然后在扩展页点击“加载已解压的扩展程序”，选择该目录。', 'Open the extension folder below. On the extensions page, click Load unpacked and select that folder.'],
+  ['#drag-extension-label', 'text', '按住此处，拖入扩展页', 'Hold and drag to the extensions page'],
+  ['#drag-extension-button', 'aria-label', '拖动插件到 Chrome 扩展页；也可按回车打开扩展目录', 'Drag the extension to Chrome Extensions, or press Enter to open its folder'],
+  ['#quick-pairing-button', 'text', '打开扩展页', 'OPEN EXTENSIONS PAGE'],
   ['#open-extension-button', 'text', '扩展目录', 'EXTENSION FOLDER'],
   ['#reset-pairing-button', 'text', '重置', 'RESET'],
   ['[data-module="SAFE / 05"] .settings-heading h2', 'text', '本地数据', 'LOCAL DATA'],
-  ['[data-module="SAFE / 05"] .settings-heading p', 'text', '导出由 OpenKeylet 自动解密的加密包，避免秘密以原文直接暴露。', 'Export an encrypted package OpenKeylet unlocks automatically, preventing direct plaintext exposure.'],
+  ['#migration-open', 'text', '迁入密码库', 'IMPORT VAULT'],
+  ['[data-module="SAFE / 05"] .settings-heading p', 'text', '用独立备份密码加密导出全部项目与 Passkey，也可恢复旧版备份。', 'Export all items and passkeys encrypted with a separate backup password, or restore an existing backup.'],
   ['#open-data-button', 'text', '打开数据目录', 'OPEN DATA FOLDER'],
-  ['#owner-lock-description', 'text', 'PIN 保护明文查看；模块值默认隐藏，仅在你开启后对 Agent 可见。', 'The PIN protects plaintext viewing. Module values stay hidden unless you make them visible to agents.'],
+  ['#owner-lock-description', 'text', 'PIN 保护明文查看、浏览器密码库访问和 Passkey 验证；模块值默认对 Agent 隐藏。', 'The PIN protects plaintext viewing, browser vault access and passkey verification. Module values are hidden from agents by default.'],
   ['#owner-pin', 'label', '六位数字 PIN', 'SIX-DIGIT PIN'],
   ['#owner-pin-confirm', 'label', '再次输入 PIN', 'CONFIRM PIN'],
-  ['.lock-note span', 'text', '秘密仍由本机随机主密钥加密；PIN 只是本地查看锁。', 'Secrets remain encrypted by the local random master key. The PIN only locks plaintext viewing.'],
+  ['.lock-note span', 'text', '秘密由本机随机主密钥加密；PIN 用于本地解锁与验证。', 'Secrets are encrypted by the local random master key. The PIN is used for local unlocking and verification.'],
   ['#owner-pin-cancel', 'text', '取消', 'CANCEL'],
   ['[data-close-modal].icon-button', 'aria-label', '关闭编辑器', 'Close editor'],
   ['#connection-name', 'label', '名称', 'NAME'],
-  ['#connection-description', 'label-html', '备注 / 用途 <em>可选</em>', 'NOTES / PURPOSE <em>OPTIONAL</em>'],
+  ['#connection-type', 'label', '类型', 'TYPE'],
+  ['#connection-folder', 'label', '文件夹', 'FOLDER'],
+  ['#connection-description', 'label-html', '公开用途 <em>可选</em>', 'PUBLIC PURPOSE <em>OPTIONAL</em>'],
   ['.template-copy strong', 'text', '从一个组合开始', 'START WITH A PRESET'],
   ['.template-copy small', 'text', '模板只添加模块，不会限制之后的修改。', 'Templates only add modules; you can change anything afterward.'],
   ['.module-editor-heading > div > strong', 'text', '项目模块', 'ITEM MODULES'],
@@ -109,18 +124,25 @@ const staticCopy = [
   ['#module-menu [data-add-module="port"]', 'text', '端口', 'PORT'],
   ['#module-menu [data-add-module="url"]', 'text', '服务 URL', 'SERVICE URL'],
   ['[data-item-template="login"] > span', 'html', '登录<small>账号 + 密码</small>', 'LOGIN<small>USERNAME + PASSWORD</small>'],
+  ['[data-item-template="card"] > span', 'html', '信用卡<small>卡号 + 有效期 + 安全码</small>', 'CARD<small>NUMBER + EXPIRY + CODE</small>'],
+  ['[data-item-template="identity"] > span', 'html', '身份资料<small>姓名 + 联系方式 + 地址</small>', 'IDENTITY<small>NAME + CONTACT + ADDRESS</small>'],
+  ['[data-item-template="secureNote"] > span', 'html', '安全笔记<small>加密保存长文本</small>', 'SECURE NOTE<small>ENCRYPTED TEXT</small>'],
   ['[data-item-template="ssh"] > span', 'html', 'SSH<small>主机 + 端口 + 账号 + 密码</small>', 'SSH<small>HOST + PORT + USER + PASSWORD</small>'],
   ['[data-item-template="api"] > span', 'html', 'API<small>API 凭据</small>', 'API<small>API CREDENTIAL</small>'],
   ['[data-item-template="blank"] > span', 'html', '空白<small>从零添加模块</small>', 'BLANK<small>START WITH NO MODULES</small>'],
-  ['.check-row strong', 'text', '启用此项目', 'ENABLE ITEM'],
-  ['.check-row small', 'text', '禁用后 Agent 无法使用', 'Agents cannot use a disabled item.'],
+  ['#connection-enabled-label', 'text', '启用此项目', 'ENABLE ITEM'],
+  ['#connection-enabled-help', 'text', '禁用后 Agent 无法使用', 'Agents cannot use a disabled item.'],
   ['.secret-hint', 'text', '当前项目的明文只在已解锁 GUI 中显示', 'Plaintext is visible only in the unlocked GUI.'],
   ['#connection-form .modal-footer [data-close-modal]', 'text', '关闭', 'CLOSE'],
   ['#save-connection-button', 'text', '保存', 'SAVE'],
+  ['.login-websites summary', 'text', '网站匹配', 'WEBSITE MATCHING'],
+  ['.login-websites > p', 'text', '设置多个网站及匹配规则', 'Configure websites and matching rules.'],
+  ['#login-uri-add', 'text', '＋ 添加网站', '+ ADD WEBSITE'],
 ];
 
 function applyLanguage() {
   document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
+  window.OpenKeyletAppearance.setLanguage(localized);
   $$('.language-switch button').forEach((button) => button.classList.toggle('active', button.dataset.language === language));
   for (const [selector, target, zh, en] of staticCopy) {
     const element = $(selector);
@@ -140,6 +162,10 @@ function applyLanguage() {
       'Control whether OpenKeylet launches at login.',
     );
   }
+  syncItemTypeFilter();
+  syncActivityFilterControl();
+  syncSettingsFilterControl();
+  syncTitleSearch();
 }
 
 function publicMessage(value, fallback = localized('操作失败', 'Operation failed')) {
@@ -168,9 +194,15 @@ const api = {
   saveDraft: (draftId, input) => invoke('save_editor_draft', { draftId, input }),
   deleteDraft: (id) => invoke('delete_editor_draft', { id }),
   copyOwnerValue: (value) => invoke('copy_owner_value', { value }),
-  save: (input) => invoke('save_connection', { input }),
+  save: (input) => invoke('save_connection', { input, expectedUpdatedAt: editorExistingItem?.updatedAt || null }),
   setEnabled: (id, enabled) => invoke('set_connection_enabled', { id, enabled }),
-  remove: (id) => invoke('delete_connection', { id }),
+  reorder: (ids, expectedOrder) => invoke('reorder_connections', { ids, expectedOrder }),
+  remove: (id, expectedUpdatedAt) => invoke('delete_connection', { id, expectedUpdatedAt }),
+  trash: () => invoke('owner_trash'),
+  restore: (id, deletedAt) => invoke('owner_restore_item', { id, deletedAt }),
+  purge: (id, deletedAt) => invoke('owner_purge_item', { id, deletedAt }),
+  history: (id) => invoke('owner_password_history', { id }),
+  clearHistory: (id, expectedUpdatedAt) => invoke('owner_clear_password_history', { id, expectedUpdatedAt }),
   test: (id) => invoke('test_connection', { id }),
   settings: updateSettings,
   systemIntegration: () => invoke('system_integration_status'),
@@ -186,8 +218,11 @@ const api = {
   quickPair: (port) => invoke('quick_pair_browser', { port }),
   resetPair: () => invoke('reset_browser_pairing'),
   extensionFolder: () => invoke('open_browser_extension_folder'),
-  exportBackup: () => invoke('export_backup'),
-  importBackup: () => invoke('import_backup'),
+  exportBackup: (password) => invoke('export_backup', { password }),
+  importBackup: (password) => invoke('import_backup', { password }),
+  prepareImport: (format) => invoke('prepare_import', { format }),
+  commitImport: (id) => invoke('commit_import', { id }),
+  cancelImport: () => invoke('cancel_import'),
   dataFolder: () => invoke('open_data_folder'),
   window: (action) => invoke('window_action', { action }),
 };
@@ -197,6 +232,12 @@ let systemIntegrationState = { desktopShortcut: false, launchAtLogin: false };
 let activePage = 'connections';
 let currentActivityFilter = 'all';
 const pageSearch = { connections: '', activity: '', settings: '' };
+const itemTypeFilterOrder = ['all', 'ssh', 'login', 'api', 'passkey', 'card', 'identity', 'secureNote', 'custom'];
+let currentItemTypeFilter = 'all';
+const settingsFilterOrder = ['all', 'SYSTEM', 'MCP', 'APP', 'WEB', 'CLOUD', 'SAFE'];
+let currentSettingsFilter = 'all';
+let titleSearchOpen = false;
+let creationMode = 'add';
 let currentModules = [];
 let editorDrafts = [];
 let currentDraftId = '';
@@ -205,6 +246,20 @@ let editorExistingItem = null;
 let editorSourceInput = null;
 let editorOpenedFromDraft = false;
 let editorInitialSnapshot = '';
+let editorReturnFocus = null;
+let inlineEditorItemId = null;
+let editorOpening = false;
+let editorClosing = null;
+let editorFoldAnimation = null;
+let switchPointerDrag = null;
+let switchSelectionPending = false;
+let suppressSwitchClick = null;
+let itemPointerDrag = null;
+let itemOrderSaving = false;
+let suppressItemClick = false;
+// Keep the editor below its nested dialogs in the original stacking order.
+const editorHome = document.createComment('Item editor home');
+$('#connection-modal').before(editorHome);
 let agentClients = [];
 let agentRestartRequired = false;
 let renderedConnectionsSignature = '';
@@ -281,6 +336,8 @@ function confirmDestructiveAction({ title, message, acceptLabel = localized('删
 }
 
 function clearOwnerPlaintext() {
+  void finishSwitchDrag(false);
+  finishItemPointerDrag(false);
   githubBackup.clearSecrets();
   finishConfirmation(false, false);
   closeEditor();
@@ -323,6 +380,10 @@ function renderOwnerLock() {
   $('#owner-lock-code').textContent = configured ? 'LOCK' : 'INIT';
   $('#owner-unlock-action').textContent = configured ? 'UNLOCK' : 'SET PIN';
   if (locked) {
+    if (!$('#vault-management-modal').classList.contains('hidden')) closeVaultManagement();
+    if (!$('#migration-modal').classList.contains('hidden')) closeMigration();
+    closeGenerator();
+    finishBackupPassword(null);
     clearOwnerPlaintext();
     editorDrafts = [];
     renderDrafts();
@@ -380,7 +441,9 @@ const segmentGlyphs = {
 
 function sevenSegmentGlyph(character) {
   const lit = segmentGlyphs[String(character).toLowerCase()] || '';
-  return `<span class="seven-digit" aria-hidden="true">${segmentNames.map((segment) => `<i class="segment segment-${segment}" data-lit="${lit.includes(segment)}"></i>`).join('')}</span>`;
+  const segments = segmentNames.map((segment) => `<i class="segment segment-${segment}" data-lit="${lit.includes(segment)}"></i>`).join('');
+  // Reuse the exact lamp contours; only the separate emission layer is blurred.
+  return `<span class="seven-digit" aria-hidden="true">${segments}<span class="seven-emission" aria-hidden="true">${segments}</span></span>`;
 }
 
 function sevenSegmentNumber(value, length = 4) {
@@ -389,17 +452,6 @@ function sevenSegmentNumber(value, length = 4) {
   const overflow = exact > maximum;
   const digits = String(Math.min(exact, maximum)).padStart(length, '0');
   return `<span class="seven-number ${overflow ? 'overflow' : ''}" role="img" aria-label="${exact}">${[...digits].map(sevenSegmentGlyph).join('')}${overflow ? '<b class="seven-overflow" aria-hidden="true">+</b>' : ''}</span>`;
-}
-
-function displayWord(value, length = 4) {
-  const exact = String(value || '---').toUpperCase().slice(0, length);
-  const word = exact.padStart(length, ' ');
-  return `<span class="seven-number seven-word" role="img" aria-label="${escapeHtml(exact)}">${[...word].map(sevenSegmentGlyph).join('')}</span>`;
-}
-
-function compactCount(value, suffix) {
-  const count = Math.max(0, Math.trunc(Number(value) || 0));
-  return `${count > 99 ? '99+' : count} ${suffix}`;
 }
 
 function activityCode(action = '') {
@@ -416,89 +468,72 @@ function activityCode(action = '') {
 function renderMetrics() {
   const total = state.connections.length;
   const enabled = state.connections.filter((item) => item.enabled).length;
-  const disabled = total - enabled;
-  const moduleCounts = {
-    fill: state.connections.filter((item) => item.enabled && itemCapabilities(item).includes('fill')).length,
-    ssh: state.connections.filter((item) => item.enabled && itemCapabilities(item).includes('ssh')).length,
-    api: state.connections.filter((item) => item.enabled && itemCapabilities(item).includes('http')).length,
-  };
-  const latest = state.activities[0];
   const browserOn = ['listening', 'delegated'].includes(state.browserBridge.status);
   const mcpReady = state.mcp.status === 'ready';
-  const lastStatus = !latest ? 'idle' : latest.status === 'error' ? 'error' : 'ok';
-  const lastCode = lastStatus === 'idle' ? '--' : lastStatus === 'error' ? 'ERR' : 'OK';
-  const lastAction = latest ? activityCode(latest.action) : 'NO CALL';
-  const since24Hours = Date.now() - 86_400_000;
+  const now = Date.now();
+  const since24Hours = now - 86_400_000;
   const activities24h = state.activities.filter((activity) => {
     const timestamp = new Date(activity.time).getTime();
-    return Number.isFinite(timestamp) && timestamp >= since24Hours;
+    return Number.isFinite(timestamp) && timestamp >= since24Hours && timestamp <= now;
   });
   const errors24h = activities24h.filter((activity) => activity.status === 'error').length;
-  const actionTypes24h = new Set(activities24h.map((activity) => activityCode(activity.action)));
-  const lastUseName = latest?.connectionName || (latest ? lastAction : 'NO CALL');
   const registeredAgents = agentClients.filter((client) => client.state === 'registered').length;
-  const availableAgents = agentClients.filter((client) => client.state === 'available').length;
   const brokenAgents = agentClients.filter((client) => ['stale', 'conflict', 'error'].includes(client.state)).length;
-  const displayCount = (count) => String(Math.min(Math.max(Number(count) || 0, 0), 9999)).padStart(4, '0');
-  const systemFault = state.mcp.status === 'error' || state.browserBridge.status === 'error';
-  const systemNeedsSetup = !mcpReady || (browserOn && !state.browserBridge.paired);
-  const systemCode = systemFault ? 'ERR' : systemNeedsSetup ? 'SET' : 'RDY';
-  const settingsTelemetry = brokenAgents
-    ? { status: 'error', label: 'AGENTS', code: 'ERR', action: `${displayCount(brokenAgents)} REPAIR` }
-    : {
-        status: registeredAgents ? 'ok' : 'idle',
-        label: 'AGENTS',
-        code: displayCount(registeredAgents),
-        action: registeredAgents ? 'CONNECTED' : availableAgents ? 'READY TO ADD' : 'NO AGENT',
-      };
   const models = {
     connections: {
-      channels: [['A', 'FILL', moduleCounts.fill ? 'on' : ''], ['B', 'SSH', moduleCounts.ssh ? 'on' : ''], ['C', 'HTTP', moduleCounts.api ? 'on' : ''], ['D', 'OFF', disabled ? 'warn' : '']],
-      mode: 'VAULT', valueKind: 'number', value: total, unit: 'ITEM',
-      ready: !total ? 'EMPTY' : enabled ? 'READY' : 'DISABLED', tag: disabled ? compactCount(disabled, 'OFF') : total ? 'ALL ON' : 'LOCAL', readyTone: disabled ? 'warn' : '',
-      telemetryStatus: lastStatus, telemetryLabel: 'LAST USE', telemetryCode: lastCode, action: lastUseName,
+      value: total, mode: localized('密码库', 'VAULT'), unit: localized('项目', 'ITEMS'),
+      label: localized('密码库项目总数', 'Total vault items'),
+      secondary: { value: enabled, mode: localized('已启用', 'ENABLED'), unit: localized('项目', 'ITEMS'), label: localized('已启用项目数，包含所有类型', 'Enabled items across all item types') },
     },
     activity: {
-      channels: [['A', 'FILL', actionTypes24h.has('FILL') || actionTypes24h.has('WEB') ? 'on' : ''], ['B', 'SSH', actionTypes24h.has('SSH') ? 'on' : ''], ['C', 'HTTP', actionTypes24h.has('API') ? 'on' : ''], ['D', 'TERM', actionTypes24h.has('TERM') ? 'on' : '']],
-      mode: 'AUDIT', valueKind: 'number', value: activities24h.length, unit: '24H',
-      ready: !activities24h.length ? 'IDLE' : errors24h ? 'ATTENTION' : 'CLEAN', tag: errors24h ? compactCount(errors24h, 'ERR') : 'NO ERR', readyTone: errors24h ? 'fault' : '',
-      telemetryStatus: lastStatus, telemetryLabel: 'LATEST', telemetryCode: lastCode, action: lastAction,
+      value: activities24h.length, mode: localized('操作', 'CALLS'), unit: '24H',
+      label: localized('本地日志中最近 24 小时的操作数', 'Operations in the local log from the last 24 hours'),
+      secondary: { value: errors24h, mode: localized('失败', 'ERRORS'), unit: '24H', label: localized('本地日志中最近 24 小时的失败数', 'Errors in the local log from the last 24 hours') },
     },
     settings: {
-      channels: [['A', 'MCP', mcpReady ? 'on' : 'error'], ['B', 'CRYPT', state.security.encrypted ? 'on' : 'error'], ['C', 'WEB', browserOn ? 'on web' : ''], ['D', 'PIN', ownerLockState.pinConfigured ? 'on' : '']],
-      mode: 'SYSTEM', valueKind: 'word', value: systemCode, unit: 'STATE',
-      ready: systemFault ? 'SERVICE FAULT' : systemNeedsSetup ? 'ACTION NEEDED' : 'LOCAL READY', tag: state.security.encrypted ? 'SEALED' : 'CHECK', readyTone: systemFault ? 'fault' : systemNeedsSetup ? 'warn' : '',
-      telemetryStatus: settingsTelemetry.status, telemetryLabel: settingsTelemetry.label, telemetryCode: settingsTelemetry.code, action: settingsTelemetry.action,
+      value: registeredAgents, mode: localized('已接入', 'LINKED'), unit: 'AGENTS',
+      label: localized('已注册 OpenKeylet MCP 的 Agent 客户端数', 'Agent clients registered with OpenKeylet MCP'),
+      secondary: { value: brokenAgents, mode: localized('待修复', 'REPAIR'), unit: 'AGENTS', label: localized('需要修复接入配置的 Agent 客户端数', 'Agent clients whose connection configuration needs repair') },
     },
   };
   const model = models[activePage] || models.connections;
-  const reading = model.valueKind === 'word' ? displayWord(model.value) : sevenSegmentNumber(model.value);
-  const secondary = activePage === 'activity'
-    ? { value: errors24h, unit: 'ERR', label: localized('最近 24 小时失败数', 'Errors in the last 24 hours') }
-    : activePage === 'settings'
-      ? { value: registeredAgents, unit: 'MCP', label: localized('已连接 Agent', 'Connected agents') }
-      : { value: latest?.durationMs, unit: 'MS', label: localized('最近操作耗时', 'Last operation duration') };
-  const secondaryReading = secondary.value == null ? displayWord('---', 3) : sevenSegmentNumber(secondary.value, 3);
-  const detail = `${model.telemetryLabel}: ${model.telemetryCode} · ${model.action}`;
-  const screenFault = model.telemetryStatus === 'error' || model.readyTone === 'fault';
+  const secondary = model.secondary;
+  // These lamps describe current services, independently of historical operation errors.
+  const services = [
+    {
+      name: 'MCP', value: mcpReady ? 'READY' : state.mcp.status === 'error' ? 'ERROR' : 'SETUP',
+      tone: mcpReady ? 'on' : state.mcp.status === 'error' ? 'fault' : 'warn',
+      label: mcpReady ? localized('本地 MCP 就绪', 'Local MCP is ready') : state.mcp.status === 'error' ? localized('本地 MCP 异常', 'Local MCP has an error') : localized('本地 MCP 需要配置', 'Local MCP needs setup'),
+    },
+    {
+      name: 'WEB', value: state.browserBridge.status === 'error' ? 'ERROR' : !browserOn ? 'OFF' : !state.browserBridge.paired ? 'PAIR' : state.browserBridge.connected ? 'ON' : 'WAIT',
+      tone: state.browserBridge.status === 'error' ? 'fault' : browserOn ? state.browserBridge.paired && state.browserBridge.connected ? 'on' : 'warn' : '',
+      label: state.browserBridge.status === 'error' ? localized('浏览器桥接异常', 'Browser Bridge has an error') : !browserOn ? localized('浏览器桥接已关闭', 'Browser Bridge is off') : !state.browserBridge.paired ? localized('浏览器扩展等待配对', 'Browser extension is waiting to pair') : state.browserBridge.connected ? localized('浏览器扩展已连接', 'Browser extension is connected') : localized('等待浏览器扩展连接', 'Waiting for the browser extension to connect'),
+    },
+    {
+      name: 'PIN', value: ownerLockState.pinConfigured ? 'ON' : 'OFF', tone: ownerLockState.pinConfigured ? 'on' : '',
+      label: ownerLockState.pinConfigured ? localized('已设置本地 PIN 保护', 'Local PIN protection is configured') : localized('尚未设置本地 PIN', 'Local PIN protection is not configured'),
+    },
+  ];
   $('#metrics').innerHTML = `
     <div class="lcd-screen">
-      <div class="lcd-primary" title="${escapeHtml(`${model.ready} · ${model.tag}`)}">
-        ${reading}<div class="lcd-caption"><span>${model.mode}</span><strong>${model.unit}</strong></div>
+      <div class="lcd-primary" role="group" aria-label="${escapeHtml(model.label)}" title="${escapeHtml(`${model.label}: ${model.value}`)}">
+        ${sevenSegmentNumber(model.value)}<div class="lcd-caption" aria-hidden="true"><span>${model.mode}</span><strong>${model.unit}</strong></div>
       </div>
-      <div class="lcd-secondary" role="group" aria-label="${secondary.label}" title="${escapeHtml(`${secondary.label} · ${detail}`)}">
-        ${secondaryReading}<span class="lcd-unit" aria-label="${secondary.unit}">${[...secondary.unit].map((letter) => `<i aria-hidden="true">${letter}</i>`).join('')}</span>
+      <div class="lcd-secondary" role="group" aria-label="${escapeHtml(secondary.label)}" title="${escapeHtml(`${secondary.label}: ${secondary.value}`)}">
+        ${sevenSegmentNumber(secondary.value, 3)}<div class="lcd-caption" aria-hidden="true"><span>${secondary.mode}</span><strong>${secondary.unit}</strong></div>
       </div>
-      <div class="lcd-system">
-        <strong class="lcd-status ${screenFault ? 'fault' : model.readyTone || ''}" title="${escapeHtml(detail)}">${screenFault ? 'ERR' : model.ready}</strong>
-        <div class="lcd-channels" role="group" aria-label="${localized('设备通道状态', 'Device channel status')}">
-          ${model.channels.map(([, label, tone]) => `<span class="${tone}" aria-label="${label}: ${tone.includes('error') ? 'ERROR' : tone ? 'ACTIVE' : 'INACTIVE'}">${label}</span>`).join('')}
-        </div>
+      <div class="lcd-system" role="group" aria-label="${localized('当前服务状态', 'Current service status')}">
+        ${services.map((service) => `<div class="lcd-service" role="group" aria-label="${escapeHtml(service.label)}" title="${escapeHtml(service.label)}"><span aria-hidden="true">${service.name}</span><strong class="lcd-status ${service.tone}" aria-hidden="true">${service.value}</strong></div>`).join('')}
       </div>
     </div>`;
 }
 
 function itemDetail(item) {
+  if (['card', 'identity', 'secureNote'].includes(item.itemType)) {
+    return [itemTypeLabel(item.itemType), item.folder, localized('字段已加密', 'ENCRYPTED FIELDS')].filter(Boolean).join(' · ');
+  }
+  if (item.passkeys?.length && !itemCapabilities(item).length) return `PASSKEY · ${item.passkeys.map(k => k.rpId).join(' · ')}`;
   const capabilities = itemCapabilities(item);
   const targets = [];
   if (capabilities.includes('ssh') && item.host) targets.push(`${item.host}:${item.port || 22}`);
@@ -514,10 +549,285 @@ function itemCapabilities(item) {
   return Array.isArray(item.capabilities) ? item.capabilities : [];
 }
 
-function itemAuthModule(item) {
+function itemDisplayKind(item) {
+  if (item.itemType && item.itemType !== 'custom' && ITEM_TYPES[item.itemType]) return item.itemType;
   const capabilities = itemCapabilities(item);
-  if (!capabilities.length) return 'DRAFT';
-  return capabilities.map((value) => value === 'http' ? 'HTTP' : value.toUpperCase()).join(' · ');
+  if (capabilities.includes('ssh')) return 'ssh';
+  if (capabilities.includes('http')) return 'api';
+  if (item.passkeys?.length) return 'passkey';
+  if (item.modules?.some(module => module.kind === 'apiCredential')) return 'api';
+  if (item.modules?.some(module => module.kind === 'password')) return 'login';
+  return 'custom';
+}
+
+function itemFilterLabel(kind) {
+  if (kind === 'all') return localized('全部类型', 'All types');
+  if (kind === 'login') return localized('密码', 'Password');
+  return itemTypeLabel(kind);
+}
+
+function itemDisplayType(item) { return itemFilterLabel(itemDisplayKind(item)); }
+
+function itemTypeIcon(kind) {
+  const paths = {
+    all: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>',
+    ssh: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/>',
+    login: '<circle cx="8" cy="8" r="4.5"/><path d="m11.3 11.3 9.2 9.2m-4-4 2-2m-5-1 2-2"/>',
+    api: '<path d="m7 7-5 5 5 5m10-10 5 5-5 5M14 4l-4 16"/>',
+    passkey: '<circle cx="8" cy="7" r="3"/><path d="M3 20v-2a5 5 0 0 1 10 0v2m5-5v6m0-3h3"/><circle cx="18" cy="12" r="3"/>',
+    card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/>',
+    identity: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5 17v-1a3 3 0 0 1 6 0v1m3-8h4m-4 4h4m-4 4h2"/>',
+    secureNote: '<path d="M5 3h10l4 4v14H5Zm9 0v5h5M8 12h8m-8 4h6"/>',
+    custom: '<path d="m12 3 8 4v10l-8 4-8-4V7Zm-8 4 8 4 8-4m-8 4v10"/>',
+    error: '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+    success: '<circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/>',
+    SYSTEM: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v4m-5 0h10"/>',
+    MCP: '<path d="M9 3v4m6-4v4M6 7h12v4a6 6 0 0 1-12 0Zm6 10v4"/>',
+    APP: '<path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    WEB: '<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>',
+    CLOUD: '<path d="M7 18a5 5 0 1 1 0-10 6 6 0 0 1 11-1 5.5 5.5 0 0 1 0 11Z"/>',
+    SAFE: '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>',
+  };
+  return `<svg class="item-type-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[kind] || paths.custom}</svg>`;
+}
+
+function syncFilterStrip(selector, order, selected, attribute, label, showLabels = false) {
+  const control = $(selector);
+  if (!control.children.length) {
+    control.innerHTML = order.map(kind => `<button type="button" ${attribute}="${kind}">${itemTypeIcon(kind)}${showLabels ? '<span data-filter-label></span>' : ''}</button>`).join('');
+  }
+  control.style.setProperty('--type-count', order.length);
+  control.style.setProperty('--selected-type', order.indexOf(selected));
+  $$('button', control).forEach(button => {
+    const kind = button.getAttribute(attribute);
+    button.setAttribute('aria-pressed', String(kind === selected));
+    button.tabIndex = kind === selected ? 0 : -1;
+    button.title = label(kind);
+    button.setAttribute('aria-label', button.title);
+    if (showLabels) $('[data-filter-label]', button).textContent = button.title;
+  });
+}
+
+function syncItemTypeFilter() {
+  $('#item-type-switch').setAttribute('aria-label', localized('项目类型筛选', 'Item type filter'));
+  syncFilterStrip('#item-type-switch', itemTypeFilterOrder, currentItemTypeFilter, 'data-item-type-filter', itemFilterLabel);
+}
+
+function syncSettingsFilterControl() {
+  const labels = { all: ['全部设置', 'All settings'], SYSTEM: ['系统入口', 'System access'], MCP: ['Agent 接入', 'Agent setup'], APP: ['窗口与锁定', 'Window & lock'], WEB: ['浏览器', 'Browser'], CLOUD: ['云端备份', 'Cloud backup'], SAFE: ['本地数据', 'Local data'] };
+  $('#settings-filter-switch').setAttribute('aria-label', localized('设置分组筛选', 'Settings section filter'));
+  syncFilterStrip('#settings-filter-switch', settingsFilterOrder, currentSettingsFilter, 'data-settings-filter', kind => localized(...labels[kind]));
+}
+
+async function selectFilterButton(button) {
+  if (button.dataset.itemTypeFilter) await setItemTypeFilter(button.dataset.itemTypeFilter);
+  if (button.dataset.activityFilter) {
+    currentActivityFilter = button.dataset.activityFilter;
+    activityVisibleCount = ACTIVITY_PAGE_SIZE;
+    $('.activity-panel').scrollTop = 0;
+    renderActivity();
+  }
+  if (button.dataset.settingsFilter) {
+    currentSettingsFilter = button.dataset.settingsFilter;
+    syncSettingsFilterControl();
+    applySettingsSearch();
+    $('.settings-layout').scrollTop = 0;
+  }
+}
+
+async function setItemTypeFilter(kind) {
+  if (!itemTypeFilterOrder.includes(kind) || kind === currentItemTypeFilter) return;
+  const edited = state.connections.find(item => item.id === inlineEditorItemId);
+  if (edited && kind !== 'all' && itemDisplayKind(edited) !== kind && !await closeEditorWithDraft()) return;
+  currentItemTypeFilter = kind;
+  syncItemTypeFilter();
+  renderConnections();
+}
+
+async function selectPage(page) {
+  if (inlineEditorItemId && page !== 'connections' && !await closeEditorWithDraft()) return;
+  activePage = page;
+  syncTitleSearch();
+  $('.nav').dataset.active = page;
+  $$('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.page === page);
+    if (item.dataset.page === page) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  });
+  $$('.page').forEach(item => item.classList.toggle('active', item.id === `page-${page}`));
+  renderMetrics();
+  if (page === 'settings') scanAgents();
+}
+
+async function selectCreationMode(mode) {
+  if (mode === 'draft' && !editorDrafts[0]) return;
+  if (!await openEditor(null, mode === 'draft' ? editorDrafts[0] : null)) return;
+  creationMode = mode;
+  renderDrafts();
+}
+
+function moduleAgentVisibilityText(visible) {
+  return visible
+    ? { label: localized('Agent 可查看此值', 'Agent can see this value'), status: localized('Agent 可见', 'AGENT VISIBLE') }
+    : { label: localized('不向 Agent 显示此值', 'Hidden from agent'), status: localized('Agent 隐藏', 'AGENT HIDDEN') };
+}
+
+function setModuleAgentVisibility(button, visible) {
+  button.setAttribute('aria-pressed', String(visible));
+  const { label, status } = moduleAgentVisibilityText(visible);
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  button.closest('.module-row').querySelector('[data-module-visibility]').textContent = status;
+  syncModuleDraft();
+}
+
+// Every travelling cap uses the same drag lifecycle and its existing action.
+function switchControlFor(target) {
+  const strip = target.closest?.('.filter-strip, .title-switch, .language-switch, .nav, .creation-options, .switch, .module-agent-toggle');
+  if (!strip || strip.closest('[inert]') || strip.matches(':disabled, [aria-disabled="true"]')) return null;
+  if (strip.matches('.title-switch')) {
+    return { strip, count: 2, read: () => Number(strip.getAttribute('aria-checked') === 'true'),
+      preview: $$('.title-switch-option', strip), focus: () => strip,
+      commit: index => window.OpenKeyletAppearance[strip.id === 'theme-toggle' ? 'setTheme' : 'setSound'](Boolean(index)) };
+  }
+  if (strip.matches('.switch')) {
+    const input = $('input', strip);
+    if (input.disabled) return null;
+    return { strip, count: 2, read: () => Number(input.checked), focus: () => input,
+      disabled: () => input.disabled,
+      commit: async index => {
+        input.checked = Boolean(index);
+        if (input.id === 'desktop-shortcut-enabled') await setSystemIntegration('desktop', input.checked);
+        else if (input.id === 'launch-at-login-enabled') await setSystemIntegration('startup', input.checked);
+        else if (input.id === 'browser-enabled') await saveBrowserSettings();
+        else if (input.id === 'pin-enabled') await savePinSettings();
+      } };
+  }
+  if (strip.matches('.module-agent-toggle')) {
+    return { strip, count: 2, read: () => Number(strip.getAttribute('aria-pressed') === 'true'), focus: () => strip,
+      commit: index => setModuleAgentVisibility(strip, Boolean(index)) };
+  }
+  const buttons = $$('button', strip);
+  const read = () => buttons.findIndex(button => strip.matches('.nav, .language-switch') ? button.classList.contains('active') : button.getAttribute('aria-pressed') === 'true');
+  return { strip, count: buttons.length, buttons, preview: buttons, read,
+    disabled: index => buttons[index]?.disabled,
+    focus: () => buttons[read()],
+    commit: async index => {
+      const button = buttons[index];
+      if (strip.matches('.filter-strip')) await selectFilterButton(button);
+      else if (strip.matches('.language-switch')) await setLanguage(button.dataset.language);
+      else if (strip.matches('.nav')) await selectPage(button.dataset.page);
+      else await selectCreationMode(button.id === 'drafts-button' ? 'draft' : 'add');
+    } };
+}
+
+function moveSwitchThumb(event) {
+  const drag = switchPointerDrag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const dx = event.clientX - drag.startX;
+  if (!drag.started && Math.abs(dx) < 4) return;
+  if (!drag.started && event.pointerType === 'touch' && Math.abs(event.clientY - drag.startY) > Math.abs(dx)) return;
+  event.preventDefault();
+  if (!drag.started) {
+    drag.started = true;
+    drag.strip.classList.add('is-dragging');
+    drag.strip.classList.add('has-drag-preview');
+    drag.strip.setPointerCapture(event.pointerId);
+  }
+  const position = Math.max(0, Math.min(drag.count - 1, drag.origin + dx / drag.cellWidth));
+  drag.index = Math.round(position);
+  drag.strip.style.setProperty('--drag-type', position);
+  drag.preview?.forEach((button, index) => button.classList.toggle('is-preview', index === drag.index && !drag.disabled?.(index)));
+}
+
+async function finishSwitchDrag(commit) {
+  const drag = switchPointerDrag;
+  if (!drag) return;
+  switchPointerDrag = null;
+  if (drag.strip.hasPointerCapture(drag.pointerId)) drag.strip.releasePointerCapture(drag.pointerId);
+  drag.strip.classList.remove('is-dragging');
+  drag.preview?.forEach(button => button.classList.remove('is-preview'));
+  if (drag.started) {
+    // Escape may precede pointer release by any duration. Keep ownership of
+    // that gesture's click until it arrives or a new pointer gesture starts.
+    suppressSwitchClick = drag.strip;
+  }
+  if (commit && drag.started && drag.index !== drag.read() && !drag.disabled?.(drag.index) && drag.strip.isConnected) {
+    switchSelectionPending = true;
+    drag.strip.setAttribute('aria-busy', 'true');
+    drag.strip.style.setProperty('--drag-type', drag.index);
+    try {
+      if (titleSearchOpen) setTitleSearchOpen(false, false);
+      await drag.commit(drag.index);
+      if (drag.read() === drag.index && drag.strip.id !== 'sound-toggle') window.OpenKeyletAppearance.feedback();
+    } catch (error) { toast(cleanError(error), 'error'); }
+    finally {
+      switchSelectionPending = false;
+      drag.strip.removeAttribute('aria-busy');
+      drag.strip.style.removeProperty('--drag-type');
+      drag.strip.classList.remove('has-drag-preview');
+      // Opening a drawer or confirmation retains its own focus management.
+      if (!confirmationResolver && (drag.strip.contains(document.activeElement) || document.activeElement === document.body)) drag.focus()?.focus({ preventScroll: true });
+    }
+  } else {
+    drag.strip.style.removeProperty('--drag-type');
+    drag.strip.classList.remove('has-drag-preview');
+  }
+}
+
+document.addEventListener('pointerdown', event => {
+  suppressSwitchClick = null;
+  if (event.button !== 0 || !event.isPrimary || switchPointerDrag || switchSelectionPending || event.ctrlKey || event.metaKey) return;
+  const control = switchControlFor(event.target);
+  if (!control) return;
+  const { strip } = control;
+  const button = event.target.closest('button');
+  if (button?.disabled) return;
+  const style = getComputedStyle(strip);
+  const width = strip.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const origin = control.buttons?.includes(button) ? control.buttons.indexOf(button) : control.read();
+  const cellWidth = parseFloat(style.getPropertyValue('--switch-travel')) || width / control.count;
+  switchPointerDrag = { ...control, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin, index: origin, cellWidth, started: false };
+});
+document.addEventListener('pointermove', moveSwitchThumb, { passive: false });
+document.addEventListener('pointerup', event => {
+  if (switchPointerDrag?.pointerId === event.pointerId) { moveSwitchThumb(event); void finishSwitchDrag(true); }
+});
+document.addEventListener('pointercancel', event => { if (switchPointerDrag?.pointerId === event.pointerId) void finishSwitchDrag(false); });
+document.addEventListener('lostpointercapture', event => { if (switchPointerDrag?.pointerId === event.pointerId) void finishSwitchDrag(false); });
+window.addEventListener('blur', () => { void finishSwitchDrag(false); });
+document.addEventListener('click', event => {
+  const strip = suppressSwitchClick;
+  suppressSwitchClick = null;
+  if (!strip || event.detail === 0 || !strip.contains(event.target)) return;
+  event.preventDefault(); event.stopImmediatePropagation();
+}, true);
+
+function syncTitleSearch() {
+  const open = titleSearchOpen;
+  const labels = { connections: ['搜索项目', 'Search items'], activity: ['搜索记录', 'Search activity'], settings: ['搜索设置', 'Search settings'] };
+  const label = localized(...labels[activePage]);
+  const control = $('#title-search');
+  control.classList.toggle('is-open', open);
+  control.classList.toggle('has-query', Boolean(pageSearch[activePage]));
+  $('.title-drag-region').classList.toggle('search-open', open);
+  const input = $('#title-search-input');
+  input.hidden = !open;
+  input.dataset.pageSearch = activePage;
+  input.placeholder = `${label}…`;
+  input.setAttribute('aria-label', label);
+  if (input.value !== pageSearch[activePage]) input.value = pageSearch[activePage];
+  const button = $('#title-search-toggle');
+  button.setAttribute('aria-expanded', String(open));
+  button.title = open ? localized('收起搜索', 'Collapse search') : label;
+  if (pageSearch[activePage] && !open) button.title += localized(' · 筛选中', ' · Filter active');
+  button.setAttribute('aria-label', button.title);
+}
+
+function setTitleSearchOpen(open, focus = true) {
+  titleSearchOpen = open;
+  syncTitleSearch();
+  if (focus) (open ? $('#title-search-input') : $('#title-search-toggle')).focus({ preventScroll: true });
 }
 
 function itemPermission(item) {
@@ -532,55 +842,60 @@ const activityFilterDefinitions = {
   error: { key: 'B', label: 'ERROR' },
   success: { key: 'C', label: 'PASS' },
 };
-
-function setActivityFilterMenu(open) {
-  $('#activity-filter-menu').classList.toggle('hidden', !open);
-  $('#activity-filter-menu-button').setAttribute('aria-expanded', String(open));
-}
+const activityFilterOrder = Object.keys(activityFilterDefinitions);
 
 function syncActivityFilterControl() {
-  const selected = activityFilterDefinitions[currentActivityFilter] || activityFilterDefinitions.all;
-  $('#activity-filter-current-key').textContent = selected.key;
-  $('#activity-filter-current-label').textContent = selected.label;
-  $$('#activity-filter-menu [data-activity-filter]').forEach((button) => button.classList.toggle('active', button.dataset.activityFilter === currentActivityFilter));
+  const labels = { all: ['全部', 'ALL'], error: ['错误', 'ERROR'], success: ['成功', 'PASS'] };
+  $('#activity-filter-switch').setAttribute('aria-label', localized('记录结果筛选', 'Activity result filter'));
+  syncFilterStrip('#activity-filter-switch', activityFilterOrder, currentActivityFilter, 'data-activity-filter', kind => localized(...labels[kind]), true);
 }
 
 function renderConnections() {
+  if (itemPointerDrag || itemOrderSaving) return;
   const query = normalizeSearch(pageSearch.connections);
-  const signature = JSON.stringify([state.connections, query, language]);
+  const signature = JSON.stringify([state.connections, query, language, inlineEditorItemId, currentItemTypeFilter]);
   if (signature === renderedConnectionsSignature) return;
   renderedConnectionsSignature = signature;
   const items = state.connections.filter((item) => {
+    if (item.id === inlineEditorItemId) return true;
+    if (currentItemTypeFilter !== 'all' && itemDisplayKind(item) !== currentItemTypeFilter) return false;
     if (!query) return true;
     const fields = (item.secret?.fields || []).map((field) => field.name).join(' ');
-    return normalizeSearch([item.name, item.description, itemCapabilities(item).join(' '), itemDetail(item), itemPermission(item), fields].join(' ')).includes(query);
+    return normalizeSearch([item.name, item.description, item.folder, itemTypeLabel(item.itemType), itemDisplayType(item), itemCapabilities(item).join(' '), itemDetail(item), itemPermission(item), fields].join(' ')).includes(query);
   });
   const container = $('#connections-list');
+  const editor = $('#connection-modal');
+  const focusedEditorControl = editor.contains(document.activeElement) ? document.activeElement : null;
+  // Preserve the live form (and unsaved values) when language or list data refreshes.
+  if (container.contains(editor)) editorHome.after(editor);
+  if (inlineEditorItemId && !state.connections.some(item => item.id === inlineEditorItemId)) closeEditor();
   if (!items.length) {
     const hasItems = state.connections.length > 0;
-    container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前搜索没有结果。', 'No items match the current search.') : localized('OpenKeylet 保存秘密，并在 Agent 指定的最后一步完成写入。', 'OpenKeylet stores secrets and writes them only at the final step selected by an agent.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除搜索', 'CLEAR SEARCH') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
+    container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前筛选没有结果。', 'No items match the current filters.') : localized('保存密码、Passkey、信用卡、身份资料和安全笔记，在需要时使用。', 'Keep passwords, passkeys, cards, identities and secure notes together.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除筛选', 'CLEAR FILTERS') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
     return;
   }
   container.innerHTML = items.map((item) => {
-    const stableIndex = state.connections.findIndex((candidate) => candidate.id === item.id) + 1;
-    const authModule = itemAuthModule(item);
+    const type = itemDisplayType(item);
     const canTest = item.enabled && item.canTest;
-    return `<article class="connection-card ${itemCapabilities(item).includes('ssh') ? 'ssh' : itemCapabilities(item).includes('http') ? 'http' : 'fill'} ${item.enabled ? '' : 'disabled'}">
-      <div class="module-strip"><span>ITEM / ${String(stableIndex).padStart(2, '0')}</span><button class="module-state" type="button" data-action="toggle-enabled" data-id="${item.id}" aria-pressed="${item.enabled}" title="${item.enabled ? localized('点击停用；Agent 将无法使用其中的秘密', 'Disable this item; agents will no longer be able to use its secrets') : localized('点击启用；Agent 将可以使用其中的秘密', 'Enable this item so agents can use its secrets')}"><i class="status-dot ${item.enabled ? '' : 'off'}"></i>${item.enabled ? 'READY' : 'OFF'}</button></div>
-      <div class="connection-top"><div class="connection-main"><div class="connection-name-row"><span class="connection-name"><span>${escapeHtml(item.name)}</span></span></div><div class="connection-address">${escapeHtml(itemDetail(item))}</div></div><div class="connection-symbol">${escapeHtml(authModule)}</div></div>
-      ${item.description ? `<div class="connection-description">${escapeHtml(item.description)}</div>` : ''}
-      <div class="card-actions"><button class="small-button" type="button" data-action="test" data-id="${item.id}" ${canTest ? '' : 'disabled'}>CHECK</button><button class="small-button" type="button" data-action="copy-name" data-id="${item.id}" title="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}" aria-label="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}">USE</button><button class="small-button" type="button" data-action="edit" data-id="${item.id}">EDIT</button><button class="small-button delete" type="button" data-action="delete" data-id="${item.id}">DEL</button></div>
+    const agentActions = itemCapabilities(item).length > 0;
+    const reorderLabel = localized(`${item.name}：拖动排序，或按上/下方向键`, `${item.name}: drag to reorder, or use the Up/Down arrow keys`);
+    const toggleLabel = item.enabled
+      ? localized('停用此项目；Agent 将无法使用其中的秘密', 'Disable this item; agents will no longer be able to use its secrets')
+      : localized('启用此项目；Agent 将可以使用其中的秘密', 'Enable this item so agents can use its secrets');
+    return `<article class="connection-card ${itemCapabilities(item).includes('ssh') ? 'ssh' : itemCapabilities(item).includes('http') ? 'http' : 'fill'} ${item.enabled ? '' : 'disabled'}" data-item-id="${escapeHtml(item.id)}">
+      <div class="item-disclosure-well"><button class="item-disclosure" type="button" data-action="edit" data-id="${item.id}" aria-expanded="false" aria-controls="connection-modal" aria-label="${escapeHtml(localized(`展开编辑 ${item.name}`, `Expand editor for ${item.name}`))}" title="${localized('展开编辑', 'Expand editor')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+      <span class="connection-type" role="img" data-item-type="${itemDisplayKind(item)}" aria-label="${escapeHtml(type)}" title="${escapeHtml(type)}">${itemTypeIcon(itemDisplayKind(item))}</span>
+      <button class="connection-name" type="button" draggable="false" data-item-reorder="${escapeHtml(item.id)}" aria-label="${escapeHtml(reorderLabel)}" aria-keyshortcuts="ArrowUp ArrowDown Home End" title="${escapeHtml(reorderLabel)}"><span class="lettering-ink">${escapeHtml(item.name)}</span></button>
+      <div class="card-actions" role="group" aria-label="${escapeHtml(item.name)}">
+        <button class="module-state item-toggle" type="button" data-action="toggle-enabled" data-id="${item.id}" aria-pressed="${item.enabled}" title="${toggleLabel}" aria-label="${toggleLabel}"><i class="status-dot ${item.enabled ? '' : 'off'}" aria-hidden="true"></i></button>
+        ${agentActions ? `<button class="small-button" type="button" data-action="test" data-id="${item.id}" ${canTest ? '' : 'disabled'}>CHECK</button><button class="small-button" type="button" data-action="copy-name" data-id="${item.id}" title="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}" aria-label="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}">USE</button>` : ''}${item.passwordHistoryCount ? `<button class="small-button" type="button" data-action="history" data-id="${item.id}">HISTORY</button>` : ''}<button class="small-button delete" type="button" data-action="delete" data-id="${item.id}">DEL</button>
+      </div>
     </article>`;
   }).join('');
-  requestAnimationFrame(() => {
-    $$('.connection-name', container).forEach((label) => {
-      const text = label.firstElementChild;
-      const distance = Math.max(0, Math.ceil(text.scrollWidth - label.clientWidth));
-      label.classList.toggle('scrollable', distance > 0);
-      label.style.setProperty('--name-scroll-distance', `${distance}px`);
-      label.style.setProperty('--name-scroll-duration', `${Math.max(3, distance / 22 + 1.5)}s`);
-    });
-  });
+  if (inlineEditorItemId) {
+    placeItemEditor();
+    if (focusedEditorControl?.isConnected) focusedEditorControl.focus({ preventScroll: true });
+  }
 }
 
 function draftSecretValues(secrets = {}) {
@@ -596,13 +911,16 @@ function draftSecretValues(secrets = {}) {
 
 function renderDrafts() {
   const button = $('#drafts-button');
-  if (!button) return;
   const hasDraft = Boolean(editorDrafts[0]);
+  if (!hasDraft) creationMode = 'add';
+  $('.creation-control').dataset.mode = creationMode;
+  $('#add-connection-button').setAttribute('aria-pressed', String(creationMode === 'add'));
+  button.setAttribute('aria-pressed', String(creationMode === 'draft'));
   const deleteButton = $('#delete-draft-button');
   button.disabled = !hasDraft;
   button.textContent = localized('草稿', 'DRAFT');
   button.title = hasDraft ? localized('继续最近的草稿', 'Continue the most recent draft') : localized('暂无草稿', 'No draft');
-  deleteButton.classList.toggle('hidden', !hasDraft);
+  deleteButton.classList.toggle('hidden', !hasDraft || creationMode !== 'draft');
   deleteButton.title = localized('删除草稿', 'Delete draft');
 }
 
@@ -677,7 +995,8 @@ function applySettingsSearch() {
   const query = normalizeSearch(pageSearch.settings);
   let visible = 0;
   for (const card of $$('.settings-card')) {
-    const matches = !query || normalizeSearch(`${card.dataset.module || ''} ${card.textContent}`).includes(query);
+    const matchesSection = currentSettingsFilter === 'all' || card.dataset.module?.startsWith(`${currentSettingsFilter} /`);
+    const matches = matchesSection && (!query || normalizeSearch(`${card.dataset.module || ''} ${card.textContent}`).includes(query));
     card.classList.toggle('search-hidden', !matches);
     if (matches) visible += 1;
   }
@@ -731,6 +1050,30 @@ async function scanAgents(showToast = false) {
 }
 
 const MODULE_DEFS = {
+  cardholderName: { code: 'CHN', zh: '持卡人姓名', en: 'CARDHOLDER', secret: true },
+  cardNumber: { code: 'PAN', zh: '卡号', en: 'CARD NUMBER', secret: true },
+  cardBrand: { code: 'BRD', zh: '卡组织', en: 'BRAND', secret: true },
+  cardExpMonth: { code: 'MM', zh: '到期月份', en: 'EXPIRY MONTH', secret: true },
+  cardExpYear: { code: 'YYYY', zh: '到期年份', en: 'EXPIRY YEAR', secret: true },
+  cardSecurityCode: { code: 'CVC', zh: '安全码', en: 'SECURITY CODE', secret: true },
+  identityTitle: { code: 'TTL', zh: '称谓', en: 'TITLE', secret: true },
+  firstName: { code: 'FN', zh: '名字', en: 'FIRST NAME', secret: true },
+  middleName: { code: 'MN', zh: '中间名', en: 'MIDDLE NAME', secret: true },
+  lastName: { code: 'LN', zh: '姓氏', en: 'LAST NAME', secret: true },
+  company: { code: 'ORG', zh: '公司', en: 'COMPANY', secret: true },
+  email: { code: 'MAIL', zh: '电子邮箱', en: 'EMAIL', secret: true },
+  phone: { code: 'TEL', zh: '电话号码', en: 'PHONE', secret: true },
+  address1: { code: 'AD1', zh: '地址第一行', en: 'ADDRESS LINE 1', secret: true },
+  address2: { code: 'AD2', zh: '地址第二行', en: 'ADDRESS LINE 2', secret: true },
+  address3: { code: 'AD3', zh: '地址第三行', en: 'ADDRESS LINE 3', secret: true },
+  city: { code: 'CTY', zh: '城市', en: 'CITY', secret: true },
+  state: { code: 'REG', zh: '省 / 州', en: 'STATE / REGION', secret: true },
+  postalCode: { code: 'ZIP', zh: '邮政编码', en: 'POSTAL CODE', secret: true },
+  country: { code: 'CTR', zh: '国家 / 地区', en: 'COUNTRY / REGION', secret: true },
+  passportNumber: { code: 'PPT', zh: '护照号码', en: 'PASSPORT', secret: true },
+  licenseNumber: { code: 'DL', zh: '驾照号码', en: 'DRIVER LICENSE', secret: true },
+  nationalId: { code: 'ID', zh: '身份证号码', en: 'NATIONAL ID', secret: true },
+  secureNote: { code: 'NOTE', zh: '安全笔记', en: 'SECURE NOTE', secret: true, multiline: true },
   username: { code: 'USR', zh: '账号', en: 'USERNAME', secret: true },
   password: { code: 'PWD', zh: '密码', en: 'PASSWORD', secret: true },
   apiCredential: { code: 'API', zh: 'API 凭据', en: 'API CREDENTIAL', secret: true },
@@ -742,6 +1085,17 @@ const MODULE_DEFS = {
   port: { code: 'PRT', zh: '端口', en: 'PORT', secret: false },
   url: { code: 'URL', zh: '服务 URL', en: 'SERVICE URL', secret: false },
 };
+const PERSONAL_FIELDS = Object.keys(MODULE_DEFS).slice(0, Object.keys(MODULE_DEFS).indexOf('username'));
+const ITEM_TYPES = { login: ['登录', 'Login'], card: ['信用卡', 'Card'], identity: ['身份资料', 'Identity'], secureNote: ['安全笔记', 'Secure note'], ssh: ['SSH', 'SSH'], api: ['API', 'API'], custom: ['自定义', 'Custom'], passkey: ['Passkey', 'Passkey'] };
+function itemTypeLabel(kind) { const labels = ITEM_TYPES[kind] || ITEM_TYPES.custom; return localized(...labels); }
+function typeOptions(emptyLabel, selected, includePasskey = false) {
+  return `${emptyLabel ? `<option value="">${emptyLabel}</option>` : ''}${Object.keys(ITEM_TYPES).filter(k => includePasskey || k !== 'passkey').map(k => `<option value="${k}" ${k === selected ? 'selected' : ''}>${itemTypeLabel(k)}</option>`).join('')}`;
+}
+for (const kind of PERSONAL_FIELDS) {
+  const button = document.createElement('button'); button.type = 'button'; button.dataset.addModule = kind;
+  button.textContent = moduleLabel(kind); $('#module-menu').append(button);
+  staticCopy.push([`#module-menu [data-add-module="${kind}"]`, 'text', MODULE_DEFS[kind].zh, MODULE_DEFS[kind].en]);
+}
 
 function moduleHasPlaintextReveal(kind) {
   return Boolean(MODULE_DEFS[kind]?.secret);
@@ -790,13 +1144,13 @@ function renderModules() {
   container.innerHTML = currentModules.map((module, index) => {
     const definition = MODULE_DEFS[module.kind] || MODULE_DEFS.customSecret;
     const agentVisible = typeof module.agentVisible === 'boolean' ? module.agentVisible : defaultModuleAgentVisible(module.kind);
-    const agentVisibilityLabel = agentVisible
-      ? localized('Agent 可查看此值', 'Agent can see this value')
-      : localized('不向 Agent 显示此值', 'Hidden from agent');
+    const { label: agentVisibilityLabel, status: agentVisibilityStatus } = moduleAgentVisibilityText(agentVisible);
     const secretName = moduleSecretName(module);
-    const customName = module.kind === 'customSecret'
+    const nameControl = module.kind === 'customSecret'
       ? `<input class="input module-name-input" data-module-name value="${escapeHtml(module.name || '')}" placeholder="${localized('字段名称', 'FIELD NAME')}" />`
-      : `<strong>${escapeHtml(moduleLabel(module.kind))}</strong>${secretName ? `<small>${escapeHtml(secretName)}</small>` : ''}`;
+      : `<strong>${escapeHtml(moduleLabel(module.kind))}</strong>`;
+    const secretCaption = secretName && !PERSONAL_FIELDS.includes(module.kind) && module.kind !== 'customSecret' ? `<small>${escapeHtml(secretName)}</small>` : '';
+    const customName = `${nameControl}<div class="module-metadata">${secretCaption}<span class="module-visibility-state" data-module-visibility aria-hidden="true">${agentVisibilityStatus}</span></div>`;
     let control = '';
     let actions = '';
     if (module.kind === 'privateKey') {
@@ -806,8 +1160,11 @@ function renderModules() {
       actions = `${secretActionButton('reveal', true, keyActionsDisabled)}${secretActionButton('copy', true, keyActionsDisabled)}`;
     } else if (definition.secret) {
       const placeholder = module.kind === 'totp' ? localized('Base32 设置密钥', 'BASE32 SETUP KEY') : localized('输入秘密值', 'ENTER SECRET VALUE');
-      control = `<div class="secret-input-control module-secret-control"><input class="input" data-secret-value type="password" autocomplete="off" value="${escapeHtml(module.secretValue || '')}" placeholder="${placeholder}" /></div>`;
+      control = definition.multiline
+        ? `<div class="secret-input-control module-secret-control multiline"><textarea class="input textarea secret-masked" data-secret-value rows="6" maxlength="65536" autocomplete="off" placeholder="${placeholder}">${escapeHtml(module.secretValue || '')}</textarea></div>`
+        : `<div class="secret-input-control module-secret-control"><input class="input" data-secret-value type="password" autocomplete="off" value="${escapeHtml(module.secretValue || '')}" placeholder="${placeholder}" /></div>`;
       actions = `${secretActionButton('reveal')}${secretActionButton('copy')}`;
+      if (module.kind === 'password') control += `<button class="small-button" type="button" data-generate-password>${localized('生成密码', 'GENERATE')}</button>`;
     } else {
       const inputType = module.kind === 'port' ? 'number' : 'text';
       const placeholder = module.kind === 'url' ? 'api.example.com/v1/' : module.kind === 'host' ? 'host.example.com' : '22';
@@ -892,11 +1249,15 @@ function addModule(kind, options = {}) {
 
 function applyTemplate(template) {
   const presets = {
-    login: ['username', 'password'],
+    login: ['url', 'username', 'password'],
+    card: ['cardholderName', 'cardNumber', 'cardBrand', 'cardExpMonth', 'cardExpYear', 'cardSecurityCode'],
+    identity: ['firstName', 'lastName', 'email', 'phone', 'address1', 'address2', 'city', 'state', 'postalCode', 'country'],
+    secureNote: ['secureNote'],
     ssh: ['host', 'port', 'username', 'password'],
     api: ['apiCredential'],
     blank: [],
   };
+  value('#connection-type', template === 'blank' ? 'custom' : template);
   currentModules = (presets[template] || []).map((kind) => ({ kind, name: kind, value: kind === 'port' ? '22' : '', secretValue: '', configured: false, existing: false, privateKeyName: '', pending: false, agentVisible: defaultModuleAgentVisible(kind) }));
   $('#template-picker').classList.add('hidden');
   renderModules();
@@ -914,52 +1275,136 @@ function updateEditorTitle() {
     : (editorExistingItem ? localized('编辑项目', 'EDIT ITEM') : localized('添加项目', 'ADD ITEM'));
 }
 
-async function openEditor(item = null, draft = null) {
-  if (!draft && item) draft = editorDrafts.find((candidate) => candidate.input?.id === item.id) || null;
-  if (!item && draft?.input?.id) item = state.connections.find((candidate) => candidate.id === draft.input.id) || null;
-  let ownerValues = {};
-  if (draft) {
-    ownerValues = draftSecretValues(draft.input?.secrets);
-  } else if (item) {
-    try {
-      const view = await api.ownerSecrets(item.id);
-      ownerValues = Object.fromEntries(view.fields.map((field) => [field.name, field.value]));
-    } catch (error) {
-      toast(cleanError(error), 'error');
-      await refreshOwnerLock(false);
-      return;
-    }
+function placeItemEditor() {
+  const editor = $('#connection-modal');
+  const card = $$('.connection-card').find(card => card.dataset.itemId === inlineEditorItemId);
+  if (card) {
+    card.appendChild(editor);
+    card.classList.add('is-editing');
+    const trigger = $('.item-disclosure', card);
+    trigger.setAttribute('aria-expanded', 'true');
+    trigger.setAttribute('aria-label', localized(`收起编辑 ${editorExistingItem.name}`, `Collapse editor for ${editorExistingItem.name}`));
+    trigger.title = localized('收起编辑', 'Collapse editor');
+    editorReturnFocus = trigger;
+  } else editorHome.after(editor);
+  editor.classList.toggle('inline-editor', Boolean(card));
+  editor.setAttribute('role', card ? 'region' : 'dialog');
+  if (card) editor.removeAttribute('aria-modal');
+  else editor.setAttribute('aria-modal', 'true');
+}
+
+async function animateInlineEditor(open) {
+  const editor = $('#connection-modal');
+  if (!inlineEditorItemId || editor.classList.contains('hidden') || matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+  const height = editor.getBoundingClientRect().height;
+  editorFoldAnimation?.cancel();
+  editor.classList.add('is-folding');
+  // Animate the real content height: modules and multiline fields need no cap.
+  const animation = editor.animate([
+    { height: `${open ? 0 : height}px`, opacity: open ? 0 : 1 },
+    { height: `${open ? height : 0}px`, opacity: open ? 1 : 0 },
+  ], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+  editorFoldAnimation = animation;
+  let completed = true;
+  try { await animation.finished; } catch (_) { completed = false; }
+  if (editorFoldAnimation === animation) {
+    animation.cancel();
+    editorFoldAnimation = null;
+    editor.classList.remove('is-folding');
   }
-  const source = draft?.input || item || null;
-  removedSecretFields = new Set();
-  editorExistingItem = item;
-  editorSourceInput = source;
-  editorOpenedFromDraft = Boolean(draft);
-  currentDraftId = draft?.id || '';
-  value('#connection-id', item?.id);
-  value('#connection-name', source?.name);
-  value('#connection-description', source?.description);
-  $('#connection-enabled').checked = source?.enabled ?? true;
-  updateEditorTitle();
-  $('#template-picker').classList.toggle('hidden', Boolean(item || draft?.input?.modules?.length));
-  currentModules = (source?.modules || []).map((module) => {
-    const secretName = module.kind === 'customSecret' ? module.name : module.kind;
-    const privateKeyName = draft?.input?.secrets?.privateKeyName || item?.privateKeyName || '';
-    return { ...module, secretValue: ownerValues[secretName] || '', configured: Boolean(module.configured || ownerValues[secretName]), existing: Boolean(item), privateKeyName: module.kind === 'privateKey' ? privateKeyName : '', pending: false, agentVisible: typeof module.agentVisible === 'boolean' ? module.agentVisible : defaultModuleAgentVisible(module.kind) };
-  });
-  renderModules();
-  $('#connection-modal').classList.remove('hidden');
-  $('.form-scroll', $('#connection-modal')).scrollTop = 0;
-  editorInitialSnapshot = JSON.stringify(serializeItem(false));
+  return completed;
+}
+
+async function openEditor(item = null, draft = null) {
+  if (editorOpening) return false;
+  editorOpening = true;
+  try {
+    const launcher = document.activeElement;
+    const collapseCurrent = inlineEditorItemId && inlineEditorItemId === item?.id && !draft;
+    if (!$('#connection-modal').classList.contains('hidden') && !await closeEditorWithDraft()) return false;
+    if (collapseCurrent) return true;
+    if (!draft && item) draft = editorDrafts.find((candidate) => candidate.input?.id === item.id) || null;
+    if (!item && draft?.input?.id) item = state.connections.find((candidate) => candidate.id === draft.input.id) || null;
+    let ownerValues = {};
+    if (draft) {
+      ownerValues = draftSecretValues(draft.input?.secrets);
+    } else if (item) {
+      try {
+        const view = await api.ownerSecrets(item.id);
+        ownerValues = Object.fromEntries(view.fields.map((field) => [field.name, field.value]));
+      } catch (error) {
+        toast(cleanError(error), 'error');
+        await refreshOwnerLock(false);
+        return false;
+      }
+    }
+    const source = draft?.input || item || null;
+    removedSecretFields = new Set();
+    editorExistingItem = item;
+    editorSourceInput = source;
+    editorOpenedFromDraft = Boolean(draft);
+    currentDraftId = draft?.id || '';
+    value('#connection-id', item?.id);
+    value('#connection-name', source?.name);
+    value('#connection-description', source?.description);
+    $('#connection-type').innerHTML = typeOptions('', source?.itemType || 'custom');
+    value('#connection-folder', source?.folder);
+    renderLoginUris(source?.loginUris || []);
+    $('#vault-folder-options').innerHTML = [...new Set(state.connections.map(i => i.folder).filter(Boolean))].map(f => `<option value="${escapeHtml(f)}"></option>`).join('');
+    $('#connection-enabled').checked = source?.enabled ?? true;
+    updateEditorTitle();
+    $('#template-picker').classList.toggle('hidden', Boolean(item || draft?.input?.modules?.length));
+    currentModules = (source?.modules || []).map((module) => {
+      const secretName = module.kind === 'customSecret' ? module.name : module.kind;
+      const privateKeyName = draft?.input?.secrets?.privateKeyName || item?.privateKeyName || '';
+      return { ...module, secretValue: ownerValues[secretName] || '', configured: Boolean(module.configured || ownerValues[secretName]), existing: Boolean(item), privateKeyName: module.kind === 'privateKey' ? privateKeyName : '', pending: false, agentVisible: typeof module.agentVisible === 'boolean' ? module.agentVisible : defaultModuleAgentVisible(module.kind) };
+    });
+    renderModules();
+    editorReturnFocus = launcher;
+    inlineEditorItemId = item?.id || null;
+    if (inlineEditorItemId) renderConnections();
+    placeItemEditor();
+    $('#connection-modal').classList.remove('hidden');
+    $('#passkey-list').innerHTML = (item?.passkeys || []).map(key => `<div class="passkey-summary"><strong>PASSKEY · ${escapeHtml(key.rpId)}</strong><span>${escapeHtml(key.displayName || key.userName)}</span><small>${localized('私钥加密保存在本地；在浏览器中使用。移入回收站会停用 Passkey，恢复后可继续使用。', 'Private key encrypted locally. Moving this item to trash disables its passkeys; restore it to use them again.')}</small></div>`).join('');
+    $('.form-scroll', $('#connection-modal')).scrollTop = 0;
+    editorInitialSnapshot = JSON.stringify(serializeItem(false));
+    void animateInlineEditor(true).then(completed => {
+      if (!completed) return;
+      requestAnimationFrame(() => {
+        if (!$('#connection-modal').classList.contains('hidden') && editorExistingItem === item) {
+          if ($('#connection-modal').contains(document.activeElement)) return;
+          if (inlineEditorItemId) $('#connection-name').scrollIntoView({ block: 'nearest' });
+          $('#connection-name').focus({ preventScroll: true });
+        }
+      });
+    });
+    return true;
+  } finally { editorOpening = false; }
 }
 
 function closeEditor() {
+  editorFoldAnimation?.cancel();
+  editorFoldAnimation = null;
+  $('#connection-modal').classList.remove('is-folding');
   finishModulePointerDrag(false);
   $('#connection-modal').classList.add('hidden');
   setModuleMenu(false);
+  const card = $$('.connection-card').find(card => card.dataset.itemId === inlineEditorItemId);
+  if (card) {
+    card.classList.remove('is-editing');
+    const trigger = $('.item-disclosure', card);
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', localized(`展开编辑 ${editorExistingItem.name}`, `Expand editor for ${editorExistingItem.name}`));
+    trigger.title = localized('展开编辑', 'Expand editor');
+    editorReturnFocus = trigger;
+  }
+  inlineEditorItemId = null;
+  placeItemEditor();
   editorSourceInput = null;
   editorOpenedFromDraft = false;
   editorInitialSnapshot = '';
+  if (editorReturnFocus?.isConnected && !editorReturnFocus.closest('.hidden')) editorReturnFocus.focus({ preventScroll: true });
+  editorReturnFocus = null;
 }
 
 function collectModules(validate = true) {
@@ -972,7 +1417,7 @@ function collectModules(validate = true) {
     if (module.kind === 'customSecret') {
       if (validate && !name) throw new Error(localized('请输入字段名称', 'Enter a field name'));
       const normalizedName = name.toLocaleLowerCase().replace(/[\s_-]+/g, '');
-      if (validate && ['username', 'password', 'apicredential', 'privatekey', 'passphrase', 'totp', 'token', 'apikey'].includes(normalizedName)) throw new Error(localized(`字段名与内置模块冲突：${name}`, `Field name conflicts with a built-in module: ${name}`));
+      if (validate && [...Object.keys(MODULE_DEFS).map(k => k.toLowerCase()), 'token', 'apikey'].includes(normalizedName)) throw new Error(localized(`字段名与内置模块冲突：${name}`, `Field name conflicts with a built-in module: ${name}`));
     }
     const uniqueName = name.toLocaleLowerCase().replace(/[\s_-]+/g, '');
     if (validate && name && secretNames.has(uniqueName)) throw new Error(localized(`字段名重复：${name}`, `Duplicate field name: ${name}`));
@@ -999,6 +1444,10 @@ function serializeItem(validate = true) {
   const collected = collectModules(validate);
   return {
     id,
+    itemType: value('#connection-type'),
+    folder: value('#connection-folder').trim(),
+    favorite: Boolean(editorSourceInput?.favorite),
+    loginUris: $$('#login-uri-list .login-uri-row').map(row => ({uri: $('[data-login-uri]', row).value.trim(), matchType: $('[data-login-match]', row).value})).filter(rule => rule.uri),
     modules: collected.modules,
     name,
     description: value('#connection-description'),
@@ -1011,7 +1460,7 @@ function serializeItem(validate = true) {
     testPath: editorSourceInput?.testPath || '',
     privateKeyImportPath: collected.privateKeyImportPath,
     // A newly entered replacement must not be deleted by the earlier removal.
-    removeSecretNames: [...removedSecretFields].filter((name) => !currentModules.some((module) =>
+    removeSecretNames: [...new Set([...removedSecretFields, ...currentModules.filter(m => PERSONAL_FIELDS.includes(m.kind) && m.configured && !m.secretValue).map(moduleSecretName)])].filter((name) => !currentModules.some((module) =>
       moduleSecretName(module) === name && (module.secretValue || module.pending))),
     secrets: collected.secrets,
   };
@@ -1022,7 +1471,13 @@ function editorHasDraftContent() {
   return Boolean(value('#connection-name').trim() || value('#connection-description').trim() || currentModules.length);
 }
 
-async function closeEditorWithDraft() {
+function closeEditorWithDraft() {
+  if (editorClosing) return editorClosing;
+  editorClosing = saveDraftAndCloseEditor().finally(() => { editorClosing = null; });
+  return editorClosing;
+}
+
+async function saveDraftAndCloseEditor() {
   try {
     const input = serializeItem(false);
     const changed = JSON.stringify(input) !== editorInitialSnapshot;
@@ -1036,9 +1491,14 @@ async function closeEditorWithDraft() {
         : localized('草稿已加密保存', 'Draft saved and encrypted'));
     }
     await refreshDrafts();
+    const trigger = $(`.connection-card[data-item-id="${inlineEditorItemId}"] .item-disclosure`);
+    trigger?.setAttribute('aria-expanded', 'false');
+    await animateInlineEditor(false);
     closeEditor();
+    return true;
   } catch (error) {
     toast(cleanError(error), 'error');
+    return false;
   }
 }
 
@@ -1147,8 +1607,10 @@ function toastImportSummary(summary) {
 async function exportBackup(button) {
   button.disabled = true;
   try {
-    const path = await api.exportBackup();
-    if (path) toast(localized('备份已导出，可由 OpenKeylet 自动解密导入', 'Backup exported and ready for automatic OpenKeylet import'));
+    const password = await askBackupPassword(true);
+    if (password === null) return;
+    const path = await api.exportBackup(password);
+    if (path) toast(localized('加密备份已导出；恢复时需要备份密码', 'Encrypted backup exported; keep its password for restoration'));
   } catch (error) {
     toast(cleanError(error), 'error');
   } finally {
@@ -1159,7 +1621,9 @@ async function exportBackup(button) {
 async function importBackup(button) {
   button.disabled = true;
   try {
-    const result = await api.importBackup();
+    const password = await askBackupPassword(false);
+    if (password === null) return;
+    const result = await api.importBackup(password);
     if (!result) return;
     toastImportSummary(result);
     await refresh();
@@ -1170,26 +1634,151 @@ async function importBackup(button) {
   }
 }
 
+let vaultManagement = null, vaultManagementSequence = 0;
+function closeVaultManagement() {
+  vaultManagementSequence++; vaultManagement = null;
+  $('#vault-management-modal').classList.add('hidden');
+  $('#vault-management-list').replaceChildren();
+  $('#history-clear').classList.add('hidden');
+}
+async function openVaultManagement(mode, id = null) {
+  await refreshOwnerLock();
+  if (!ownerLockState.unlocked) return;
+  const sequence = ++vaultManagementSequence;
+  vaultManagement = { mode, id };
+  $('#vault-management-title').textContent = mode === 'trash' ? localized('回收站', 'TRASH') : localized('密码历史', 'PASSWORD HISTORY');
+  $('#vault-management-help').textContent = mode === 'trash'
+    ? localized('已删除项目会保留到你选择永久删除。恢复时如有同名项目，会自动改名。', 'Deleted items remain until you permanently delete them. Restored items are renamed if necessary.')
+    : localized('保留最近 20 条旧密码；密码历史不会提供给 Agent 或自动填写。', 'The latest 20 previous passwords are kept. History is unavailable to agents and autofill.');
+  $('#vault-management-list').textContent = localized('正在读取…', 'Loading…');
+  $('#history-clear').classList.add('hidden');
+  $('#vault-management-modal').classList.remove('hidden');
+  try {
+    const data = mode === 'trash' ? await api.trash() : await api.history(id);
+    if (sequence !== vaultManagementSequence) return;
+    const list = $('#vault-management-list'); list.replaceChildren();
+    const entries = mode === 'trash' ? data : data.entries;
+    if (!entries.length) { list.textContent = mode === 'trash' ? localized('回收站为空', 'Trash is empty') : localized('暂无旧密码', 'No previous passwords'); return; }
+    if (mode === 'history') { vaultManagement.updatedAt = data.updatedAt; $('#history-clear').classList.remove('hidden'); }
+    for (const entry of entries) {
+      const row = document.createElement('section'); row.className = 'vault-management-row';
+      const title = document.createElement('strong');
+      const date = new Date(mode === 'trash' ? entry.deletedAt : entry.changedAt).toLocaleString(language === 'zh' ? 'zh-CN' : 'en');
+      title.textContent = mode === 'trash' ? `${entry.item.name} · ${itemTypeLabel(entry.item.itemType)}` : date;
+      const actions = document.createElement('div'); actions.className = 'button-row';
+      row.append(title);
+      if (mode === 'trash') {
+        const subtitle = document.createElement('small'); subtitle.textContent = date; row.append(subtitle);
+        for (const action of ['restore','purge']) {
+          const button = document.createElement('button'); button.type='button'; button.className = action === 'purge' ? 'button danger-soft' : 'button';
+          button.textContent = action === 'restore' ? localized('恢复', 'RESTORE') : localized('永久删除', 'DELETE FOREVER');
+          button.dataset.trashAction = action;
+          button.onclick = async () => {
+            if (action === 'purge' && !await confirmDestructiveAction({title:localized('永久删除此项目？','Permanently delete this item?'),message:localized('本机回收站中的秘密和 Passkey 将被移除，无法撤销。已有备份不会被改动。','The item and its passkeys will be removed from this vault permanently. Existing backups are unchanged.')})) return;
+            button.disabled=true;
+            try { await api[action](entry.item.id,entry.deletedAt); await refresh(); if (sequence === vaultManagementSequence) await openVaultManagement('trash'); }
+            catch(error) { toast(cleanError(error),'error'); button.disabled=false; }
+          };
+          actions.append(button);
+        }
+      } else {
+        const input=document.createElement('input'); input.className='input'; input.type='password'; input.readOnly=true; input.autocomplete='off'; input.value=entry.password; input.setAttribute('aria-label',localized('旧密码','Previous password'));
+        const reveal=document.createElement('button'); reveal.type='button'; reveal.className='button'; reveal.textContent=localized('显示','SHOW');
+        reveal.onclick=()=>{ input.type=input.type==='password'?'text':'password'; reveal.textContent=input.type==='password'?localized('显示','SHOW'):localized('隐藏','HIDE'); };
+        const copy=document.createElement('button'); copy.type='button'; copy.className='button'; copy.textContent=localized('复制','COPY');
+        copy.onclick=async()=>{ try { await api.copyOwnerValue(input.value); toast(localized('已复制','Copied')); } catch(error){toast(cleanError(error),'error');} };
+        row.append(input); actions.append(reveal,copy);
+      }
+      row.append(actions); list.append(row);
+    }
+  } catch(error) { if (sequence === vaultManagementSequence) $('#vault-management-list').textContent=cleanError(error); }
+}
+$('#trash-open').onclick = () => openVaultManagement('trash');
+$('#vault-management-close').onclick = closeVaultManagement;
+$('#history-clear').onclick = async () => {
+  const snapshot = vaultManagement;
+  if (snapshot?.mode !== 'history' || !await confirmDestructiveAction({title:localized('清除密码历史？','Clear password history?'),message:localized('只清除旧密码，当前密码保持不变。此操作无法撤销。','Previous passwords will be removed permanently. The current password is preserved.')})) return;
+  try { await api.clearHistory(snapshot.id,snapshot.updatedAt); await refresh(); if (vaultManagement === snapshot) await openVaultManagement('history',snapshot.id); }
+  catch(error){toast(cleanError(error),'error');}
+};
+
+function renderLoginUris(rules) {
+  const choices = [['origin','同源','Same origin'],['domain','主域名','Base domain'],['host','主机与端口','Host and port'],['exact','完整网址','Exact URL'],['prefix','网址前缀','URL prefix'],['regex','正则表达式','Regular expression'],['never','不匹配','Never']];
+  $('#login-uri-list').innerHTML = rules.map(rule => `<div class="login-uri-row"><input class="input" data-login-uri aria-label="${localized('网站地址','Website address')}" value="${escapeHtml(rule.uri)}" maxlength="8192"><select class="input" data-login-match aria-label="${localized('匹配规则','Matching rule')}">${choices.map(([key,zh,en]) => `<option value="${key}" ${rule.matchType===key?'selected':''}>${localized(zh,en)}</option>`).join('')}</select><button class="small-button" data-remove-uri type="button" aria-label="${localized('移除网站','Remove website')}">×</button></div>`).join('');
+}
+$('#login-uri-add').onclick = () => renderLoginUris([...$$('#login-uri-list .login-uri-row').map(row => ({uri:$('[data-login-uri]',row).value,matchType:$('[data-login-match]',row).value})),{uri:'',matchType:'origin'}]);
+$('#login-uri-list').onclick = event => event.target.closest('[data-remove-uri]')?.closest('.login-uri-row').remove();
+
+let migrationId = null;
+let migrationSequence = 0;
+const migrationWarnings = {
+  nonWebUris: ['非网页地址已保留，设为“不匹配”。','Non-web addresses are preserved with matching disabled.'],
+  defaultDomainMatch: ['未指定规则的网址使用主域名匹配；保存的协议和端口必须一致。可在项目内调整。','Unspecified rules use base-domain matching, with matching scheme and port. Edit rules in the item.'],
+  unsupportedTotp: ['部分验证码密钥格式尚不支持生成；原始密钥已保留。','Some TOTP formats cannot generate codes yet; their original keys are preserved.'],
+  passkeyCounter: ['包含旧版计数型 Passkey。导入后请只在 OpenKeylet 中使用这些 Passkey，避免另一副本的计数超前。','Includes legacy counter-based passkeys. Use these only in OpenKeylet after migration to avoid diverging counters.'],
+  linkedFields: ['关联字段已作为加密自定义字段保留，暂不自动关联填写。','Linked fields are preserved as encrypted custom fields; automatic linking is unavailable.'],
+  passwordHistory: ['最近 20 条旧密码会进入密码历史，更早的记录保留在加密自定义字段中。','The latest 20 previous passwords appear in history; older records are archived in an encrypted custom field.'],
+  reprompt: ['原逐项主密码验证设置不生效；本地 PIN 锁仍适用。','Source per-item master-password reprompt settings are not applied; the local PIN lock still applies.'],
+  attachments: ['JSON 不含附件文件内容；请从原密码库单独保留附件。','JSON does not contain attachment files. Keep them separately from the source vault.'],
+  organization: ['组织项目将成为本地个人项目，不保留共享权限。','Organization items become local personal items without sharing permissions.'],
+};
+function migrationHelp() {
+  $('#migration-help').textContent = $('#migration-format').value === 'bitwarden'
+    ? localized('在 Bitwarden 中导出未加密 JSON，然后选择文件预览。原文件不变；导入的秘密会加密存入本地库。', 'Export unencrypted JSON from Bitwarden, then choose the file to preview. The source is unchanged; imported secrets are encrypted locally.')
+    : localized('选择 Chrome 或 Edge 导出的密码 CSV。支持带引号、逗号和多行备注的文件。', 'Choose a password CSV exported by Chrome or Edge. Quoted fields, commas and multiline notes are supported.');
+}
+function resetMigration() {
+  migrationSequence++; migrationId = null;
+  $('#migration-preview').replaceChildren(); $('#migration-preview').classList.add('hidden');
+  $('#migration-confirm').classList.add('hidden');
+  $('#migration-error').classList.add('hidden');
+}
+function closeMigration() {
+  resetMigration(); $('#migration-modal').classList.add('hidden');
+  api.cancelImport().catch(() => {});
+}
+$('#migration-open').onclick = async () => {
+  await refreshOwnerLock();
+  if (!ownerLockState.unlocked) return;
+  resetMigration(); migrationHelp(); $('#migration-modal').classList.remove('hidden');
+};
+$('#migration-close').onclick = closeMigration;
+$('#migration-format').onchange = () => { resetMigration(); api.cancelImport().catch(() => {}); migrationHelp(); };
+$('#migration-select').onclick = async () => {
+  resetMigration(); const sequence = migrationSequence;
+  $('#migration-select').disabled = true;
+  try {
+    const result = await api.prepareImport($('#migration-format').value);
+    if (!result || sequence !== migrationSequence) return;
+    migrationId = result.id;
+    const p = result.preview;
+    const lines = [localized(`可导入 ${p.total} 项 · Passkey ${p.passkeys} 个`, `${p.total} items · ${p.passkeys} passkeys`),
+      ...Object.entries(p.types).map(([type,count]) => `${itemTypeLabel(type)}: ${count}`),
+      ...(p.skippedDeleted ? [localized(`跳过回收站项目 ${p.skippedDeleted} 项`, `Skipped ${p.skippedDeleted} deleted items`)] : []),
+      ...p.warnings.map(key => migrationWarnings[key] ? localized(...migrationWarnings[key]) : key)];
+    const preview = $('#migration-preview'); preview.replaceChildren(...lines.map(line => {const p = document.createElement('p'); p.textContent=line; return p;}));
+    preview.classList.remove('hidden'); $('#migration-confirm').classList.toggle('hidden', p.total === 0);
+  } catch(error) {
+    if (sequence === migrationSequence) { $('#migration-error').textContent=cleanError(error); $('#migration-error').classList.remove('hidden'); }
+  } finally { $('#migration-select').disabled = false; }
+};
+$('#migration-confirm').onclick = async () => {
+  if (!migrationId) return;
+  $('#migration-confirm').disabled = true;
+  try { const result = await api.commitImport(migrationId); closeMigration(); toastImportSummary(result); await refresh(); }
+  catch(error) { $('#migration-error').textContent=cleanError(error); $('#migration-error').classList.remove('hidden'); }
+  finally { $('#migration-confirm').disabled = false; }
+};
+
 document.addEventListener('click', async (event) => {
-  const activityFilterMenuButton = event.target.closest('#activity-filter-menu-button');
-  if (activityFilterMenuButton) setActivityFilterMenu(activityFilterMenuButton.getAttribute('aria-expanded') !== 'true');
-  else if (!event.target.closest('#activity-filter-menu')) setActivityFilterMenu(false);
+  if (event.target.closest('#title-search-toggle')) setTitleSearchOpen(!titleSearchOpen);
+  else if (titleSearchOpen && !event.target.closest('#title-search')) setTitleSearchOpen(false, false);
+  const filterButton = event.target.closest('.filter-strip button');
+  if (filterButton && !switchSelectionPending) await selectFilterButton(filterButton);
   const languageButton = event.target.closest('[data-language]');
   if (languageButton) await setLanguage(languageButton.dataset.language);
   const nav = event.target.closest('[data-page]');
-  if (nav) {
-    setActivityFilterMenu(false);
-    activePage = nav.dataset.page;
-    $('.nav').dataset.active = activePage;
-    $$('.nav-item').forEach((item) => {
-      item.classList.toggle('active', item === nav);
-      if (item === nav) item.setAttribute('aria-current', 'page');
-      else item.removeAttribute('aria-current');
-    });
-    $$('.page').forEach((page) => page.classList.toggle('active', page.id === `page-${nav.dataset.page}`));
-    renderMetrics();
-    if (nav.dataset.page === 'settings') scanAgents();
-  }
+  if (nav) await selectPage(nav.dataset.page);
   const windowButton = event.target.closest('[data-window-action]');
   if (windowButton) {
     if (windowButton.dataset.windowAction === 'close' && !$('#connection-modal').classList.contains('hidden')) await closeEditorWithDraft();
@@ -1217,7 +1806,7 @@ document.addEventListener('click', async (event) => {
     return;
   }
   const draftsButton = event.target.closest('#drafts-button');
-  if (draftsButton && editorDrafts[0]) await openEditor(null, editorDrafts[0]);
+  if (draftsButton && editorDrafts[0]) await selectCreationMode('draft');
   const moduleButton = event.target.closest('#add-module-button');
   if (moduleButton) setModuleMenu(moduleButton.getAttribute('aria-expanded') !== 'true');
   else if (!event.target.closest('#module-menu')) setModuleMenu(false);
@@ -1226,9 +1815,9 @@ document.addEventListener('click', async (event) => {
   const templateButton = event.target.closest('[data-item-template]');
   if (templateButton) applyTemplate(templateButton.dataset.itemTemplate);
   if (event.target.closest('#add-connection-button') || event.target.closest('[data-action="add"]')) {
-    await openEditor();
+    await selectCreationMode('add');
   }
-  if (event.target === $('#connection-modal')) await closeEditorWithDraft();
+  if (event.target === $('#connection-modal') && !inlineEditorItemId) await closeEditorWithDraft();
   if (event.target.closest('[data-close-modal]')) await closeEditorWithDraft();
   const copyInput = event.target.closest('[data-copy-input]');
   const copyModule = event.target.closest('[data-copy-module-secret], [data-copy-module-value]');
@@ -1248,16 +1837,7 @@ document.addEventListener('click', async (event) => {
     toggleModuleSecret.title = label;
   }
   const toggleAgentVisible = event.target.closest('[data-module-agent-visible]');
-  if (toggleAgentVisible) {
-    const visible = toggleAgentVisible.getAttribute('aria-pressed') !== 'true';
-    toggleAgentVisible.setAttribute('aria-pressed', String(visible));
-    const label = visible
-      ? localized('Agent 可查看此值', 'Agent can see this value')
-      : localized('不向 Agent 显示此值', 'Hidden from agent');
-    toggleAgentVisible.setAttribute('aria-label', label);
-    toggleAgentVisible.title = label;
-    syncModuleDraft();
-  }
+  if (toggleAgentVisible) setModuleAgentVisibility(toggleAgentVisible, toggleAgentVisible.getAttribute('aria-pressed') !== 'true');
   const chooseModuleKey = event.target.closest('[data-choose-module-key]');
   if (chooseModuleKey) {
     try {
@@ -1296,7 +1876,10 @@ document.addEventListener('click', async (event) => {
   const action = event.target.closest('[data-action]');
   if (action?.dataset.action === 'clear-connection-filters') {
     pageSearch.connections = '';
+    currentItemTypeFilter = 'all';
     $('[data-page-search="connections"]').value = '';
+    syncItemTypeFilter();
+    syncTitleSearch();
     renderConnections();
   }
   if (action?.dataset.action === 'clear-activity-filters') {
@@ -1316,6 +1899,7 @@ document.addEventListener('click', async (event) => {
       } catch (error) { toast(cleanError(error), 'error'); }
     }
     if (action.dataset.action === 'edit') await openEditor(item);
+    if (action.dataset.action === 'history') await openVaultManagement('history', item.id);
     if (action.dataset.action === 'copy-name') {
       try {
         await api.copyOwnerValue(`use ${item.name} in OpenKeylet MCP`);
@@ -1326,19 +1910,12 @@ document.addEventListener('click', async (event) => {
       try { toast(publicMessage(await api.test(item.id), localized('连接测试完成', 'Connection test complete'))); await refresh(false); } catch (error) { toast(cleanError(error), 'error'); }
     }
     if (action.dataset.action === 'delete' && await confirmDestructiveAction({
-      title: localized(`删除“${item.name}”？`, `Delete "${item.name}"?`),
-      message: localized('项目及其全部加密秘密将永久删除，此操作无法撤销。', 'The item and all of its encrypted secrets will be permanently deleted. This cannot be undone.'),
+      title: localized(`将“${item.name}”移入回收站？`, `Move "${item.name}" to trash?`),
+      message: localized('项目将停止用于填写、Passkey 登录和 Agent 操作。你可以在回收站恢复它。', 'The item will stop being available for autofill, passkeys and agents. You can restore it from Trash.'),
+      acceptLabel: localized('移入回收站', 'MOVE TO TRASH'),
     })) {
-      try { await api.remove(item.id); toast(localized('项目已删除', 'Item deleted')); await refresh(); $('#add-connection-button').focus(); } catch (error) { toast(cleanError(error), 'error'); }
+      try { await api.remove(item.id, item.updatedAt); toast(localized('已移入回收站', 'Moved to trash')); await refresh(); $('#add-connection-button').focus(); } catch (error) { toast(cleanError(error), 'error'); }
     }
-  }
-  const activityFilter = event.target.closest('[data-activity-filter]');
-  if (activityFilter) {
-    currentActivityFilter = activityFilter.dataset.activityFilter;
-    activityVisibleCount = ACTIVITY_PAGE_SIZE;
-    syncActivityFilterControl();
-    setActivityFilterMenu(false);
-    renderActivity();
   }
   const errorDetail = event.target.closest('[data-expand-error]');
   if (errorDetail) {
@@ -1392,12 +1969,158 @@ document.addEventListener('input', (event) => {
   const page = event.target.dataset.pageSearch;
   if (!page) return;
   pageSearch[page] = event.target.value;
+  syncTitleSearch();
   if (page === 'connections') renderConnections();
   if (page === 'activity') {
     activityVisibleCount = ACTIVITY_PAGE_SIZE;
     renderActivity();
   }
   if (page === 'settings') applySettingsSearch();
+});
+
+const itemList = $('#connections-list');
+
+function visibleItemIds() { return $$('.connection-card', itemList).map(row => row.dataset.itemId); }
+
+async function saveItemOrder(visibleOrder, expectedOrder, focusedId) {
+  if (itemOrderSaving) return;
+  const visible = new Set(visibleOrder);
+  let index = 0;
+  // A filtered list rearranges only its own slots, leaving hidden items in place.
+  const ids = expectedOrder.map(id => visible.has(id) ? visibleOrder[index++] : id);
+  if (ids.every((id, position) => id === expectedOrder[position])) { renderConnections(); return; }
+  itemOrderSaving = true;
+  itemList.setAttribute('aria-busy', 'true');
+  let saved = false;
+  try { await api.reorder(ids, expectedOrder); saved = true; }
+  catch (error) { toast(cleanError(error), 'error'); }
+  finally {
+    itemOrderSaving = false;
+    renderedConnectionsSignature = '';
+    await refresh(false);
+    itemList.removeAttribute('aria-busy');
+    const handle = $$('[data-item-reorder]', itemList).find(button => button.dataset.itemReorder === focusedId);
+    handle?.focus({ preventScroll: true });
+    if (saved) {
+      handle?.scrollIntoView({ block: 'nearest' });
+      const name = state.connections.find(item => item.id === focusedId)?.name || '';
+      $('#item-reorder-status').textContent = localized(`${name}：第 ${ids.indexOf(focusedId) + 1} 项，共 ${ids.length} 项`, `${name}: position ${ids.indexOf(focusedId) + 1} of ${ids.length}`);
+    }
+  }
+}
+
+function clearItemDropSeam() {
+  $$('.item-drop-before, .item-drop-after', itemList).forEach(row => row.classList.remove('item-drop-before', 'item-drop-after'));
+}
+
+function updateItemDropSeam() {
+  const drag = itemPointerDrag;
+  if (!drag?.started) return;
+  clearItemDropSeam();
+  const bounds = itemList.getBoundingClientRect();
+  drag.valid = drag.x >= bounds.left && drag.x <= bounds.right && drag.y >= bounds.top && drag.y <= bounds.bottom;
+  drag.preview.style.opacity = drag.valid ? '1' : '.5';
+  drag.target = null;
+  if (!drag.valid) return;
+  const others = $$('.connection-card', itemList).filter(row => row !== drag.row);
+  if (!others.length) return;
+  const seams = others.map(row => ({ row, after: false, y: row.getBoundingClientRect().top }));
+  seams.push({ row: others.at(-1), after: true, y: others.at(-1).getBoundingClientRect().bottom });
+  drag.target = seams.reduce((nearest, seam) => Math.abs(drag.y - seam.y) < Math.abs(drag.y - nearest.y) ? seam : nearest);
+  drag.target.row.classList.add(drag.target.after ? 'item-drop-after' : 'item-drop-before');
+}
+
+function itemDragFrame() {
+  const drag = itemPointerDrag;
+  if (!drag?.started) return;
+  const bounds = itemList.getBoundingClientRect();
+  if (drag.x >= bounds.left && drag.x <= bounds.right && drag.y >= bounds.top && drag.y <= bounds.bottom) {
+    if (drag.y < bounds.top + 32) itemList.scrollTop -= Math.ceil((bounds.top + 32 - drag.y) / 3);
+    else if (drag.y > bounds.bottom - 32) itemList.scrollTop += Math.ceil((drag.y - bounds.bottom + 32) / 3);
+  }
+  updateItemDropSeam();
+  const x = Math.max(8, Math.min(drag.x + 14, innerWidth - drag.preview.offsetWidth - 8));
+  const y = Math.max(8, Math.min(drag.y + 14, innerHeight - drag.preview.offsetHeight - 8));
+  drag.preview.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  drag.frame = requestAnimationFrame(itemDragFrame);
+}
+
+function finishItemPointerDrag(commit) {
+  const drag = itemPointerDrag;
+  if (!drag) return;
+  itemPointerDrag = null;
+  cancelAnimationFrame(drag.frame);
+  try { if (itemList.hasPointerCapture(drag.pointerId)) itemList.releasePointerCapture(drag.pointerId); } catch (_) { /* Already released. */ }
+  drag.row.classList.remove('is-item-dragging');
+  itemList.classList.remove('is-reordering');
+  document.body.classList.remove('item-pointer-dragging');
+  drag.preview?.remove();
+  clearItemDropSeam();
+  if (drag.started) {
+    suppressItemClick = true;
+    setTimeout(() => { suppressItemClick = false; }, 0);
+  }
+  if (commit && drag.started && drag.valid && drag.target) {
+    const ids = drag.visibleOrder.filter(id => id !== drag.id);
+    const position = ids.indexOf(drag.target.row.dataset.itemId) + (drag.target.after ? 1 : 0);
+    ids.splice(position, 0, drag.id);
+    void saveItemOrder(ids, drag.expectedOrder, drag.id);
+  } else renderConnections();
+}
+
+itemList.addEventListener('dragstart', event => {
+  if (event.target.closest?.('[data-item-reorder]')) event.preventDefault();
+});
+itemList.addEventListener('pointerdown', event => {
+  const handle = event.target.closest?.('[data-item-reorder]');
+  if (!handle || event.button !== 0 || !event.isPrimary || event.ctrlKey || event.metaKey || event.shiftKey || itemPointerDrag || itemOrderSaving || confirmationResolver || !ownerLockState.unlocked) return;
+  event.preventDefault();
+  handle.focus({ preventScroll: true });
+  itemPointerDrag = { id: handle.dataset.itemReorder, item: state.connections.find(item => item.id === handle.dataset.itemReorder), row: handle.closest('.connection-card'), pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, started: false, visibleOrder: visibleItemIds(), expectedOrder: state.connections.map(item => item.id) };
+});
+document.addEventListener('pointermove', event => {
+  const drag = itemPointerDrag;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  drag.x = event.clientX; drag.y = event.clientY;
+  if (!drag.started && Math.hypot(drag.x - drag.startX, drag.y - drag.startY) < 6) return;
+  event.preventDefault();
+  if (!drag.started) {
+    drag.started = true;
+    drag.row.classList.add('is-item-dragging');
+    itemList.classList.add('is-reordering');
+    document.body.classList.add('item-pointer-dragging');
+    const item = drag.item;
+    drag.preview = document.createElement('div');
+    drag.preview.className = 'item-drag-preview';
+    drag.preview.setAttribute('aria-hidden', 'true');
+    drag.preview.innerHTML = `${itemTypeIcon(itemDisplayKind(item))}<span>${escapeHtml(item.name)}</span>`;
+    document.body.appendChild(drag.preview);
+    try { itemList.setPointerCapture(event.pointerId); } catch (_) { /* Document tracking remains active. */ }
+    itemDragFrame();
+  }
+  updateItemDropSeam();
+}, { passive: false });
+document.addEventListener('pointerup', event => {
+  if (itemPointerDrag?.pointerId !== event.pointerId) return;
+  if (itemPointerDrag.started) { event.preventDefault(); updateItemDropSeam(); }
+  finishItemPointerDrag(true);
+});
+document.addEventListener('pointercancel', event => { if (itemPointerDrag?.pointerId === event.pointerId) finishItemPointerDrag(false); });
+itemList.addEventListener('lostpointercapture', event => { if (itemPointerDrag?.pointerId === event.pointerId) finishItemPointerDrag(false); });
+window.addEventListener('blur', () => finishItemPointerDrag(false));
+document.addEventListener('click', event => {
+  if (!suppressItemClick) return;
+  suppressItemClick = false;
+  event.preventDefault(); event.stopImmediatePropagation();
+}, true);
+itemList.addEventListener('keydown', event => {
+  const handle = event.target.closest?.('[data-item-reorder]');
+  if (!handle || itemPointerDrag || itemOrderSaving || confirmationResolver || !ownerLockState.unlocked || event.altKey || event.ctrlKey || event.metaKey || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const ids = visibleItemIds(), id = handle.dataset.itemReorder, from = ids.indexOf(id);
+  const to = event.key === 'Home' ? 0 : event.key === 'End' ? ids.length - 1 : Math.max(0, Math.min(ids.length - 1, from + (event.key === 'ArrowUp' ? -1 : 1)));
+  ids.splice(from, 1); ids.splice(to, 0, id);
+  void saveItemOrder(ids, state.connections.map(item => item.id), id);
 });
 
 let draggedModuleRow = null;
@@ -1445,7 +2168,7 @@ function positionModuleDragPreview(clientX, clientY) {
 }
 
 function autoScrollModuleEditor(clientY) {
-  const scroller = $('.form-scroll', $('#connection-modal'));
+  const scroller = inlineEditorItemId ? $('#connections-list') : $('.form-scroll', $('#connection-modal'));
   if (!scroller) return;
   const bounds = scroller.getBoundingClientRect();
   if (clientY < bounds.top + 34) scroller.scrollTop -= 12;
@@ -1550,6 +2273,12 @@ document.addEventListener('paste', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && switchPointerDrag) {
+    event.preventDefault(); void finishSwitchDrag(false); return;
+  }
+  if (event.key === 'Escape' && itemPointerDrag) {
+    event.preventDefault(); finishItemPointerDrag(false); return;
+  }
   if (confirmationResolver) {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -1569,6 +2298,41 @@ document.addEventListener('keydown', (event) => {
     finishModulePointerDrag(false);
     return;
   }
+  if (event.key === 'Escape' && vaultManagement) {
+    event.preventDefault();
+    closeVaultManagement();
+    return;
+  }
+  // Like Bricktone's WorkspaceDialog, keep keyboard navigation in the editor.
+  // Nested dialogs keep their own keyboard handling and draft saving stays intact.
+  const editor = $('#connection-modal');
+  const editorIsTopmost = !editor.classList.contains('hidden') &&
+    !$$('.modal-backdrop:not(.hidden)').some(modal => modal !== editor);
+  const editorOwnsKey = !inlineEditorItemId || event.key === 'Escape' && (editor.contains(event.target) || $('#module-menu').contains(event.target));
+  if (editorIsTopmost && editorOwnsKey && ['Tab', 'Escape'].includes(event.key) && !event.defaultPrevented) {
+    const menu = $('#module-menu');
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (!menu.classList.contains('hidden')) { setModuleMenu(false); $('#add-module-button').focus(); }
+      else void closeEditorWithDraft();
+      return;
+    }
+    const selector = 'button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), summary, [tabindex="0"]';
+    const controls = [...$$(selector, editor), ...(!editor.contains(menu) && !menu.classList.contains('hidden') ? $$(selector, menu) : [])]
+      .filter(control => control.getClientRects().length && !control.closest('[inert], .hidden'));
+    const first = controls[0], last = controls.at(-1);
+    if (first && (event.shiftKey && (document.activeElement === first || !controls.includes(document.activeElement)) ||
+      !event.shiftKey && (document.activeElement === last || !controls.includes(document.activeElement)))) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  }
+  if (event.target.closest('.creation-options') && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault();
+    const button = $(event.key === 'ArrowLeft' ? '#add-connection-button' : '#drafts-button');
+    if (!button.disabled) { button.focus(); button.click(); }
+    return;
+  }
   if (event.target.matches('.pin-cell-input')) {
     const inputs = $$('.pin-cell-input', event.target.closest('.pin-control'));
     const index = inputs.indexOf(event.target);
@@ -1581,16 +2345,26 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft' && index > 0) { event.preventDefault(); inputs[index - 1].focus(); return; }
     if (event.key === 'ArrowRight' && index < inputs.length - 1) { event.preventDefault(); inputs[index + 1].focus(); return; }
   }
+  const filterButton = event.target.closest?.('.filter-strip button');
+  if (filterButton && !switchSelectionPending && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    const strip = filterButton.closest('.filter-strip');
+    const buttons = $$('button', strip);
+    const index = buttons.findIndex(button => button.getAttribute('aria-pressed') === 'true');
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) % buttons.length;
+    void selectFilterButton(buttons[next]).then(() => $('[aria-pressed="true"]', strip).focus());
+    return;
+  }
   const pageSearchAvailable = $('#connection-modal').classList.contains('hidden') && $('#owner-lock-layer').classList.contains('hidden') && !githubBackup.isOpen();
   if (pageSearchAvailable && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f' && !event.altKey) {
     event.preventDefault();
+    setTitleSearchOpen(true);
     const search = $(`[data-page-search="${activePage}"]`);
     search?.focus();
     search?.select();
     return;
   }
   if (event.key === 'Escape') {
-    setActivityFilterMenu(false);
     const search = event.target.closest?.('[data-page-search]');
     if (search?.value) {
       const page = search.dataset.pageSearch;
@@ -1600,6 +2374,7 @@ document.addEventListener('keydown', (event) => {
       if (page === 'activity') { activityVisibleCount = ACTIVITY_PAGE_SIZE; renderActivity(); }
       if (page === 'settings') applySettingsSearch();
     }
+    if (event.target.closest?.('#title-search')) { event.preventDefault(); setTitleSearchOpen(false); }
   }
 });
 
@@ -1612,6 +2387,7 @@ $('#connection-form').addEventListener('submit', async (event) => {
     await api.save(input);
     if (currentDraftId) await api.deleteDraft(currentDraftId);
     currentDraftId = '';
+    await animateInlineEditor(false);
     closeEditor();
     toast(localized('项目已加密保存', 'Item saved and encrypted'));
     await refresh();
@@ -1679,7 +2455,23 @@ if (!isMacOS) $('#desktop-shortcut-enabled').addEventListener('change', (event) 
 $('#launch-at-login-enabled').addEventListener('change', (event) => setSystemIntegration('startup', event.currentTarget.checked));
 $('#pin-enabled').addEventListener('change', savePinSettings);
 $('#close-behavior').addEventListener('change', saveDesktopSettings);
-$('#quick-pairing-button').addEventListener('click', async () => { try { const message = await api.quickPair(Number($('#browser-port').value)); $('#browser-enabled').checked = true; toast(publicMessage(message, localized('浏览器配对已准备', 'Browser pairing is ready'))); await refresh(); } catch (error) { toast(cleanError(error), 'error'); } });
+$('#quick-pairing-button').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const opened = await api.quickPair(Number($('#browser-port').value));
+    $('#browser-enabled').checked = true;
+    $('#browser-open-help').hidden = opened;
+    toast(opened
+      ? localized('已打开扩展页：开启开发者模式后，完成第 2 步。', 'Extensions page opened. Enable Developer mode, then complete step 2.')
+      : localized('请手动打开 chrome://extensions，配对已准备。', 'Open chrome://extensions manually. Pairing is ready.'));
+    await refresh();
+  } catch (error) {
+    toast(cleanError(error), 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
 $('#reset-pairing-button').addEventListener('click', async () => {
   if (!await confirmDestructiveAction({
     title: localized('重置浏览器配对？', 'Reset browser pairing?'),
@@ -1694,6 +2486,62 @@ $('#open-data-button').addEventListener('click', () => api.dataFolder().catch((e
 $('#rescan-agents').addEventListener('click', () => scanAgents(true));
 $('#header-export-backup-button').addEventListener('click', (event) => exportBackup(event.currentTarget));
 $('#header-import-backup-button').addEventListener('click', (event) => importBackup(event.currentTarget));
+
+let generatorTarget = null, generatorSequence = 0;
+let backupPasswordResolve = null, backupPasswordExport = false;
+function finishBackupPassword(result) {
+  $('#backup-password-form').reset(); $('#backup-password-modal').classList.add('hidden');
+  const resolve = backupPasswordResolve; backupPasswordResolve = null; resolve?.(result);
+}
+function askBackupPassword(exporting) {
+  finishBackupPassword(null); backupPasswordExport = exporting;
+  $('#backup-password-title').textContent = exporting ? localized('导出加密备份', 'EXPORT ENCRYPTED BACKUP') : localized('恢复备份', 'RESTORE BACKUP');
+  $('#backup-password-help').textContent = exporting
+    ? localized('设置至少 12 个字符的备份密码。恢复时需要此密码，请妥善保管。', 'Use a backup password of at least 12 characters. Keep it for restoration.')
+    : localized('输入创建备份时设置的密码；旧版自动解锁备份可留空。', 'Enter the backup password. Leave blank for older automatically unlocked backups.');
+  $('#backup-password-confirm-field').classList.toggle('hidden', !exporting);
+  $('#backup-password').required = exporting;
+  $('#backup-password-confirm').required = exporting;
+  $('#backup-password-modal').classList.remove('hidden'); $('#backup-password').focus();
+  return new Promise(resolve => { backupPasswordResolve = resolve; });
+}
+$('#backup-password-close').onclick = () => finishBackupPassword(null);
+$('#backup-password-form').onsubmit = e => {
+  e.preventDefault();
+  const password = $('#backup-password').value;
+  if (backupPasswordExport && ([...password].length < 12 || password !== $('#backup-password-confirm').value))
+    return toast(localized('密码须至少 12 个字符，且两次输入一致', 'Use at least 12 characters and matching passwords'), 'error');
+  finishBackupPassword(password);
+};
+function closeGenerator() {
+  generatorSequence++;
+  $('#generator-modal').classList.add('hidden'); $('#generator-result').value = ''; generatorTarget = null;
+}
+async function generatePassword() {
+  const sequence = ++generatorSequence;
+  try {
+    const options = { length: Number($('#generator-length').value) };
+    for (const key of ['uppercase', 'lowercase', 'digits', 'symbols']) options[key] = $(`#generator-${key}`).checked;
+    const result = await invoke('generate_password', { options });
+    if (sequence === generatorSequence && !$('#generator-modal').classList.contains('hidden')) $('#generator-result').value = result;
+  } catch (error) { toast(cleanError(error), 'error'); }
+}
+function openGenerator(target = null) {
+  generatorTarget = target; $('#generator-use').classList.toggle('hidden', !target);
+  $('#generator-modal').classList.remove('hidden'); generatePassword();
+}
+$('#generator-open').onclick = () => openGenerator();
+$('#generator-close').onclick = closeGenerator;
+$('#generator-regenerate').onclick = generatePassword;
+$('#generator-copy').onclick = async () => { try { if ($('#generator-result').value) { await api.copyOwnerValue($('#generator-result').value); toast(localized('已复制', 'Copied')); } } catch(error) { toast(cleanError(error), 'error'); } };
+$('#generator-use').onclick = () => {
+  if (generatorTarget?.isConnected && $('#generator-result').value) { generatorTarget.value = $('#generator-result').value; generatorTarget.dispatchEvent(new Event('input', { bubbles:true })); syncModuleDraft(); }
+  closeGenerator();
+};
+document.addEventListener('click', e => {
+  const button = e.target.closest('[data-generate-password]');
+  if (button) openGenerator($('[data-secret-value]', button.closest('.module-row')));
+});
 
 $('#page-activity .activity-panel').addEventListener('scroll', (event) => {
   const panel = event.currentTarget;
@@ -1711,7 +2559,20 @@ window.__TAURI__.event.listen('pin-setup-requested', async () => {
 window.addEventListener('focus', async () => { await refresh(false); await refreshOwnerLock(false); await refreshDrafts(); });
 window.addEventListener('resize', positionModuleMenu);
 $('.form-scroll', $('#connection-modal')).addEventListener('scroll', positionModuleMenu, { passive: true });
+$('#connections-list').addEventListener('scroll', positionModuleMenu, { passive: true });
 setInterval(() => { if ($('#page-activity').classList.contains('active')) refresh(false); }, 2000);
+setInterval(() => { if (!document.hidden && $('#connection-modal').classList.contains('hidden') && $('#page-connections').classList.contains('active')) refresh(false); }, 2000);
+let extensionDragStart = null, extensionDragBusy = false;
+$('#drag-extension-button').addEventListener('pointerdown', event => { if(event.button === 0) extensionDragStart = {x:event.clientX,y:event.clientY}; });
+window.addEventListener('pointerup', () => { extensionDragStart = null; });
+window.addEventListener('pointercancel', () => { extensionDragStart = null; });
+$('#drag-extension-button').addEventListener('pointermove', async event => {
+  if(event.buttons !== 1 || !extensionDragStart || extensionDragBusy || Math.hypot(event.clientX-extensionDragStart.x,event.clientY-extensionDragStart.y)<5)return;
+  extensionDragStart=null; extensionDragBusy=true;
+  try { await invoke('drag_browser_extension'); } catch(error) { toast(cleanError(error), 'error'); } finally { extensionDragBusy=false; }
+});
+$('#drag-extension-button').addEventListener('dragstart', event => event.preventDefault());
+$('#drag-extension-button').addEventListener('keydown', event => { if(event.key==='Enter' || event.key===' ') { event.preventDefault(); api.extensionFolder().catch(error=>toast(cleanError(error),'error')); } });
 
 async function bootstrap() {
   applyLanguage();

@@ -17,9 +17,23 @@
     "release:linux": "npm run build:linux && npm run portable:linux",
     "release:headless": "npm run build:headless && npm run portable:headless",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:browser": "cargo build --manifest-path src-tauri/Cargo.toml --example browser_fixture && node scripts/test-browser.mjs",
+    "test:personal-ui": "node scripts/test-personal-ui.mjs",
+    "test:controls": "node scripts/test-inline-editor.mjs",
+    "test:autofill": "node scripts/test-autofill.mjs",
+    "test:login-capture": "cargo build --manifest-path src-tauri/Cargo.toml --example browser_fixture && node scripts/test-login-capture.mjs",
+    "test:login-patterns": "node scripts/test-login-patterns.mjs",
+    "test:login-flows": "cargo build --manifest-path src-tauri/Cargo.toml --example browser_fixture && node scripts/test-login-flows.mjs",
+    "test:public-logins": "node scripts/probe-public-logins.mjs",
+    "test:github-ui": "node scripts/test-github-backup-ui.mjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.11.4"
+    "@tauri-apps/cli": "2.11.4",
+    "esbuild": "0.28.2",
+    "playwright": "^1.64.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vue": "3.5.44"
   }
 }

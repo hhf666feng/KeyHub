@@ -21,6 +21,10 @@ struct MockState {
     force_status: Option<u16>,
     requests: usize,
     writes: usize,
+    missing_repo: bool,
+    creates: usize,
+    create_public: bool,
+    create_unconfirmed: bool,
 }
 
 struct MockGithub {
@@ -82,7 +86,29 @@ async fn mock_handler(
         )
             .into_response();
     }
+    if method == Method::GET && uri.path() == "/user" {
+        return Json(json!({"login":"test"})).into_response();
+    }
+    if method == Method::POST && uri.path() == "/user/repos" {
+        let payload: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload["name"], "vault");
+        assert_eq!(payload["private"], true);
+        assert_eq!(payload["auto_init"], true);
+        assert!(!String::from_utf8_lossy(&body).contains("okv1_"));
+        if !state.missing_repo {
+            return StatusCode::UNPROCESSABLE_ENTITY.into_response();
+        }
+        state.missing_repo = false;
+        state.creates += 1;
+        if state.create_unconfirmed {
+            return StatusCode::BAD_GATEWAY.into_response();
+        }
+        return (StatusCode::CREATED,Json(json!({"id":7,"private":!state.create_public,"archived":false,"default_branch":"main"}))).into_response();
+    }
     if method == Method::GET && uri.path() == "/repos/test/vault" {
+        if state.missing_repo {
+            return StatusCode::NOT_FOUND.into_response();
+        }
         return Json(json!({"id": 7, "private": !state.public, "archived": false,
             "disabled": false, "default_branch": "main"}))
         .into_response();
@@ -137,7 +163,120 @@ fn input(key: &str, mode: &str) -> ConnectInput {
         recovery_key: key.into(),
         mode: mode.into(),
         recovery_key_saved: true,
+        auth_source: "token".into(),
+        create_repository: false,
     }
+}
+
+#[tokio::test]
+async fn account_check_and_private_repository_creation_do_not_upload_secrets() {
+    let remote = MockGithub::start().await;
+    remote.state.lock().unwrap().missing_repo = true;
+    let (_directory, manager) = remote.manager();
+    let account = manager
+        .account(AuthInput {
+            auth_source: "token".into(),
+            token: "test-token".into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(account.login, "test");
+    assert!(!manager.status().unwrap().connected);
+    let key = generate_recovery_key().unwrap();
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    add_item(
+        &manager.vault,
+        Uuid::new_v4(),
+        "Local item",
+        "secret-never-in-repository-create",
+    );
+    let status = manager.connect(request).await.unwrap();
+    assert!(status.connected);
+    assert!(!status.has_remote_backup);
+    {
+        let state = remote.state.lock().unwrap();
+        assert_eq!(state.creates, 1);
+        assert_eq!(state.writes, 0);
+        assert!(state.bytes.is_none());
+    }
+    manager.upload().await.unwrap();
+    let ciphertext = remote.state.lock().unwrap().bytes.clone().unwrap();
+    assert!(!String::from_utf8_lossy(&ciphertext).contains("secret-never-in-repository-create"));
+    assert!(!String::from_utf8_lossy(&ciphertext).contains(&key));
+    let (_other_directory, other) = remote.manager();
+    other.connect(input(&key, "existing")).await.unwrap();
+    assert_eq!(other.restore().await.unwrap().summary.added, 1);
+}
+
+#[tokio::test]
+async fn creation_requires_explicit_valid_input_and_does_not_adopt_existing_repos() {
+    let remote = MockGithub::start().await;
+    let (_directory, manager) = remote.manager();
+    let key = generate_recovery_key().unwrap();
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    request.recovery_key_saved = false;
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_KEY_NOT_SAVED"
+    );
+    assert_eq!(remote.state.lock().unwrap().requests, 0);
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_REPOSITORY_EXISTS"
+    );
+    let mut request = input(&key, "existing");
+    request.create_repository = true;
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_CREATE_MODE"
+    );
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    request.repository = "someone-else/vault".into();
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_CREATE_OWNER"
+    );
+    assert!(!manager.status().unwrap().connected);
+    assert_eq!(remote.state.lock().unwrap().creates, 0);
+    remote.state.lock().unwrap().missing_repo = true;
+    remote.state.lock().unwrap().create_public = true;
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_PRIVATE_REQUIRED"
+    );
+    assert!(!manager.status().unwrap().connected);
+    assert_eq!(remote.state.lock().unwrap().writes, 0);
+}
+
+#[tokio::test]
+async fn uncertain_creation_can_reconnect_without_recreating_or_uploading() {
+    let remote = MockGithub::start().await;
+    {
+        let mut state = remote.state.lock().unwrap();
+        state.missing_repo = true;
+        state.create_unconfirmed = true;
+    }
+    let (_directory, manager) = remote.manager();
+    let key = generate_recovery_key().unwrap();
+    let mut request = input(&key, "new");
+    request.create_repository = true;
+    assert_eq!(
+        manager.connect(request).await.err().unwrap().to_string(),
+        "GITHUB_CREATE_UNCONFIRMED"
+    );
+    assert!(!manager.status().unwrap().connected);
+    manager.connect(input(&key, "new")).await.unwrap();
+    assert!(manager.status().unwrap().connected);
+    let state = remote.state.lock().unwrap();
+    assert_eq!(state.creates, 1);
+    assert_eq!(state.writes, 0);
 }
 
 fn add_item(vault: &Vault, id: Uuid, name: &str, secret: &str) {
@@ -147,6 +286,10 @@ fn add_item(vault: &Vault, id: Uuid, name: &str, secret: &str) {
         .insert("apiCredential".into(), secret.into());
     vault
         .save_connection(ConnectionInput {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id: Some(id),
             name: name.into(),
             enabled: true,

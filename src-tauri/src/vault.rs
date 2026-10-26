@@ -22,7 +22,10 @@ use url::Url;
 use uuid::Uuid;
 
 const MAX_ACTIVITIES: usize = 3_000;
-const VAULT_VERSION: u8 = 8;
+const VAULT_VERSION: u8 = 12;
+#[cfg(test)]
+#[path = "vault_lifecycle_tests.rs"]
+mod lifecycle_tests;
 
 #[derive(Clone)]
 pub struct Vault {
@@ -72,6 +75,7 @@ impl Vault {
                     browser_bridge_secret: None,
                     owner_pin: None,
                     connections: Vec::new(),
+                    trash: Vec::new(),
                     editor_drafts: Vec::new(),
                     activities: Vec::new(),
                 };
@@ -112,9 +116,9 @@ impl Vault {
         let bytes = fs::read(&self.inner.vault_path).context("Could not read vault")?;
         let document: VaultDocument =
             serde_json::from_slice(&bytes).context("Invalid vault file format")?;
-        if !matches!(document.version, 7 | VAULT_VERSION) {
+        if !matches!(document.version, 7 | 8 | 9 | 10 | 11 | VAULT_VERSION) {
             bail!(
-                "OpenKeylet only supports modular v7 or v8 vaults; current file version is {}",
+                "OpenKeylet supports vault versions 7 through 12; current file version is {}",
                 document.version
             );
         }
@@ -154,6 +158,10 @@ impl Vault {
 
     pub fn owner_secret_view(&self, id: Uuid) -> Result<OwnerSecretView> {
         let connection = self.get_connection(id)?;
+        Ok(Self::owner_secret_view_for(&connection))
+    }
+
+    pub(crate) fn owner_secret_view_for(connection: &DecryptedConnection) -> OwnerSecretView {
         let fields = connection
             .secrets
             .available_fields(connection.stored.secret.as_ref())
@@ -169,7 +177,10 @@ impl Vault {
                     })
             })
             .collect();
-        Ok(OwnerSecretView { id, fields })
+        OwnerSecretView {
+            id: connection.stored.id,
+            fields,
+        }
     }
 
     pub fn list_editor_drafts(&self) -> Result<Vec<OwnerEditorDraft>> {
@@ -368,7 +379,15 @@ impl Vault {
         Ok((connection.stored.name, metadata.kind, value))
     }
 
-    pub fn save_connection(&self, mut input: ConnectionInput) -> Result<PublicConnection> {
+    pub fn save_connection(&self, input: ConnectionInput) -> Result<PublicConnection> {
+        self.save_connection_checked(input, None)
+    }
+
+    pub fn save_connection_checked(
+        &self,
+        mut input: ConnectionInput,
+        expected_updated_at: Option<&str>,
+    ) -> Result<PublicConnection> {
         self.update_document_with_result(|document| {
             let existing_index = input.id.and_then(|id| {
                 document
@@ -377,6 +396,20 @@ impl Vault {
                     .position(|connection| connection.id == id)
             });
             let existing = existing_index.map(|index| document.connections[index].clone());
+            if input
+                .id
+                .is_some_and(|id| document.trash.iter().any(|item| item.connection.id == id))
+            {
+                bail!("This item is in the trash; restore it before editing");
+            }
+            if let Some(expected) = expected_updated_at {
+                if existing
+                    .as_ref()
+                    .is_none_or(|item| item.updated_at != expected)
+                {
+                    bail!("This item changed or was deleted; close and reopen it before saving");
+                }
+            }
             let mut secrets = if let Some(connection) = &existing {
                 self.inner
                     .key
@@ -384,6 +417,8 @@ impl Vault {
             } else {
                 SecretBundle::default()
             };
+            let previous_password =
+                zeroize::Zeroizing::new(secrets.get("password").map(str::to_owned));
             if !input.modules.is_empty() {
                 input.modules = normalize_modules(input.modules.clone())?;
                 if let Some(connection) = &existing {
@@ -459,6 +494,7 @@ impl Vault {
             }
 
             prepare_auto_api(&mut input, &mut secrets)?;
+            secrets.remember_password_change(previous_password.as_deref());
 
             let now = Utc::now().to_rfc3339();
             let mut stored =
@@ -474,15 +510,123 @@ impl Vault {
         })
     }
 
-    pub fn delete_connection(&self, id: Uuid) -> Result<()> {
+    pub fn reorder_connections(&self, ids: &[Uuid], expected_order: &[Uuid]) -> Result<()> {
         self.update_document(|document| {
-            let before = document.connections.len();
-            document
-                .connections
-                .retain(|connection| connection.id != id);
-            if before == document.connections.len() {
-                bail!("Connection not found");
+            let current: Vec<Uuid> = document.connections.iter().map(|item| item.id).collect();
+            if current != expected_order {
+                bail!("The item list changed; refresh before reordering");
             }
+            let positions: std::collections::HashMap<Uuid, usize> = ids
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(index, id)| (id, index))
+                .collect();
+            if positions.len() != ids.len()
+                || ids.len() != current.len()
+                || current.iter().any(|id| !positions.contains_key(id))
+            {
+                bail!("The order must contain every current item exactly once");
+            }
+            // Order is presentation metadata; preserve revisions and encrypted payloads.
+            document.connections.sort_by_key(|item| positions[&item.id]);
+            Ok(())
+        })
+    }
+
+    pub fn delete_connection(&self, id: Uuid) -> Result<()> {
+        self.trash_connection(id, None)
+    }
+
+    pub fn trash_connection(&self, id: Uuid, expected_updated_at: Option<&str>) -> Result<()> {
+        self.update_document(|document| {
+            let index = document
+                .connections
+                .iter()
+                .position(|item| item.id == id)
+                .context("Connection not found")?;
+            if expected_updated_at
+                .is_some_and(|expected| document.connections[index].updated_at != expected)
+            {
+                bail!("This item changed; refresh before moving it to trash");
+            }
+            let connection = document.connections.remove(index);
+            document.trash.insert(
+                0,
+                crate::model::StoredTrashItem {
+                    deleted_at: Utc::now().to_rfc3339(),
+                    connection,
+                },
+            );
+            Ok(())
+        })
+    }
+
+    pub fn trash_items(&self) -> Result<Vec<crate::model::PublicTrashItem>> {
+        self.read_document()?
+            .trash
+            .into_iter()
+            .map(|entry| {
+                let secrets: SecretBundle = self
+                    .inner
+                    .key
+                    .decrypt(&entry.connection.encrypted_secrets)?;
+                Ok(crate::model::PublicTrashItem {
+                    deleted_at: entry.deleted_at,
+                    item: entry.connection.public(Some(&secrets)),
+                })
+            })
+            .collect()
+    }
+
+    pub fn restore_connection(&self, id: Uuid, deleted_at: &str) -> Result<()> {
+        self.update_document(|document| {
+            let index = document
+                .trash
+                .iter()
+                .position(|entry| entry.connection.id == id && entry.deleted_at == deleted_at)
+                .context("Trash item changed; refresh before restoring")?;
+            let mut stored = document.trash.remove(index).connection;
+            stored.name = unique_import_name(&document.connections, &stored.name);
+            if document.connections.iter().any(|item| item.id == stored.id) {
+                stored.id = Uuid::new_v4();
+            }
+            stored.updated_at = Utc::now().to_rfc3339();
+            document.connections.push(stored);
+            Ok(())
+        })
+    }
+
+    pub fn purge_connection(&self, id: Uuid, deleted_at: &str) -> Result<()> {
+        self.update_document(|document| {
+            let index = document
+                .trash
+                .iter()
+                .position(|entry| entry.connection.id == id && entry.deleted_at == deleted_at)
+                .context("Trash item changed; refresh before deleting permanently")?;
+            document.trash.remove(index);
+            Ok(())
+        })
+    }
+
+    pub fn password_history(&self, id: Uuid) -> Result<Vec<crate::model::PasswordHistoryEntry>> {
+        Ok(self.get_connection(id)?.secrets.password_history.clone())
+    }
+
+    pub fn clear_password_history(&self, id: Uuid, expected_updated_at: &str) -> Result<()> {
+        self.update_document(|document| {
+            let stored = document
+                .connections
+                .iter_mut()
+                .find(|item| item.id == id)
+                .context("Connection not found")?;
+            if stored.updated_at != expected_updated_at {
+                bail!("This item changed; refresh before clearing history");
+            }
+            let mut secrets: SecretBundle = self.inner.key.decrypt(&stored.encrypted_secrets)?;
+            secrets.password_history.clear();
+            stored.encrypted_secrets = self.inner.key.encrypt(&secrets)?;
+            stored.updated_at = Utc::now().to_rfc3339();
             Ok(())
         })
     }
@@ -570,8 +714,17 @@ impl Vault {
     }
 
     pub fn export_connections(&self) -> Result<Vec<(PortableConnection, SecretBundle)>> {
+        Ok(self.export_backup_entries()?.0)
+    }
+
+    pub fn export_backup_entries(
+        &self,
+    ) -> Result<(
+        Vec<(PortableConnection, SecretBundle)>,
+        Vec<crate::model::PortableTrashItem>,
+    )> {
         let document = self.read_document()?;
-        document
+        let active = document
             .connections
             .into_iter()
             .map(|connection| {
@@ -579,32 +732,37 @@ impl Vault {
                     .inner
                     .key
                     .decrypt::<SecretBundle>(&connection.encrypted_secrets)?;
-                Ok((
-                    PortableConnection {
-                        id: connection.id,
-                        modules: connection.modules,
-                        name: connection.name,
-                        enabled: connection.enabled,
-                        created_at: connection.created_at,
-                        updated_at: connection.updated_at,
-                        description: connection.description,
-                        http_auth_type: connection.http_auth_type,
-                        private_key_name: connection.private_key_name,
-                        auth_header: connection.auth_header,
-                        auth_location: connection.auth_location,
-                        auth_prefix: connection.auth_prefix,
-                        api_auth_headers: connection.api_auth_headers,
-                        test_path: connection.test_path,
-                    },
-                    secrets,
-                ))
+                Ok((connection.portable(), secrets))
             })
-            .collect()
+            .collect::<Result<Vec<_>>>()?;
+        let trash = document
+            .trash
+            .into_iter()
+            .map(|entry| {
+                Ok(crate::model::PortableTrashItem {
+                    deleted_at: entry.deleted_at,
+                    connection: entry.connection.portable(),
+                    secrets: self
+                        .inner
+                        .key
+                        .decrypt(&entry.connection.encrypted_secrets)?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok((active, trash))
     }
 
     pub fn merge_connections(
         &self,
         imported: Vec<(PortableConnection, SecretBundle)>,
+    ) -> Result<ImportSummary> {
+        self.merge_backup_entries(imported, Vec::new())
+    }
+
+    pub fn merge_backup_entries(
+        &self,
+        imported: Vec<(PortableConnection, SecretBundle)>,
+        trash: Vec<crate::model::PortableTrashItem>,
     ) -> Result<ImportSummary> {
         self.update_document_with_result(|document| {
             let mut summary = ImportSummary {
@@ -650,10 +808,49 @@ impl Vault {
                 }
 
                 stored.name = unique_import_name(&document.connections, &stored.name);
-                if document.connections.iter().any(|item| item.id == stored.id) {
+                if document.connections.iter().any(|item| item.id == stored.id)
+                    || document
+                        .trash
+                        .iter()
+                        .any(|item| item.connection.id == stored.id)
+                {
                     stored.id = Uuid::new_v4();
                 }
                 document.connections.push(stored);
+                summary.added += 1;
+            }
+            for entry in trash {
+                chrono::DateTime::parse_from_rfc3339(&entry.deleted_at)
+                    .context("Invalid trash deletion date")?;
+                let mut stored =
+                    stored_from_portable(&entry.connection, &entry.secrets, &self.inner.key)?;
+                let mut duplicate = false;
+                for existing in document.trash.iter().map(|entry| &entry.connection) {
+                    if same_item_name(&existing.name, &stored.name) {
+                        let secrets: SecretBundle =
+                            self.inner.key.decrypt(&existing.encrypted_secrets)?;
+                        if same_portable_content(existing, &secrets, &stored, &entry.secrets) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                }
+                if duplicate {
+                    summary.merged += 1;
+                    continue;
+                }
+                if document.connections.iter().any(|item| item.id == stored.id)
+                    || document
+                        .trash
+                        .iter()
+                        .any(|item| item.connection.id == stored.id)
+                {
+                    stored.id = Uuid::new_v4();
+                }
+                document.trash.push(crate::model::StoredTrashItem {
+                    deleted_at: entry.deleted_at,
+                    connection: stored,
+                });
                 summary.added += 1;
             }
             document.activities.insert(
@@ -689,10 +886,10 @@ impl Vault {
         let bytes = fs::read(&self.inner.vault_path).context("Could not read vault")?;
         let mut document: VaultDocument =
             serde_json::from_slice(&bytes).context("Invalid vault file format")?;
-        if !matches!(document.version, 7 | VAULT_VERSION) {
+        if !matches!(document.version, 7 | 8 | 9 | 10 | 11 | VAULT_VERSION) {
             bail!("Unsupported vault version {}", document.version);
         }
-        // Reading v7 is harmless; the next actual write uses the compact v8
+        // Reading older vaults is harmless; the next actual write uses v12
         // schema so older processes cannot mistake it for their own model.
         document.version = VAULT_VERSION;
         Ok(document)
@@ -718,7 +915,7 @@ impl Vault {
         })
     }
 
-    fn update_document_with_result<T, F>(&self, update: F) -> Result<T>
+    pub(crate) fn update_document_with_result<T, F>(&self, update: F) -> Result<T>
     where
         F: FnOnce(&mut VaultDocument) -> Result<T>,
     {
@@ -752,7 +949,7 @@ impl Vault {
     }
 }
 
-fn canonical_secret_module_name(kind: &str) -> Option<&'static str> {
+fn canonical_secret_module_name(kind: &str) -> Option<&str> {
     match kind {
         "username" => Some("username"),
         "password" => Some("password"),
@@ -760,6 +957,7 @@ fn canonical_secret_module_name(kind: &str) -> Option<&'static str> {
         "privateKey" => Some("privateKey"),
         "passphrase" => Some("passphrase"),
         "totp" => Some("totp"),
+        kind if crate::item_types::personal_field(kind) => Some(kind),
         _ => None,
     }
 }
@@ -770,19 +968,21 @@ fn normalize_modules(modules: Vec<ItemModule>) -> Result<Vec<ItemModule>> {
     let mut secret_names: Vec<String> = Vec::new();
     for mut module in modules {
         module.kind = module.kind.trim().to_owned();
-        if !matches!(
-            module.kind.as_str(),
-            "username"
-                | "password"
-                | "apiCredential"
-                | "privateKey"
-                | "passphrase"
-                | "totp"
-                | "customSecret"
-                | "host"
-                | "port"
-                | "url"
-        ) {
+        if !crate::item_types::personal_field(&module.kind)
+            && !matches!(
+                module.kind.as_str(),
+                "username"
+                    | "password"
+                    | "apiCredential"
+                    | "privateKey"
+                    | "passphrase"
+                    | "totp"
+                    | "customSecret"
+                    | "host"
+                    | "port"
+                    | "url"
+            )
+        {
             bail!("Unsupported module:{}", module.kind);
         }
         if module.agent_visible.is_none() {
@@ -913,14 +1113,16 @@ fn fallback_item_name(
     }
 }
 
-fn normalize_connection(
+pub(crate) fn normalize_connection(
     input: ConnectionInput,
     existing: Option<&StoredConnection>,
     secrets: &SecretBundle,
     private_key_name: String,
     now: String,
 ) -> Result<StoredConnection> {
+    crate::login_uri::validate(&input.login_uris)?;
     let modules = normalize_modules(input.modules)?;
+    let item_type = crate::item_types::normalize(&input.item_type, &modules)?;
 
     let id = existing
         .map(|value| value.id)
@@ -961,6 +1163,10 @@ fn normalize_connection(
     let http_auth_type = input.http_auth_type.clone();
     let name = fallback_item_name(&input.name, id, &modules, secrets);
     Ok(StoredConnection {
+        login_uris: input.login_uris,
+        item_type,
+        folder: checked_text(&input.folder, "Folder", 120)?,
+        favorite: input.favorite,
         id,
         modules: modules.clone(),
         name,
@@ -996,6 +1202,10 @@ fn stored_from_portable(
     key: &MasterKey,
 ) -> Result<StoredConnection> {
     let input = ConnectionInput {
+        login_uris: portable.login_uris.clone(),
+        item_type: portable.item_type.clone(),
+        folder: portable.folder.clone(),
+        favorite: portable.favorite,
         id: Some(portable.id),
         modules: portable.modules.clone(),
         name: portable.name.clone(),
@@ -1029,7 +1239,17 @@ fn same_portable_content(
     right: &StoredConnection,
     right_secrets: &SecretBundle,
 ) -> bool {
-    if left.modules != right.modules {
+    if left.login_uris != right.login_uris
+        || left.modules != right.modules
+        || left.item_type() != right.item_type()
+        || left.folder != right.folder
+        || left.favorite != right.favorite
+    {
+        return false;
+    }
+    if left_secrets.passkeys != right_secrets.passkeys
+        || left_secrets.password_history != right_secrets.password_history
+    {
         return false;
     }
     for module in &left.modules {
@@ -1182,17 +1402,22 @@ fn normalized_field_name(value: &str) -> String {
 }
 
 fn reserved_secret_name(value: &str) -> bool {
-    matches!(
-        normalized_field_name(value).as_str(),
-        "username"
-            | "password"
-            | "apicredential"
-            | "privatekey"
-            | "passphrase"
-            | "totp"
-            | "token"
-            | "apikey"
-    )
+    crate::item_types::CARD_FIELDS
+        .iter()
+        .chain(crate::item_types::IDENTITY_FIELDS)
+        .chain(std::iter::once(&"secureNote"))
+        .any(|name| normalized_field_name(name) == normalized_field_name(value))
+        || matches!(
+            normalized_field_name(value).as_str(),
+            "username"
+                | "password"
+                | "apicredential"
+                | "privatekey"
+                | "passphrase"
+                | "totp"
+                | "token"
+                | "apikey"
+        )
 }
 
 fn checked_text(value: &str, label: &str, max_chars: usize) -> Result<String> {
@@ -1266,6 +1491,10 @@ mod tests {
             .named_secrets
             .insert("apiCredential".into(), token.to_owned());
         ConnectionInput {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id,
             modules: vec![
                 ItemModule {
@@ -1300,6 +1529,10 @@ mod tests {
             .named_secrets
             .insert("username".into(), "root".into());
         ConnectionInput {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id,
             modules: vec![
                 ItemModule {
@@ -1751,7 +1984,7 @@ mod tests {
         drop(vault);
 
         let error = Vault::open(vault_dir).err().expect("version 6 must fail");
-        assert!(format!("{error:#}").contains("only supports modular v7 or v8"));
+        assert!(format!("{error:#}").contains("supports vault versions 7 through 12"));
     }
 
     #[test]
@@ -1917,6 +2150,10 @@ mod tests {
         let vault = Vault::open(vault_dir.clone()).unwrap();
         let saved = vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![
                     ItemModule {
@@ -1980,6 +2217,10 @@ mod tests {
             .named_secrets
             .insert("username".into(), "developer@example.test".into());
         let input = |id, secrets, remove_secret_names| ConnectionInput {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id,
             modules: vec![
                 ItemModule {

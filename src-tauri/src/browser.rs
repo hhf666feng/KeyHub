@@ -36,6 +36,7 @@ const EXTENSION_QUEUE_TIMEOUT: Duration = Duration::from_millis(500);
 const EXTENSION_RECONNECT_GRACE: Duration = Duration::from_secs(2);
 const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(40);
 const HEALTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
+pub(crate) const EXTENSION_ORIGIN: &str = "chrome-extension://knkjojeijgalhpdkfapohofobfomenmi";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,6 +93,12 @@ struct PairResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExtensionMessage {
+    #[serde(default)]
+    request_id: Option<String>,
+    #[serde(default)]
+    method: String,
+    #[serde(default)]
+    params: serde_json::Value,
     #[serde(rename = "type")]
     kind: String,
     #[serde(default)]
@@ -155,6 +162,7 @@ impl ExtensionPool {
 
 #[derive(Clone)]
 struct BridgeServerState {
+    pin_throttle: Arc<Mutex<std::time::Instant>>,
     vault: Vault,
     port: u16,
     internal_token: String,
@@ -386,6 +394,7 @@ impl BrowserBridge {
             Ok(listener) => {
                 let cancellation = CancellationToken::new();
                 let state = BridgeServerState {
+                    pin_throttle: Arc::new(Mutex::new(std::time::Instant::now())),
                     vault: self.vault.clone(),
                     port,
                     internal_token,
@@ -517,7 +526,7 @@ async fn claim(
         .get(header::ORIGIN)
         .and_then(|value| value.to_str().ok())
         .unwrap_or("");
-    if !origin.starts_with("chrome-extension://") {
+    if origin != EXTENSION_ORIGIN {
         return Err((
             StatusCode::FORBIDDEN,
             "Only the Chromium extension can claim pairing".to_owned(),
@@ -647,6 +656,7 @@ async fn extension_upgrade(
 }
 
 async fn extension_socket(socket: WebSocket, state: BridgeServerState) {
+    let mut browser_session = crate::browser_vault::Session::default();
     let (mut sender, mut receiver) = socket.split();
     let authenticated = timeout(Duration::from_secs(5), receiver.next()).await;
     let Ok(Some(Ok(Message::Text(message)))) = authenticated else {
@@ -688,7 +698,18 @@ async fn extension_socket(socket: WebSocket, state: BridgeServerState) {
             message = receiver.next() => {
                 match message {
                     Some(Ok(Message::Text(message))) => {
+                        if message.len() > 262_144 { continue; }
                         let Ok(message) = serde_json::from_str::<ExtensionMessage>(&message) else { continue; };
+                        if message.kind == "rpc" {
+                            let Some(request_id) = message.request_id else { continue; };
+                            let result = crate::browser_vault::handle(&state.vault, &mut browser_session, &state.pin_throttle, &message.method, &message.params).await;
+                            let response = match result {
+                                Ok(value) => serde_json::json!({"type":"rpc-result","requestId":request_id,"ok":true,"result":value}),
+                                Err(error) => serde_json::json!({"type":"rpc-result","requestId":request_id,"ok":false,"error":error.to_string()}),
+                            };
+                            if sender.send(Message::Text(response.to_string().into())).await.is_err() { break; }
+                            continue;
+                        }
                         if message.kind == "ping" {
                             let pong = serde_json::json!({"type":"pong"}).to_string();
                             if sender.send(Message::Text(pong.into())).await.is_err() { break; }
@@ -762,17 +783,60 @@ pub fn current_totp(secret: &str) -> Result<String> {
 }
 
 fn totp_at(secret: &str, timestamp: u64) -> Result<String> {
-    let key = decode_base32(secret)?;
-    let counter = timestamp / 30;
-    let mut mac = Hmac::<Sha1>::new_from_slice(&key).context("Invalid TOTP key")?;
-    mac.update(&counter.to_be_bytes());
-    let digest = mac.finalize().into_bytes();
-    let offset = (digest[19] & 0x0f) as usize;
+    let mut seed = secret.trim().to_owned();
+    let (mut digits, mut period, mut algorithm) = (6usize, 30u64, "SHA1".to_owned());
+    if seed.starts_with("otpauth://") {
+        let uri = url::Url::parse(&seed).context("Invalid TOTP URI")?;
+        if uri.host_str() != Some("totp") {
+            bail!("Only time-based TOTP URIs are supported");
+        }
+        let pairs: Vec<_> = uri.query_pairs().collect();
+        for name in ["secret", "digits", "period", "algorithm"] {
+            if pairs.iter().filter(|(key, _)| key == name).count() > 1 {
+                bail!("Duplicate TOTP parameter");
+            }
+        }
+        let get = |name| {
+            pairs
+                .iter()
+                .find(|(key, _)| key == name)
+                .map(|(_, value)| value.as_ref())
+        };
+        digits = get("digits")
+            .unwrap_or("6")
+            .parse()
+            .context("Invalid TOTP digits")?;
+        period = get("period")
+            .unwrap_or("30")
+            .parse()
+            .context("Invalid TOTP period")?;
+        algorithm = get("algorithm").unwrap_or("SHA1").to_ascii_uppercase();
+        seed = get("secret").context("Missing TOTP secret")?.to_owned();
+    }
+    if !(6..=8).contains(&digits) || !(1..=300).contains(&period) {
+        bail!("Invalid TOTP digits or period");
+    }
+    let key = zeroize::Zeroizing::new(decode_base32(&seed)?);
+    let counter = timestamp / period;
+    macro_rules! digest {
+        ($hash:ty) => {{
+            let mut mac = Hmac::<$hash>::new_from_slice(&key).context("Invalid TOTP key")?;
+            mac.update(&counter.to_be_bytes());
+            mac.finalize().into_bytes().to_vec()
+        }};
+    }
+    let digest = match algorithm.as_str() {
+        "SHA1" => digest!(Sha1),
+        "SHA256" => digest!(Sha256),
+        "SHA512" => digest!(sha2::Sha512),
+        _ => bail!("Unsupported TOTP algorithm"),
+    };
+    let offset = (digest[digest.len() - 1] & 0x0f) as usize;
     let value = ((u32::from(digest[offset]) & 0x7f) << 24)
         | (u32::from(digest[offset + 1]) << 16)
         | (u32::from(digest[offset + 2]) << 8)
         | u32::from(digest[offset + 3]);
-    Ok(format!("{:06}", value % 1_000_000))
+    Ok(format!("{:0digits$}", value % 10u32.pow(digits as u32)))
 }
 
 fn decode_base32(value: &str) -> Result<Vec<u8>> {
@@ -811,12 +875,55 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
+    #[test]
+    fn otpauth_uses_rfc6238_algorithms_digits_and_period() {
+        let base32 = |bytes: &[u8]| {
+            let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            let (mut buffer, mut bits, mut result) = (0u32, 0u32, String::new());
+            for byte in bytes {
+                buffer = (buffer << 8) | u32::from(*byte);
+                bits += 8;
+                while bits >= 5 {
+                    bits -= 5;
+                    result.push(alphabet[((buffer >> bits) & 31) as usize] as char);
+                }
+                buffer &= (1 << bits) - 1;
+            }
+            if bits > 0 {
+                result.push(alphabet[((buffer << (5 - bits)) & 31) as usize] as char);
+            }
+            result
+        };
+        for (algorithm, seed, expected) in [
+            ("SHA1", "12345678901234567890", "94287082"),
+            ("SHA256", "12345678901234567890123456789012", "46119246"),
+            (
+                "SHA512",
+                "1234567890123456789012345678901234567890123456789012345678901234",
+                "90693936",
+            ),
+        ] {
+            let uri = format!(
+                "otpauth://totp/Example?secret={}&algorithm={algorithm}&digits=8&period=30",
+                base32(seed.as_bytes())
+            );
+            assert_eq!(totp_at(&uri, 59).unwrap(), expected);
+            assert_eq!(
+                totp_at(&uri.replace("period=30", "period=60"), 119).unwrap(),
+                expected
+            );
+        }
+        assert!(current_totp("otpauth://totp/test?secret=JBSWY3DPEHPK3PXP&period=0").is_err());
+        assert!(current_totp("otpauth://totp/test?secret=JBSWY3DPEHPK3PXP&digits=99").is_err());
+    }
+
     // These tests temporarily release an OS-assigned port before the bridge
     // binds it. Serialize them so Windows cannot assign it to both bridges.
     static BRIDGE_TEST_LOCK: Mutex<()> = Mutex::const_new(());
 
     fn test_server_state(vault: Vault) -> BridgeServerState {
         BridgeServerState {
+            pin_throttle: Arc::new(Mutex::new(std::time::Instant::now())),
             vault,
             port: 0,
             internal_token: "internal".to_owned(),
@@ -928,7 +1035,10 @@ mod tests {
         let claim_url = format!("http://127.0.0.1:{port}/claim");
         let before_window = client
             .post(&claim_url)
-            .header(header::ORIGIN, "chrome-extension://abcdefghijklmnop")
+            .header(
+                header::ORIGIN,
+                "chrome-extension://knkjojeijgalhpdkfapohofobfomenmi",
+            )
             .send()
             .await
             .unwrap();
@@ -953,7 +1063,10 @@ mod tests {
 
         let extension = client
             .post(format!("http://127.0.0.1:{port}/claim"))
-            .header(header::ORIGIN, "chrome-extension://abcdefghijklmnop")
+            .header(
+                header::ORIGIN,
+                "chrome-extension://knkjojeijgalhpdkfapohofobfomenmi",
+            )
             .send()
             .await
             .unwrap();
@@ -972,7 +1085,10 @@ mod tests {
         assert!(vault.settings().unwrap().browser_paired);
         let reused = client
             .post(&claim_url)
-            .header(header::ORIGIN, "chrome-extension://abcdefghijklmnop")
+            .header(
+                header::ORIGIN,
+                "chrome-extension://knkjojeijgalhpdkfapohofobfomenmi",
+            )
             .send()
             .await
             .unwrap();
@@ -990,7 +1106,9 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::ORIGIN,
-            "chrome-extension://abcdefghijklmnop".parse().unwrap(),
+            "chrome-extension://knkjojeijgalhpdkfapohofobfomenmi"
+                .parse()
+                .unwrap(),
         );
         let (status, _) = claim(State(state.clone()), headers).await.unwrap_err();
         assert_eq!(status, StatusCode::UNAUTHORIZED);

@@ -1831,6 +1831,10 @@ mod tests {
 
     fn stored(base_url: String) -> StoredConnection {
         StoredConnection {
+            login_uris: Vec::new(),
+            item_type: String::new(),
+            folder: String::new(),
+            favorite: false,
             id: Uuid::new_v4(),
             modules: vec![],
             name: "local-api".into(),

@@ -137,16 +137,17 @@ pub struct ItemModule {
 }
 
 pub(crate) fn module_kind_has_plaintext_reveal(kind: &str) -> bool {
-    matches!(
-        kind,
-        "username"
-            | "password"
-            | "apiCredential"
-            | "privateKey"
-            | "passphrase"
-            | "totp"
-            | "customSecret"
-    )
+    crate::item_types::personal_field(kind)
+        || matches!(
+            kind,
+            "username"
+                | "password"
+                | "apiCredential"
+                | "privateKey"
+                | "passphrase"
+                | "totp"
+                | "customSecret"
+        )
 }
 
 impl ItemModule {
@@ -163,6 +164,7 @@ impl ItemModule {
             "passphrase" => Some("passphrase"),
             "totp" => Some("totp"),
             "customSecret" if !self.name.is_empty() => Some(&self.name),
+            kind if crate::item_types::personal_field(kind) => Some(kind),
             _ => None,
         }
     }
@@ -195,6 +197,10 @@ impl PublicItemModule {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct SecretBundle {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub password_history: Vec<PasswordHistoryEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub passkeys: Vec<crate::passkey::StoredPasskey>,
     #[zeroize(skip)]
     #[serde(default)]
     pub private_key_name: Option<String>,
@@ -213,6 +219,20 @@ pub struct SecretBundle {
 }
 
 impl SecretBundle {
+    pub(crate) fn remember_password_change(&mut self, previous: Option<&str>) {
+        if let Some(previous) = previous.filter(|v| !v.is_empty()) {
+            if self.get("password") != Some(previous) {
+                self.password_history.insert(
+                    0,
+                    PasswordHistoryEntry {
+                        password: previous.to_owned(),
+                        changed_at: chrono::Utc::now().to_rfc3339(),
+                    },
+                );
+                self.password_history.truncate(20);
+            }
+        }
+    }
     pub fn non_empty_values(&self) -> Vec<String> {
         [
             self.password.as_ref(),
@@ -230,6 +250,12 @@ impl SecretBundle {
                 .values()
                 .filter(|value| !value.is_empty())
                 .cloned(),
+        )
+        .chain(
+            self.password_history
+                .iter()
+                .filter(|entry| !entry.password.is_empty())
+                .map(|entry| entry.password.clone()),
         )
         .collect()
     }
@@ -296,9 +322,24 @@ impl SecretBundle {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordHistoryEntry {
+    pub password: String,
+    pub changed_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredConnection {
+    #[serde(default)]
+    pub login_uris: Vec<crate::login_uri::LoginUri>,
+    #[serde(default)]
+    pub item_type: String,
+    #[serde(default)]
+    pub folder: String,
+    #[serde(default)]
+    pub favorite: bool,
     pub id: Uuid,
     #[serde(default)]
     pub modules: Vec<ItemModule>,
@@ -352,6 +393,14 @@ pub struct ApiAuthHeader {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PortableConnection {
+    #[serde(default)]
+    pub login_uris: Vec<crate::login_uri::LoginUri>,
+    #[serde(default)]
+    pub item_type: String,
+    #[serde(default)]
+    pub folder: String,
+    #[serde(default)]
+    pub favorite: bool,
     pub id: Uuid,
     pub modules: Vec<ItemModule>,
     pub name: String,
@@ -371,6 +420,12 @@ pub struct PortableConnection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicConnection {
+    pub password_history_count: usize,
+    pub login_uris: Vec<crate::login_uri::LoginUri>,
+    pub item_type: String,
+    pub folder: String,
+    pub favorite: bool,
+    pub passkeys: Vec<crate::passkey::PasskeySummary>,
     pub id: Uuid,
     pub capabilities: Vec<String>,
     pub can_test: bool,
@@ -402,6 +457,35 @@ pub struct PublicConnection {
 }
 
 impl StoredConnection {
+    pub fn portable(&self) -> PortableConnection {
+        PortableConnection {
+            login_uris: self.login_uris.clone(),
+            item_type: self.item_type().to_owned(),
+            folder: self.folder.clone(),
+            favorite: self.favorite,
+            id: self.id,
+            modules: self.modules.clone(),
+            name: self.name.clone(),
+            enabled: self.enabled,
+            created_at: self.created_at.clone(),
+            updated_at: self.updated_at.clone(),
+            description: self.description.clone(),
+            http_auth_type: self.http_auth_type.clone(),
+            private_key_name: self.private_key_name.clone(),
+            auth_header: self.auth_header.clone(),
+            auth_location: self.auth_location.clone(),
+            auth_prefix: self.auth_prefix.clone(),
+            api_auth_headers: self.api_auth_headers.clone(),
+            test_path: self.test_path.clone(),
+        }
+    }
+    pub fn item_type(&self) -> &str {
+        if self.item_type.is_empty() {
+            crate::item_types::infer(&self.modules)
+        } else {
+            &self.item_type
+        }
+    }
     fn module_configured(&self, secrets: &SecretBundle, kind: &str) -> bool {
         self.modules.iter().any(|module| {
             module.kind == kind
@@ -414,10 +498,11 @@ impl StoredConnection {
 
     pub fn capabilities(&self, secrets: &SecretBundle) -> Vec<String> {
         let can_fill = self.modules.iter().any(|module| {
-            module
-                .secret_name()
-                .and_then(|name| secrets.get(name))
-                .is_some()
+            !crate::item_types::personal_field(&module.kind)
+                && module
+                    .secret_name()
+                    .and_then(|name| secrets.get(name))
+                    .is_some()
         });
         let mut capabilities = Vec::new();
         if can_fill {
@@ -456,6 +541,20 @@ impl StoredConnection {
 
     pub fn public(&self, secrets: Option<&SecretBundle>) -> PublicConnection {
         PublicConnection {
+            password_history_count: secrets.map_or(0, |s| s.password_history.len()),
+            login_uris: self.login_uris.clone(),
+            item_type: self.item_type().to_owned(),
+            folder: self.folder.clone(),
+            favorite: self.favorite,
+            passkeys: secrets
+                .map(|bundle| {
+                    bundle
+                        .passkeys
+                        .iter()
+                        .map(crate::passkey::StoredPasskey::summary)
+                        .collect()
+                })
+                .unwrap_or_default(),
             id: self.id,
             capabilities: secrets
                 .map(|bundle| self.capabilities(bundle))
@@ -512,6 +611,14 @@ impl StoredConnection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionInput {
+    #[serde(default)]
+    pub login_uris: Vec<crate::login_uri::LoginUri>,
+    #[serde(default)]
+    pub item_type: String,
+    #[serde(default)]
+    pub folder: String,
+    #[serde(default)]
+    pub favorite: bool,
     #[serde(default)]
     pub id: Option<Uuid>,
     #[serde(default)]
@@ -584,11 +691,34 @@ pub struct VaultDocument {
     #[serde(default)]
     pub connections: Vec<StoredConnection>,
     #[serde(default)]
+    pub trash: Vec<StoredTrashItem>,
+    #[serde(default)]
     pub editor_drafts: Vec<StoredEditorDraft>,
     #[serde(default)]
     pub activities: Vec<Activity>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredTrashItem {
+    pub deleted_at: String,
+    pub connection: StoredConnection,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicTrashItem {
+    pub deleted_at: String,
+    pub item: PublicConnection,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PortableTrashItem {
+    pub deleted_at: String,
+    pub connection: PortableConnection,
+    pub secrets: SecretBundle,
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredEditorDraft {

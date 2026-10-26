@@ -2250,6 +2250,10 @@ mod tests {
         secrets.named_secrets = named;
         let saved = vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![
                     ItemModule {
@@ -2391,6 +2395,10 @@ mod tests {
         api_secrets.named_secrets = api_named;
         let api_saved = vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![
                     ItemModule {
@@ -2486,6 +2494,10 @@ mod tests {
         secrets.password = Some("runtime-ssh-password-marker".into());
         let public = vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![ItemModule {
                     kind: "password".into(),
@@ -2627,6 +2639,10 @@ mod tests {
         secrets.named_secrets = named;
         vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![
                     ItemModule {
@@ -2761,6 +2777,10 @@ mod tests {
         secrets.password = Some("single-secret-terminal-marker".into());
         vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![ItemModule {
                     kind: "password".into(),
@@ -2822,6 +2842,10 @@ mod tests {
         secrets.named_secrets = named;
         let saved = vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![
                     ItemModule {
@@ -2977,6 +3001,10 @@ mod tests {
         secrets.password = Some(secret.to_owned());
         vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![ItemModule {
                     kind: "password".into(),
@@ -3001,6 +3029,10 @@ mod tests {
         other_secrets.password = Some("other-terminal-secret-marker".into());
         vault
             .save_connection(ConnectionInput {
+                login_uris: Vec::new(),
+                item_type: String::new(),
+                folder: String::new(),
+                favorite: false,
                 id: None,
                 modules: vec![ItemModule {
                     kind: "password".into(),

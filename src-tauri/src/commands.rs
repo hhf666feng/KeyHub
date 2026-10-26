@@ -37,10 +37,17 @@ pub struct AppRuntime {
     executable: String,
     browser: BrowserBridge,
     pending_private_key: Mutex<Option<PathBuf>>,
+    pending_import: Mutex<Option<PendingImport>>,
     owner_session: Mutex<OwnerSession>,
     github_backup: Mutex<GithubBackup>,
     agent_registry: AgentRegistry,
     tray_available: AtomicBool,
+}
+
+struct PendingImport {
+    id: String,
+    created: Instant,
+    encrypted: crate::model::SecretEnvelope,
 }
 
 #[derive(Default)]
@@ -144,6 +151,7 @@ async fn owner_unlock(
 #[tauri::command]
 async fn owner_lock(runtime: State<'_, AppRuntime>) -> Result<OwnerLockState, String> {
     runtime.owner_session.lock().await.unlocked = false;
+    *runtime.pending_import.lock().await = None;
     owner_lock_state(&runtime).await
 }
 
@@ -216,6 +224,7 @@ async fn save_connection(
     app: AppHandle,
     runtime: State<'_, AppRuntime>,
     mut input: ConnectionInput,
+    expected_updated_at: Option<String>,
 ) -> Result<PublicConnection, String> {
     require_owner_unlocked(&runtime).await?;
     if input.private_key_import_path == "pending" {
@@ -231,10 +240,26 @@ async fn save_connection(
     }
     let connection = runtime
         .vault
-        .save_connection(input)
+        .save_connection_checked(input, expected_updated_at.as_deref())
         .map_err(command_error)?;
     emit_changed(&app);
     Ok(connection)
+}
+
+#[tauri::command]
+async fn reorder_connections(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    ids: Vec<Uuid>,
+    expected_order: Vec<Uuid>,
+) -> Result<(), String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .vault
+        .reorder_connections(&ids, &expected_order)
+        .map_err(command_error)?;
+    emit_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -258,9 +283,81 @@ async fn delete_connection(
     app: AppHandle,
     runtime: State<'_, AppRuntime>,
     id: Uuid,
+    expected_updated_at: String,
 ) -> Result<(), String> {
     require_owner_unlocked(&runtime).await?;
-    runtime.vault.delete_connection(id).map_err(command_error)?;
+    runtime
+        .vault
+        .trash_connection(id, Some(&expected_updated_at))
+        .map_err(command_error)?;
+    emit_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn owner_trash(
+    runtime: State<'_, AppRuntime>,
+) -> Result<Vec<crate::model::PublicTrashItem>, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime.vault.trash_items().map_err(command_error)
+}
+
+#[tauri::command]
+async fn owner_restore_item(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    id: Uuid,
+    deleted_at: String,
+) -> Result<(), String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .vault
+        .restore_connection(id, &deleted_at)
+        .map_err(command_error)?;
+    emit_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn owner_purge_item(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    id: Uuid,
+    deleted_at: String,
+) -> Result<(), String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .vault
+        .purge_connection(id, &deleted_at)
+        .map_err(command_error)?;
+    emit_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn owner_password_history(
+    runtime: State<'_, AppRuntime>,
+    id: Uuid,
+) -> Result<serde_json::Value, String> {
+    require_owner_unlocked(&runtime).await?;
+    let item = runtime.vault.get_connection(id).map_err(command_error)?;
+    Ok(
+        serde_json::json!({"updatedAt":item.stored.updated_at,"entries":item.secrets.password_history}),
+    )
+}
+
+#[tauri::command]
+async fn owner_clear_password_history(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    id: Uuid,
+    expected_updated_at: String,
+) -> Result<(), String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .vault
+        .clear_password_history(id, &expected_updated_at)
+        .map_err(command_error)?;
     emit_changed(&app);
     Ok(())
 }
@@ -434,7 +531,7 @@ async fn quick_pair_browser(
     app: AppHandle,
     runtime: State<'_, AppRuntime>,
     port: u16,
-) -> Result<String, String> {
+) -> Result<bool, String> {
     runtime
         .vault
         .update_settings_patch(SettingsPatch {
@@ -450,20 +547,10 @@ async fn quick_pair_browser(
         .await
         .map_err(command_error)?;
 
-    let folder_opened = browser_extension_path(&app).is_ok_and(|extension_path| {
-        app.opener()
-            .open_path(extension_path.to_string_lossy(), None::<&str>)
-            .is_ok()
-    });
     let browser_opened = open_chromium_extensions_page();
     emit_changed(&app);
 
-    Ok(match (browser_opened, folder_opened) {
-        (true, true) => "Automatic pairing is enabled · On first use, load the already-open directory on the Extensions page".to_owned(),
-        (true, false) => "Automatic pairing is enabled · Load the browser-extension directory on the Extensions page".to_owned(),
-        (false, true) => "Automatic pairing is enabled · Manually open chrome://extensions and load this directory".to_owned(),
-        (false, false) => "Automatic pairing is enabled · Installed extensions will connect automatically".to_owned(),
-    })
+    Ok(browser_opened)
 }
 
 #[tauri::command]
@@ -486,6 +573,35 @@ async fn open_browser_extension_folder(app: AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(path.to_string_lossy(), None::<&str>)
         .map_err(command_error)
+}
+
+#[tauri::command]
+async fn drag_browser_extension(app: AppHandle, window: WebviewWindow) -> Result<(), String> {
+    let path = browser_extension_path(&app)?;
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    let drag_window = window.clone();
+    window
+        .run_on_main_thread(move || {
+            let result = (|| -> Result<(), String> {
+                #[cfg(target_os = "linux")]
+                let native = drag_window.gtk_window().map_err(command_error)?;
+                #[cfg(target_os = "linux")]
+                let handle = &native;
+                #[cfg(not(target_os = "linux"))]
+                let handle = &drag_window;
+                drag::start_drag(
+                    handle,
+                    drag::DragItem::Files(vec![path]),
+                    drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec()),
+                    |_, _| {},
+                    drag::Options::default(),
+                )
+                .map_err(command_error)
+            })();
+            let _ = sender.send(result);
+        })
+        .map_err(command_error)?;
+    receiver.await.map_err(command_error)?
 }
 
 fn browser_extension_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -565,10 +681,22 @@ fn open_chromium_extensions_page() -> bool {
 }
 
 #[tauri::command]
+async fn generate_password(
+    runtime: State<'_, AppRuntime>,
+    options: crate::generator::Options,
+) -> Result<String, String> {
+    require_owner_unlocked(&runtime).await?;
+    crate::generator::password(&options).map_err(command_error)
+}
+
+#[tauri::command]
 async fn export_backup(
     app: AppHandle,
     runtime: State<'_, AppRuntime>,
+    password: String,
 ) -> Result<Option<String>, String> {
+    require_owner_unlocked(&runtime).await?;
+    let password = zeroize::Zeroizing::new(password);
     let selected = app
         .dialog()
         .file()
@@ -579,7 +707,7 @@ async fn export_backup(
         return Ok(None);
     };
     let path = path.into_path().map_err(command_error)?;
-    backup::export_to_file(&runtime.vault, &path).map_err(command_error)?;
+    backup::export_protected(&runtime.vault, &path, &password).map_err(command_error)?;
     Ok(Some(path.to_string_lossy().into_owned()))
 }
 
@@ -591,6 +719,21 @@ async fn github_backup_status(runtime: State<'_, AppRuntime>) -> Result<BackupSt
         .lock()
         .await
         .status()
+        .map_err(command_error)
+}
+
+#[tauri::command]
+async fn github_backup_account(
+    runtime: State<'_, AppRuntime>,
+    input: github_backup::AuthInput,
+) -> Result<github_backup::AccountStatus, String> {
+    require_owner_unlocked(&runtime).await?;
+    runtime
+        .github_backup
+        .lock()
+        .await
+        .account(input)
+        .await
         .map_err(command_error)
 }
 
@@ -671,6 +814,7 @@ async fn github_backup_help(app: AppHandle, page: String) -> Result<(), String> 
     let url = match page.as_str() {
         "repository" => "https://github.com/new",
         "token" => "https://github.com/settings/personal-access-tokens/new",
+        "login" => "https://cli.github.com/manual/gh_auth_login",
         _ => return Err("GITHUB_HELP_INVALID".to_owned()),
     };
     app.opener()
@@ -682,7 +826,10 @@ async fn github_backup_help(app: AppHandle, page: String) -> Result<(), String> 
 async fn import_backup(
     app: AppHandle,
     runtime: State<'_, AppRuntime>,
+    password: String,
 ) -> Result<Option<ImportSummary>, String> {
+    require_owner_unlocked(&runtime).await?;
+    let password = zeroize::Zeroizing::new(password);
     let selected = app
         .dialog()
         .file()
@@ -692,9 +839,83 @@ async fn import_backup(
         return Ok(None);
     };
     let path = path.into_path().map_err(command_error)?;
-    let summary = backup::import_from_file(&runtime.vault, path).map_err(command_error)?;
+    let summary =
+        backup::import_with_password(&runtime.vault, &path, &password).map_err(command_error)?;
     emit_changed(&app);
     Ok(Some(summary))
+}
+
+#[tauri::command]
+async fn prepare_import(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    format: String,
+) -> Result<Option<serde_json::Value>, String> {
+    require_owner_unlocked(&runtime).await?;
+    *runtime.pending_import.lock().await = None;
+    let extension = match format.as_str() {
+        "bitwarden" => "json",
+        "chrome" => "csv",
+        _ => return Err("Unsupported import format".into()),
+    };
+    let selected = app
+        .dialog()
+        .file()
+        .add_filter("Vault export", &[extension])
+        .blocking_pick_file();
+    let Some(path) = selected else {
+        return Ok(None);
+    };
+    require_owner_unlocked(&runtime).await?;
+    let parsed = crate::migration::read(&path.into_path().map_err(command_error)?, &format)
+        .map_err(command_error)?;
+    let id = Uuid::new_v4().to_string();
+    let encrypted = runtime
+        .vault
+        .protect_local_state(&parsed.entries)
+        .map_err(command_error)?;
+    let result = serde_json::json!({"id":id,"preview":parsed.preview});
+    *runtime.pending_import.lock().await = Some(PendingImport {
+        id,
+        created: Instant::now(),
+        encrypted,
+    });
+    Ok(Some(result))
+}
+
+#[tauri::command]
+async fn commit_import(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    id: String,
+) -> Result<ImportSummary, String> {
+    require_owner_unlocked(&runtime).await?;
+    let mut slot = runtime.pending_import.lock().await;
+    let pending = slot.as_ref().ok_or("Choose an import file first")?;
+    if pending.id != id {
+        return Err("Import preview changed; choose the file again".into());
+    }
+    if pending.created.elapsed().as_secs() > 300 {
+        *slot = None;
+        return Err("Import preview expired; choose the file again".into());
+    }
+    let entries = runtime
+        .vault
+        .unprotect_local_state(&pending.encrypted)
+        .map_err(command_error)?;
+    let summary = runtime
+        .vault
+        .merge_connections(entries)
+        .map_err(command_error)?;
+    *slot = None;
+    emit_changed(&app);
+    Ok(summary)
+}
+
+#[tauri::command]
+async fn cancel_import(runtime: State<'_, AppRuntime>) -> Result<(), String> {
+    *runtime.pending_import.lock().await = None;
+    Ok(())
 }
 
 #[tauri::command]
@@ -808,13 +1029,14 @@ fn install_tray(app: &tauri::App) -> Result<()> {
 }
 
 #[cfg(windows)]
-fn request_square_corners(window: &WebviewWindow) -> Result<()> {
+fn request_rounded_corners(window: &WebviewWindow) -> Result<()> {
     use windows::Win32::Graphics::Dwm::{
-        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DwmSetWindowAttribute,
+        DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
     };
 
     let hwnd = window.hwnd().context("Unable to obtain window handle")?;
-    let preference = DWMWCP_DONOTROUND;
+    // Match the rounded native Bricktone shell; CSS keeps inner wells at 4px.
+    let preference = DWMWCP_ROUND;
     unsafe {
         DwmSetWindowAttribute(
             windows::Win32::Foundation::HWND(hwnd.0),
@@ -822,13 +1044,13 @@ fn request_square_corners(window: &WebviewWindow) -> Result<()> {
             &preference as *const _ as *const _,
             size_of_val(&preference) as u32,
         )
-        .context("Unable to request a square-corner window on Windows")?;
+        .context("Unable to request a rounded-corner window on Windows")?;
     }
     Ok(())
 }
 
 #[cfg(not(windows))]
-fn request_square_corners(_window: &WebviewWindow) -> Result<()> {
+fn request_rounded_corners(_window: &WebviewWindow) -> Result<()> {
     Ok(())
 }
 
@@ -857,19 +1079,22 @@ pub fn run_gui() -> Result<()> {
                 executable,
                 browser,
                 pending_private_key: Mutex::new(None),
+                pending_import: Mutex::new(None),
                 owner_session: Mutex::new(OwnerSession::default()),
                 agent_registry,
                 tray_available: AtomicBool::new(false),
             });
 
             let window = app.get_webview_window("main").context("Main window not found")?;
+            #[cfg(debug_assertions)]
+            window.set_title("OpenKeylet · DEV")?;
             let fixed_size = LogicalSize::new(WINDOW_LOGICAL_WIDTH, WINDOW_LOGICAL_HEIGHT);
             window.set_min_size(Some(fixed_size))?;
             window.set_max_size(Some(fixed_size))?;
             window.set_size(fixed_size)?;
             window.set_resizable(false)?;
             window.set_maximizable(false)?;
-            request_square_corners(&window)?;
+            request_rounded_corners(&window)?;
             match install_tray(app) {
                 Ok(()) => app
                     .state::<AppRuntime>()
@@ -930,8 +1155,14 @@ pub fn run_gui() -> Result<()> {
             delete_editor_draft,
             copy_owner_value,
             save_connection,
+            reorder_connections,
             set_connection_enabled,
             delete_connection,
+            owner_trash,
+            owner_restore_item,
+            owner_purge_item,
+            owner_password_history,
+            owner_clear_password_history,
             test_connection,
             update_settings,
             system_integration_status,
@@ -947,9 +1178,15 @@ pub fn run_gui() -> Result<()> {
             quick_pair_browser,
             reset_browser_pairing,
             open_browser_extension_folder,
+            drag_browser_extension,
             export_backup,
+            generate_password,
             import_backup,
+            prepare_import,
+            commit_import,
+            cancel_import,
             github_backup_status,
+            github_backup_account,
             github_backup_generate_key,
             github_backup_recovery_key,
             github_backup_connect,
@@ -971,7 +1208,13 @@ pub fn run_gui() -> Result<()> {
     });
 
     #[cfg(not(target_os = "macos"))]
-    app.run(|_, _| {});
+    app.run(|app, event| {
+        // A hidden development launcher can pass its initial show state to the
+        // child process. Explicitly show the GUI once its event loop is ready.
+        if matches!(event, tauri::RunEvent::Ready) {
+            show_main_window(app);
+        }
+    });
 
     Ok(())
 }
