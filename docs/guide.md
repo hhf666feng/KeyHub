@@ -138,13 +138,16 @@ The preview explains remaining migration differences: attachments need separate 
 
 ## MCP calling conventions
 
-KeyHub retains all 11 MCP tools listed below and uses unique item names directly instead of exposing internal UUIDs. If the user has already named the item and the action is clear, the agent can call that action immediately. An explicit item or a unique `items_search` result becomes lightweight context for the current MCP session, so compatible fill, SSH, transfer, HTTP, and terminal calls can omit the repeated name. Natural phrases such as `use Production Server in KeyHub MCP` are understood. Discovery remains available for lookup, switching, module inspection, and ambiguity. Hidden plaintext must never be requested from the user, and unknown fields or retired tool names are rejected.
+KeyHub exposes all 12 MCP tools listed below and uses unique item names directly instead of exposing internal UUIDs. If the user has already named the item and the action is clear, the agent can call that action immediately. An explicit item or a unique `items_search` result becomes lightweight context for the current MCP session, so compatible fill, SSH, transfer, HTTP, and terminal calls can omit the repeated name. Natural phrases such as `use Production Server in KeyHub MCP` are understood. Discovery remains available for lookup, switching, module inspection, and ambiguity. Hidden plaintext must never be requested from the user, and unknown fields or retired tool names are rejected.
 
 Each agent session owns its stdio MCP process. Starting a newer KeyHub build or another agent session does not interrupt work already in progress; sessions end when their client disconnects or the user explicitly quits KeyHub from the tray.
 
+After installing an updated binary, start a new agent/client session to discover `items_create`; an existing stdio process does not gain new tools just because the desktop app was updated. This guide does not establish that the updated binary is installed or that a client has loaded it.
+
 | Tool | Purpose | MCP impact hint |
 | --- | --- | --- |
-| `items_search(query?)` | Find usable items, modules, and advertised actions | Read-only, idempotent, local |
+| `items_search(query?)` | Find enabled items, including incomplete skeletons, modules, and advertised actions | Read-only, idempotent, local |
+| `items_create` | Create a new skeleton with blank, hidden secret slots and optional public targets | Changes local vault state; duplicate names fail, never overwrite |
 | `credential_fill` | Use one saved module in the focused local target, optionally submitting it | Changes local state; submission can have external effects |
 | `terminal_run` | Run a one-shot local shell command with optional stdin and hidden-module substitution | Local or external effects possible |
 | `ssh_run` | Run a command through a saved identity and saved or runtime SSH target | External effects possible |
@@ -161,6 +164,41 @@ Ordinary commands, scripts, JSON, or configuration can be passed directly throug
 Every successful tool call returns typed `structuredContent` and equivalent JSON text. Business failures return an MCP tool result with `isError=true`; malformed protocol input remains a protocol error. Tool annotations help clients describe impact, but all real security restrictions are enforced by KeyHub's backend.
 
 There is no unrestricted `get_secret` tool. `items_search` returns item and module metadata plus advertised actions. A credential value is included only when its Agent visibility switch is on.
+
+### Create a credential skeleton
+
+Use `items_create` to prepare the fields, not to import or disclose secrets. Its arguments are:
+
+| Field | Contract |
+| --- | --- |
+| `name` | Required unique item name |
+| `description`, `folder`, `itemType` | Optional public metadata; never put secrets here. Supported item types are `login`, `card`, `identity`, `secureNote`, `ssh`, `api`, and `custom`; omission lets the validator infer the type |
+| `modules` | Required array of module objects with `kind`, optional `name` for `customSecret`, and optional `value` only for public `host`, `port`, or `url` targets; `customSecret` requires a valid unique field name |
+
+Core module kinds are `username`, `password`, `apiCredential`, `privateKey`, `passphrase`, `totp`, `customSecret`, `host`, `port`, and `url`. Existing personal card, identity and `secureNote` field kinds are also accepted by the same validator. All credential and personal fields, including usernames, must be left blank for the owner; only the public target kinds may carry a `value`. Omit `value` entirely for secret slots. Passkeys cannot be authored through this tool; use the browser's supported registration flow.
+
+There is no `id`, update/delete operation, `agentVisible` override, or caller-controlled enabled flag. Secret slots are forced hidden and the new item is enabled. Validation and unique-name creation are atomic: a duplicate name fails rather than overwriting, updating, or partially creating an item. Being enabled does not make empty secrets usable.
+
+For an ASR service, call `items_create` with arguments such as:
+
+```json
+{
+  "name": "ASR API",
+  "description": "Speech-to-text service",
+  "folder": "AI services",
+  "itemType": "api",
+  "modules": [
+    { "kind": "url", "value": "https://asr.example.com" },
+    { "kind": "apiCredential" }
+  ]
+}
+```
+
+The example URL is illustrative, not a verified service. The successful response contains `created: true`, `item: {name, modules, actions}`, `requiresOwnerInput`, `missingFields`, and `nextStep`. Each module reports `{kind, name, configured, agentVisible, value?}`; public target values may appear, but hidden secret values do not. Here the blank `apiCredential` is unconfigured and hidden, `actions` is `[]`, and `requiresOwnerInput` is `true`; `missingFields` and `nextStep` tell the owner what to complete.
+
+The owner opens **ASR API** in the KeyHub GUI, unlocks the owner interface if a PIN is configured, fills the API credential locally, leaves Agent visibility off, and saves. The agent can then search the item again and use its advertised `http_send` action without receiving the token. Until usable credentials are configured, `items_search` still returns the enabled skeleton with `actions: []`; disabled items remain excluded. Search presence and `created: true` do not prove API connectivity or successful authentication.
+
+The owner PIN does not block MCP actions: skeleton creation is a local vault write, not access to the GUI's owner-only secret viewing/filling controls. Never ask the owner to paste the token into chat or send it as an `items_create` argument. See [security boundaries](../SECURITY.md#credential-skeleton-creation).
 
 For manual client configuration, see the [README](../README.md#quick-start).
 

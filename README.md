@@ -71,11 +71,12 @@ For browser use, open **Settings → Browser Bridge** and install the bundled Ch
 
 ## MCP surface
 
-All **11 tools** use item names rather than internal UUIDs. An explicit item or unique search result selects the session's current project; compatible later actions may omit it. A managed terminal also keeps its own project binding.
+All **12 tools** use item names rather than internal UUIDs. An explicit item or unique search result selects the session's current project; compatible later actions may omit it. A managed terminal also keeps its own project binding.
 
 | Tool | Purpose |
 | --- | --- |
-| `items_search` | Discover enabled items, modules and available actions |
+| `items_search` | Discover enabled items, including incomplete skeletons, modules and available actions |
+| `items_create` | Create a new credential skeleton with blank, hidden secret slots for the owner to fill in the GUI |
 | `credential_fill` | Fill one module into the focused browser, desktop or managed-terminal target |
 | `terminal_run` | Run a one-shot local shell command with optional direct stdin |
 | `ssh_run` | Run a remote command using a saved identity |
@@ -88,6 +89,10 @@ All **11 tools** use item names rather than internal UUIDs. An explicit item or 
 | `terminal_stop` | Close a managed terminal |
 
 Commands, stdin, paths, terminal input and HTTP fields can reference hidden modules with `{{keyhub:module name}}`; `secretEnv` injects modules when a child process needs environment variables. There is no unrestricted `get_secret` tool. Tool impact hints are descriptive, not authorization controls. See [calling conventions](docs/guide.md#mcp-calling-conventions).
+
+For example, ask the agent to create an **ASR API** item with a public `url` and a blank `apiCredential` module. The owner then opens that item in the KeyHub GUI, fills the API token locally, and saves it without enabling Agent visibility. `items_create` accepts no secret values or visibility overrides, cannot update/delete existing items, and atomically rejects duplicate names without overwriting. An enabled skeleton is discoverable with `actions: []` until usable credentials are configured; disabled items stay absent. See the [request and owner-fill workflow](docs/guide.md#create-a-credential-skeleton).
+
+After installing a binary that includes `items_create`, start a **new agent/client session** to load the updated tool list; an already-running stdio process keeps its existing tools. This documents source behavior, not confirmation that the updated binary is installed.
 
 ## Security boundaries
 

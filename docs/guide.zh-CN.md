@@ -137,15 +137,18 @@ Bitwarden 导入保留登录、信用卡、身份、安全笔记、SSH 密钥、
 
 ## MCP 调用约定
 
-KeyHub 保留下表全部 11 个 MCP 工具，直接使用唯一项目名，不要求 Agent 提供内部项目 UUID。用户已经说出项目名且动作明确时，Agent 可以直接执行；显式使用项目或让 `items_search` 唯一命中后，它会成为当前 MCP 会话的轻量上下文，后续兼容的填写、SSH、传输、HTTP 和终端动作无需重复项目名。KeyHub 也能理解 `使用 KeyHub MCP 中的「生产服务器」` 这类自然表达。只有发现、切换、查看模块或消除歧义时才需要搜索。
+KeyHub 提供下表全部 12 个 MCP 工具，直接使用唯一项目名，不要求 Agent 提供内部项目 UUID。用户已经说出项目名且动作明确时，Agent 可以直接执行；显式使用项目或让 `items_search` 唯一命中后，它会成为当前 MCP 会话的轻量上下文，后续兼容的填写、SSH、传输、HTTP 和终端动作无需重复项目名。KeyHub 也能理解 `使用 KeyHub MCP 中的「生产服务器」` 这类自然表达。只有发现、切换、查看模块或消除歧义时才需要搜索。
 
 绝不能要求用户提供隐藏的明文；未知字段和已停用的工具名会被拒绝。
 
 每个 Agent 会话拥有自己的 stdio MCP 进程。启动新版 KeyHub 或另一个 Agent 会话不会中断已经进行中的任务；只有客户端结束会话，或用户从 KeyHub 托盘明确选择退出时，相关 MCP 进程才会结束。
 
+安装更新后的二进制后，启动新的 Agent／客户端会话才能发现 `items_create`；桌面程序更新不会让现有 stdio 进程自动获得新工具。本指南不代表已安装更新后的程序，也不代表客户端已加载它。
+
 | 工具 | 用途 | MCP 影响提示 |
 | --- | --- | --- |
-| `items_search(query?)` | 查找可用项目、模块和自动开放的动作 | 只读、幂等、本地 |
+| `items_search(query?)` | 查找已启用的项目（含未补全的骨架）、模块和自动开放的动作 | 只读、幂等、本地 |
+| `items_create` | 创建秘密字段留空且隐藏的骨架，可附公开目标地址 | 修改本地密码库；同名拒绝，不覆盖 |
 | `credential_fill` | 在当前聚焦的本地目标中使用一个保存的模块，可选择同时提交 | 改变本地状态；提交可能产生外部影响 |
 | `terminal_run` | 一步运行本地 shell 命令，可传入标准输入并替换隐藏模块 | 可能产生本地或外部影响 |
 | `ssh_run` | 使用已保存身份及保存或临时提供的 SSH 目标执行命令 | 可能产生外部影响 |
@@ -162,6 +165,41 @@ KeyHub 不提供不受限制的 `get_secret`。`items_search` 只返回项目与
 普通命令、脚本、JSON 或配置可直接通过 `terminal_run.stdin` 或 `ssh_run.stdin` 传入，无需 shell 转义或临时文件。命令、标准输入、路径、PTY 输入和 HTTP 请求字段都可用 `{{keyhub:模块名}}` 引用隐藏模块。本地路径支持绝对路径、`~/...` 和相对 MCP 启动工作区的路径。KeyHub 不再对命令长度、SSH/终端输出、模块数量或并发终端数量设置固定上限；调用方仍可主动设置超时或响应大小限制。
 
 每次成功的工具调用都会返回带类型的 `structuredContent` 及等价的 JSON 文本。业务失败返回带 `isError=true` 的 MCP 工具结果；格式错误的协议输入仍属于协议错误。工具注解帮助客户端说明影响，但实际安全限制全部由 KeyHub 后端执行。
+
+### 创建凭据骨架
+
+`items_create` 用于准备字段，不用于导入或披露秘密。参数如下：
+
+| 字段 | 约定 |
+| --- | --- |
+| `name` | 必填，唯一项目名 |
+| `description`、`folder`、`itemType` | 可选的公开元数据，不能放秘密。项目类型支持 `login`、`card`、`identity`、`secureNote`、`ssh`、`api`、`custom`；省略时由校验器推导 |
+| `modules` | 必填模块对象数组；对象含 `kind`，`customSecret` 可带 `name`，只有公开的 `host`、`port`、`url` 目标可带 `value`；`customSecret` 必须提供合法且唯一的字段名 |
+
+核心模块类型为 `username`、`password`、`apiCredential`、`privateKey`、`passphrase`、`totp`、`customSecret`、`host`、`port`、`url`。现有校验器支持的银行卡、身份及 `secureNote` 个人字段类型也可用于建骨架。包括用户名在内，所有凭据及个人字段都必须留空，由所有者补全；只有公开目标类型可以携带 `value`。秘密字段直接省略 `value`。不能用该工具创建 Passkey，应通过浏览器支持的注册流程创建。
+
+不接受 `id`、更新／删除操作、`agentVisible` 覆盖或调用方控制的启用标志。秘密字段强制隐藏，新项目设为启用。校验与唯一名称创建是原子操作：同名会失败，不覆盖、不更新，也不产生部分项目。已启用不等于空秘密已经可用。
+
+以 ASR 服务为例，调用 `items_create` 时传入：
+
+```json
+{
+  "name": "ASR API",
+  "description": "Speech-to-text service",
+  "folder": "AI services",
+  "itemType": "api",
+  "modules": [
+    { "kind": "url", "value": "https://asr.example.com" },
+    { "kind": "apiCredential" }
+  ]
+}
+```
+
+示例 URL 仅用于说明，不代表已验证的服务。成功响应包含 `created: true`、`item: {name, modules, actions}`、`requiresOwnerInput`、`missingFields` 和 `nextStep`。每个模块返回 `{kind, name, configured, agentVisible, value?}`；可包含公开目标值，但不返回隐藏秘密。此例中，留空的 `apiCredential` 未配置且隐藏，`actions` 为 `[]`，`requiresOwnerInput` 为 `true`；`missingFields` 和 `nextStep` 指明所有者需要补全的内容。
+
+所有者在 KeyHub GUI 打开 **ASR API**，如配置了 PIN 则先解锁所有者界面，在本地填写 API 凭据，保持 Agent 可见关闭并保存。随后 Agent 再次搜索该项目，使用开放的 `http_send` 动作，无需获得 Token。配置可用凭据前，`items_search` 仍返回已启用骨架及 `actions: []`；已禁用项目仍被排除。能搜索到项目或返回 `created: true` 不代表 API 可达或认证成功。
+
+所有者 PIN 不阻止 MCP 动作：创建骨架是本地密码库写入，不是访问 GUI 所有者专用的秘密查看／填写控件。不要让所有者把 Token 粘贴进对话，也不要将其作为 `items_create` 参数发送。详见[安全边界](../SECURITY.zh-CN.md#凭据骨架创建)。
 
 手动接入示例见 [README](../README.zh-CN.md#快速开始)。
 

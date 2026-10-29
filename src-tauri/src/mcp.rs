@@ -249,10 +249,7 @@ impl VaultMcp {
             .list_decrypted_connections()
             .map_err(|error| error.to_string())?
             .into_iter()
-            .filter(|decrypted| {
-                decrypted.stored.enabled
-                    && !decrypted.stored.capabilities(&decrypted.secrets).is_empty()
-            })
+            .filter(|decrypted| decrypted.stored.enabled)
             .collect::<Vec<_>>();
 
         if let Some(query) = query.as_deref() {
@@ -329,6 +326,14 @@ impl VaultMcp {
         capability: Option<&str>,
     ) -> Result<DecryptedConnection, String> {
         let query = query.trim();
+        if query.is_empty()
+            && let Some(id) = self.active_item.read().ok().and_then(|item| *item)
+            && let Ok(current) = self.vault.get_connection(id)
+            && current.stored.enabled
+            && current.stored.capabilities(&current.secrets).is_empty()
+        {
+            return Err("The selected KeyHub item has no configured credential. Fill its empty fields locally and Save, or explicitly select another item.".to_owned());
+        }
         if query.is_empty()
             && let Some(connection) = self.active_connection_for_action(capability)
         {
@@ -861,6 +866,79 @@ struct ItemsSearchOutput {
     items: Vec<ItemOutput>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(try_from = "serde_json::Value")]
+#[schemars(with = "ItemsCreateFields")]
+struct ItemsCreateInput {
+    name: String,
+    description: String,
+    folder: String,
+    item_type: String,
+    modules: Vec<CreateModuleInput>,
+}
+
+// Sanitize before rmcp's Parameters extractor can echo Serde's offending input.
+impl TryFrom<Value> for ItemsCreateInput {
+    type Error = &'static str;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let input: ItemsCreateFields = serde_json::from_value(value)
+            .map_err(|_| "Invalid credential skeleton arguments. Supply a name and modules; secret slots must be empty.")?;
+        Ok(Self {
+            name: input.name,
+            description: input.description,
+            folder: input.folder,
+            item_type: input.item_type,
+            modules: input.modules,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ItemsCreateFields {
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    folder: String,
+    #[serde(default)]
+    item_type: String,
+    #[schemars(
+        description = "Required modules. Use apiCredential for an API key slot, customSecret with name for an environment key, username/password for a login, or host/port/privateKey for SSH. Secret fields must have no value; only public host, port and url modules may have a value. Passkeys cannot be created manually."
+    )]
+    modules: Vec<CreateModuleInput>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CreateModuleInput {
+    #[schemars(
+        description = "Existing KeyHub module kind: username, password, apiCredential, privateKey, passphrase, totp, customSecret, host, port, url, or a supported personal-vault field."
+    )]
+    kind: String,
+    #[serde(default)]
+    #[schemars(
+        description = "Custom secret field name, such as ASR_API_KEY; required only for customSecret."
+    )]
+    name: String,
+    #[serde(default)]
+    #[schemars(
+        description = "Public host, port or URL only. Leave empty for every secret module. Never supply passwords, keys, tokens or personal values."
+    )]
+    value: String,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ItemsCreateOutput {
+    created: bool,
+    item: ItemOutput,
+    requires_owner_input: bool,
+    missing_fields: Vec<String>,
+    next_step: String,
+}
+
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct ItemOutput {
@@ -1300,8 +1378,79 @@ struct TerminalWriteInput {
 #[tool_router(router = tool_router)]
 impl VaultMcp {
     #[tool(
+        name = "items_create",
+        description = "Create a new local KeyHub credential skeleton when the user asks. Provide its name, optional public description/folder/itemType, and modules. Secret slots (apiCredential, password, username, privateKey, totp, customSecret and personal fields) must be empty and are forced hidden. Only host/port/url accept public values. The owner fills secrets in the KeyHub editor and saves; never ask for secrets in chat. Rejects duplicate names atomically, never updates existing items, and cannot create passkeys. Incomplete enabled items remain discoverable with items_search but have no secret actions until configured.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<ItemsCreateOutput>(),
+        annotations(title = "Create a credential skeleton", read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
+    )]
+    async fn items_create(
+        &self,
+        Parameters(input): Parameters<ItemsCreateInput>,
+    ) -> CallToolResult {
+        let result: Result<ItemsCreateOutput, String> = (|| {
+            let mut modules = Vec::new();
+            for module in input.modules {
+                let kind = module.kind.trim().to_owned();
+                let public = matches!(kind.as_str(), "host" | "port" | "url");
+                if !public && !module.value.is_empty() {
+                    return Err("Secret fields must be empty. Fill them locally in the KeyHub editor, not in an MCP request.".to_owned());
+                }
+                modules.push(crate::model::ItemModule {
+                    kind,
+                    name: module.name,
+                    value: module.value,
+                    agent_visible: Some(public),
+                });
+            }
+            let connection: crate::model::ConnectionInput = serde_json::from_value(json!({
+                "name": input.name, "description": input.description, "folder": input.folder,
+                "itemType": input.item_type, "modules": modules, "httpAuthType": "auto"
+            }))
+            .map_err(|_| "Unable to prepare credential skeleton".to_owned())?;
+            // No id, import path or secret bundle can enter this create-only path.
+            // The existing vault transaction validates uniqueness and encrypts storage.
+            let saved = self
+                .vault
+                .save_connection(connection)
+                .map_err(|_| "Credential skeleton could not be created. Use a unique nonempty name, valid modules and public targets; an existing item is never overwritten.".to_owned())?;
+            let missing_fields: Vec<String> = saved
+                .modules
+                .iter()
+                .filter(|module| module.secret && !module.configured)
+                .map(|module| module.name.clone())
+                .collect();
+            let output = ItemsCreateOutput {
+                created: true,
+                requires_owner_input: !missing_fields.is_empty(),
+                missing_fields,
+                next_step: "Open this item in KeyHub, fill the empty fields locally, and Save. Do not paste secrets into chat.".to_owned(),
+                item: ItemOutput {
+                    name: saved.name.clone(),
+                    modules: saved.modules.iter().map(|module| ItemModuleOutput {
+                        kind: module.kind.clone(), name: module.name.clone(), configured: module.configured,
+                        agent_visible: module.agent_visible(),
+                        value: (!module.secret && module.agent_visible()).then(|| module.value.clone()),
+                    }).collect(),
+                    actions: Vec::new(),
+                },
+            };
+            let _ = self.vault.add_activity(NewActivity {
+                status: "success".into(),
+                source: self.activity_source(),
+                connection_name: saved.name,
+                action: "Create credential skeleton".into(),
+                duration_ms: 0,
+                error: String::new(),
+            });
+            self.bind_active_item(saved.id);
+            Ok(output)
+        })();
+        into_tool_result(result)
+    }
+
+    #[tool(
         name = "items_search",
-        description = "Discover or select enabled KeyHub projects, modules, and available actions. A query that finds one project makes it the current project for this MCP session, so later compatible actions can omit item. When the user already named a project and the intended action is clear, call that action directly instead. Query may be the project name or the user's natural-language phrase containing it. Exact case-insensitive name matches win. Only modules explicitly marked agentVisible include value.",
+        description = "Discover or select enabled KeyHub projects, modules, and available actions, including incomplete credential skeletons whose actions are empty until the owner fills them. A query that finds one project makes it current for this MCP session. When the user already named a project and the action is clear, call it directly. Exact case-insensitive names win. Only modules explicitly marked agentVisible include value.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<ItemsSearchOutput>(),
         annotations(title = "Find KeyHub projects", read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
@@ -2005,7 +2154,7 @@ impl ServerHandler for VaultMcp {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("keyhub", env!("CARGO_PKG_VERSION")).with_title("KeyHub"))
             .with_instructions(
-            "KeyHub lets agents use locally saved credentials without receiving hidden plaintext. An explicit item or unique items_search result becomes the current project; later compatible actions may omit item, and a terminal keeps its own binding. When the user names a project and the action is clear, call it directly. Use items_search only for discovery, selection, inspection, or genuine ambiguity. credential_fill understands common module phrases and may infer a sole secret; omit target to use the current running KeyHub terminal, otherwise a connected browser or foreground control, and use submit=true to complete the login. terminal_start makes the opened PTY current, so terminal_write, terminal_read, terminal_stop, and terminal credential fills should omit sessionId unless deliberately switching among multiple terminals. Use terminal_run for one-shot local commands and PTY tools only for persistent interaction. Direct {{keyhub:module}} placeholders work in commands, stdin, paths, terminal input, SSH, and HTTP values; KeyHub substitutes and redacts them locally. terminal_run.stdin and ssh_run.stdin pass scripts, JSON, or other text without shell escaping or temporary files. A password or private-key project can use SSH without saved target metadata: pass host, optional port, and username at runtime; saved values are defaults and port 22 is the fallback. Use secretEnv only when a program needs an environment variable, and HTTP secretBindings only for aliases. Never ask the user to reveal a hidden value. terminal_read.until waits without polling and has no deadline unless waitSeconds is supplied. KeyHub has no observation, diagnostic, restricted, or execution modes.",
+            "KeyHub lets agents use locally saved credentials without receiving hidden plaintext. When the user asks to create a credential, use items_create to save a new skeleton with empty hidden secret slots, then ask the owner to fill them in the KeyHub editor and Save; never ask for plaintext in chat. Duplicate names are rejected without updates; incomplete enabled items are searchable with no secret actions. An explicit item or unique items_search result becomes the current project; later compatible actions may omit item, and a terminal keeps its own binding. When the user names a project and the action is clear, call it directly. Use items_search only for discovery, selection, inspection, or genuine ambiguity. credential_fill understands common module phrases and may infer a sole secret; omit target to use the current running KeyHub terminal, otherwise a connected browser or foreground control, and use submit=true to complete the login. terminal_start makes the opened PTY current, so terminal_write, terminal_read, terminal_stop, and terminal credential fills should omit sessionId unless deliberately switching among multiple terminals. Use terminal_run for one-shot local commands and PTY tools only for persistent interaction. Direct {{keyhub:module}} placeholders work in commands, stdin, paths, terminal input, SSH, and HTTP values; KeyHub substitutes and redacts them locally. terminal_run.stdin and ssh_run.stdin pass scripts, JSON, or other text without shell escaping or temporary files. A password or private-key project can use SSH without saved target metadata: pass host, optional port, and username at runtime; saved values are defaults and port 22 is the fallback. Use secretEnv only when a program needs an environment variable, and HTTP secretBindings only for aliases. Never ask the user to reveal a hidden value. terminal_read.until waits without polling and has no deadline unless waitSeconds is supplied. KeyHub has no observation, diagnostic, restricted, or execution modes.",
         )
     }
 
@@ -2151,6 +2300,10 @@ fn toml_escape(value: &str) -> String {
 }
 
 #[cfg(test)]
+#[path = "mcp/items_create_tests.rs"]
+mod items_create_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::{ConnectionInput, ItemModule, NamedSecrets, SecretBundle};
@@ -2197,6 +2350,7 @@ mod tests {
             [
                 "credential_fill",
                 "http_send",
+                "items_create",
                 "items_search",
                 "ssh_download",
                 "ssh_run",
@@ -3282,6 +3436,7 @@ mod tests {
     fn tool_contracts_have_output_schemas_and_annotations() {
         let router = VaultMcp::tool_router();
         let expected = [
+            ("items_create", false, false, false, false),
             ("items_search", true, false, true, false),
             ("credential_fill", false, false, false, true),
             ("terminal_run", false, true, false, true),

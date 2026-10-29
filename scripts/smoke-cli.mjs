@@ -174,6 +174,7 @@ function mcpSmoke() {
       const toolNames = toolList.tools?.map((tool) => tool.name) ?? [];
       const expectedTools = [
         "items_search",
+        "items_create",
         "credential_fill",
         "terminal_start",
         "terminal_write",

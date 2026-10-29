@@ -35,6 +35,19 @@ MCP tool annotations are descriptive hints. KeyHub enforces its actual restricti
 
 ## Action boundaries
 
+### Credential skeleton creation
+
+`items_create` writes a new, enabled local item with blank secret slots for the owner to complete in the GUI. It accepts a required unique name and module array, optional public description/folder/item type, and values only for public `host`, `port`, and `url` modules. Credential and personal fields must remain blank; custom secret slots require a valid name. Do not put credentials in public targets or metadata, which can enter agent context. Secret values and `agentVisible` overrides are rejected; secret slots are forced hidden. Passkeys cannot be authored through this tool.
+
+Creation and unique-name validation are atomic. Duplicate names fail without overwriting, and this tool accepts no internal item ID or update/delete operation. Its response reports metadata, configuration state, available actions and owner-input requirements, not hidden secrets. Enabled incomplete items are discoverable through `items_search` with `actions: []` until usable credentials are configured; disabled items remain excluded. Creation or discovery does not establish authentication success.
+
+The owner PIN protects owner-interface access, not MCP actions, so it does not block this constrained write. Creating a skeleton does not grant access to the GUI's owner-only secret viewing/filling controls. The owner supplies secrets locally after unlocking the GUI when required; the agent must not request them in chat or tool arguments. This write capability is not a general vault-editing or secret-import API and does not change the same-OS-user threat boundary.
+
+Selecting an incomplete item does not authorize fallback to another item's
+credentials: an omitted-item action fails until the owner fills it or the agent
+explicitly selects another item. Creation argument/validation errors are sanitized
+without reflecting rejected values; public metadata is still not a secret channel.
+
 ### Browser and desktop fill
 
 The extension popup uses exact scheme, host and port unless an item has explicit website rules. Multiple-website rules support domain/host/exact/prefix/regex/never matching; ordinary rules retain the saved scheme and port, prefix rules also require the same origin, and regex matching refuses remote HTTP. Rules apply to the focused frame's URL, which is rechecked during injection. Different-origin frames are refused. The popup saves only after an explicit action. It shares the local vault rather than caching passwords in extension storage. A configured owner PIN also protects popup access; each passkey operation verifies it afresh. The bridge pins the extension origin during pairing and requires a pairing token for every WebSocket connection. Page content cannot choose vault RPC methods. Passkey requests use a separate extension-origin confirmation window, validate the RP ID against the page origin and public-suffix list, and set the UV flag only after successful PIN verification. Private keys never enter page scripts, extension storage, or Agent-readable fields. Local processes running as the same OS user remain outside this protection boundary.

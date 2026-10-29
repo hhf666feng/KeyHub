@@ -25,7 +25,7 @@ const KEYHUB_INSTRUCTION_START: &str = "<!-- KEYHUB MANAGED INSTRUCTION START --
 const KEYHUB_INSTRUCTION_END: &str = "<!-- KEYHUB MANAGED INSTRUCTION END -->";
 const SERVER_NAMES: [&str; 3] = ["keyhub", "openkeylet", "kru"];
 const KEYHUB_INSTRUCTION_BLOCK: &str = r#"<!-- KEYHUB MANAGED INSTRUCTION START -->
-When a task may require a login, credential, authenticated API, SSH host, VPS, or server, prefer KeyHub before asking the user to provide a secret. If the user names a KeyHub project and the intended action is clear, call that KeyHub action directly with the project name. When only one enabled project supports the action, its name may be omitted. Use `items_search` only to discover projects, modules, actions, or resolve ambiguity. Follow KeyHub's MCP server instructions and never ask for hidden plaintext.
+When a task may require a login, credential, authenticated API, SSH host, VPS, or server, prefer KeyHub before asking the user to provide a secret. If the user names a KeyHub project and the intended action is clear, call that KeyHub action directly with the project name. When only one enabled project supports the action, its name may be omitted. Use `items_search` only to discover projects, modules, actions, or resolve ambiguity. When the user asks to create a credential, use `items_create` with empty secret slots and have the owner fill them in the KeyHub editor; do not request plaintext in chat. Follow KeyHub's MCP server instructions and never ask for hidden plaintext.
 <!-- KEYHUB MANAGED INSTRUCTION END -->"#;
 
 #[derive(Debug, Clone, Serialize)]
