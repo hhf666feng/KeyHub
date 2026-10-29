@@ -16,7 +16,7 @@ const rootDocumentation = ["README.md", "README.zh-CN.md", "SECURITY.md", "SECUR
 const bundledDocumentation = [...rootDocumentation, "docs/guide.md", "docs/guide.zh-CN.md",
   ...["README.md", "listing.en.md", "listing.zh-CN.md", "privacy-practices.md", "reviewer-instructions.md"]
     .map((file) => `docs/chrome-web-store/${file}`),
-  ".github/assets/keyhub-hero.svg"];
+  ".github/assets/keyhub-hero.svg", ".github/assets/keyhub-demo.gif"];
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "keyhub packaging-"));
@@ -108,7 +108,7 @@ for (const [script, suffix, appimage] of [
     }
     assert.deepEqual(fs.readdirSync(path.join(packageRoot, "docs")).sort(),
       ["chrome-web-store", "guide.md", "guide.zh-CN.md"]);
-    assert.deepEqual(fs.readdirSync(path.join(packageRoot, ".github/assets")), ["keyhub-hero.svg"]);
+    assert.deepEqual(fs.readdirSync(path.join(packageRoot, ".github/assets")).sort(), ["keyhub-demo.gif", "keyhub-hero.svg"]);
     for (const alias of ["keyhub", "openkeylet", "kru"]) {
       const executable = path.join(packageRoot, alias);
       assert.ok(fs.statSync(executable).mode & 0o111, `${alias} is not executable`);
@@ -195,6 +195,7 @@ test("Windows packaging bundles offline documentation at README-relative paths b
   }
   assert.ok(staging.includes('Copy-Item -LiteralPath (Join-Path $projectRoot "docs\\chrome-web-store") -Destination (Join-Path $packageRoot "docs") -Recurse'));
   assert.ok(staging.includes('Copy-Item -LiteralPath (Join-Path $projectRoot ".github\\assets\\keyhub-hero.svg") -Destination (Join-Path $packageRoot ".github\\assets")'));
+  assert.ok(staging.includes('Copy-Item -LiteralPath (Join-Path $projectRoot ".github\\assets\\keyhub-demo.gif") -Destination (Join-Path $packageRoot ".github\\assets")'));
   for (const directory of ["docs", ".github\\assets"]) {
     assert.ok(staging.includes(`New-Item -ItemType Directory -Path (Join-Path $packageRoot "${directory}") -Force`));
   }
@@ -210,7 +211,7 @@ test("macOS packaging bundles only public offline documentation before checksumm
   assert.ok(staging.includes('mkdir -p "$package_root/docs" "$package_root/.github/assets"'));
   assert.ok(staging.includes('cp "$project_root/docs/guide.md" "$project_root/docs/guide.zh-CN.md" "$package_root/docs/"'));
   assert.ok(staging.includes('cp -R "$project_root/docs/chrome-web-store" "$package_root/docs/chrome-web-store"'));
-  assert.ok(staging.includes('cp "$project_root/.github/assets/keyhub-hero.svg" "$package_root/.github/assets/"'));
+  assert.ok(staging.includes('cp "$project_root/.github/assets/keyhub-hero.svg" "$project_root/.github/assets/keyhub-demo.gif" "$package_root/.github/assets/"'));
   assert.doesNotMatch(staging, /cp -R "\$project_root\/(?:docs|\.github|\.github\/assets)"/);
 });
 

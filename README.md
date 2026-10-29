@@ -14,6 +14,14 @@ Local first · MIT licensed · No KeyHub account · Windows / macOS / Linux
 
 > **Source status:** this checkout identifies as **0.16.0**. The KeyHub name and current source features do not imply a new published release. Check the assets and notes on the [releases page](../../releases) before downloading; build from source for this checkout's behavior.
 
+## Demo
+
+<p align="center">
+  <img src=".github/assets/keyhub-demo.gif" alt="KeyHub demo: search a local vault, inspect a credential without revealing plaintext, and copy an agent instruction" width="100%" />
+</p>
+
+<p align="center"><sub>Recorded against an isolated test vault with synthetic data. No real credentials are shown.</sub></p>
+
 ## Why KeyHub
 
 - **One vault, several workflows.** Use composable modules for logins, SSH, API credentials, TOTP and environment variables.
@@ -131,6 +139,7 @@ npm run lint         # Dependency-free static checks
 npm run test:unit    # Node unit and contract tests; no browser needed
 npm run check        # Rust type/build checks
 npm test             # Rust tests
+npm run docs:demo    # Re-record the README GIF from a synthetic vault (requires ffmpeg)
 ```
 
 For UI and real-extension tests, install Playwright Chromium first:

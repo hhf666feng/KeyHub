@@ -69,6 +69,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "docs\guide.md") -Destination (Jo
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\guide.zh-CN.md") -Destination (Join-Path $packageRoot "docs")
 Copy-Item -LiteralPath (Join-Path $projectRoot "docs\chrome-web-store") -Destination (Join-Path $packageRoot "docs") -Recurse
 Copy-Item -LiteralPath (Join-Path $projectRoot ".github\assets\keyhub-hero.svg") -Destination (Join-Path $packageRoot ".github\assets")
+Copy-Item -LiteralPath (Join-Path $projectRoot ".github\assets\keyhub-demo.gif") -Destination (Join-Path $packageRoot ".github\assets")
 Copy-Item -LiteralPath (Join-Path $projectRoot "browser-extension") -Destination $packageRoot -Recurse
 
 $checksums = Get-ChildItem -LiteralPath $packageRoot -Recurse -File |

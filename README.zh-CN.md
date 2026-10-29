@@ -14,6 +14,14 @@ KeyHub 是面向 AI Agent 的本地凭据管理器与 `stdio` MCP 服务。保�
 
 > **源码状态：** 当前代码版本仍为 **0.16.0**。KeyHub 名称与当前源码能力不代表新版已发布。下载前请核对[发布页](../../releases)的附件和说明；需要当前代码行为时，请从源码构建。
 
+## 产品演示
+
+<p align="center">
+  <img src=".github/assets/keyhub-demo.gif" alt="KeyHub 演示：搜索本地密码库、查看不暴露明文的凭据详情，并复制 Agent 使用指令" width="100%" />
+</p>
+
+<p align="center"><sub>录制使用隔离的合成密码库，不包含任何真实凭据。</sub></p>
+
 ## 为什么用 KeyHub
 
 - **一个密码库，覆盖多种任务。** 用模块组合账号、SSH、API 凭据、TOTP 与环境变量。
@@ -131,6 +139,7 @@ npm run lint         # 无额外依赖的静态检查
 npm run test:unit    # Node 单元与契约测试，无需浏览器
 npm run check        # Rust 类型／构建检查
 npm test             # Rust 测试
+npm run docs:demo    # 从合成密码库重新录制 README GIF（需要 ffmpeg）
 ```
 
 运行界面及真实扩展测试前，先安装 Playwright Chromium：

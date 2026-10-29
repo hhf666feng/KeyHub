@@ -38,6 +38,7 @@
     "icons:generate": "node scripts/generate-keyhub-icons.mjs",
     "test:logo": "node --test scripts/test-keyhub-logo.mjs && node scripts/generate-keyhub-icons.mjs --check",
     "test:quick": "node --test scripts/test-quick-native-contract.mjs && node scripts/test-quick-panel.mjs",
+    "docs:demo": "node scripts/capture-readme-demo.mjs",
     "lint": "node scripts/check-javascript.mjs && node scripts/check-version.mjs",
     "fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
     "test:unit": "node scripts/run-tests.mjs unit",

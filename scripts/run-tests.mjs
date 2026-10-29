@@ -17,6 +17,7 @@ export const suites = {
     'scripts/test-workspace-window.mjs',
     'scripts/test-static-server.mjs',
     'scripts/test-repository-tools.mjs',
+    'scripts/test-readme-media.mjs',
   ],
   ui: [
     'scripts/test-personal-ui.mjs',
