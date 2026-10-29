@@ -48,6 +48,6 @@ KeyHub 不包含广告、不出售个人数据，也不将密码库数据用于�
 
 ## 联系与变更
 
-通过 [GitHub Issues](https://github.com/omaekumiko2-create/OpenKeylet/issues) 联系维护者。保密安全报告请使用仓库的[私密漏洞报告](https://github.com/omaekumiko2-create/OpenKeylet/security/advisories/new)（如已启用），或遵循 [SECURITY.zh-CN.md](SECURITY.zh-CN.md)。不要在公开问题中发布凭据、密码库文件或个人信息。
+通过 [GitHub Issues](https://github.com/hhf666feng/KeyHub/issues) 联系维护者。保密安全报告请使用仓库的[私密漏洞报告](https://github.com/hhf666feng/KeyHub/security/advisories/new)（如已启用），或遵循 [SECURITY.zh-CN.md](SECURITY.zh-CN.md)。不要在公开问题中发布凭据、密码库文件或个人信息。
 
 数据实践发生重大变化时，我们会更新本政策，并按要求在产品内披露。页面顶部日期标识当前版本。

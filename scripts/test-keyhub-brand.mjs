@@ -14,6 +14,30 @@ test('KeyHub is the visible desktop and package brand', () => {
   assert.match(text('renderer/index.html'), /<strong>KeyHub<\/strong>/);
 });
 
+test('repository landing pages use the current KeyHub logo rather than legacy artwork', () => {
+  for (const file of ['README.md', 'README.zh-CN.md']) {
+    assert.match(text(file), /src="\.github\/assets\/keyhub-hero\.svg"/);
+    assert.doesNotMatch(text(file), /openkeylet-hero|keyHub/);
+  }
+  const hero = text('.github/assets/keyhub-hero.svg');
+  const logo = text('renderer/app-mark.svg');
+  for (const match of logo.matchAll(/<path[^>]+d="([^"]+)"/g)) {
+    assert.ok(hero.includes(`d="${match[1]}"`), 'hero must reuse current logo geometry');
+  }
+  assert.match(hero, />KeyHub</);
+  assert.doesNotMatch(hero, /keyHub|OpenKeylet|ed4a1a/);
+  assert.ok(!fs.existsSync(new URL('../.github/assets/openkeylet-hero.svg', import.meta.url)));
+});
+
+test('public support and download links point to the owned KeyHub repository', () => {
+  for (const file of ['PRIVACY.md', 'PRIVACY.zh-CN.md', 'browser-extension/privacy.html',
+    'scripts/sync-extension-privacy.mjs', 'docs/chrome-web-store/listing.en.md',
+    'docs/chrome-web-store/listing.zh-CN.md', 'docs/chrome-web-store/reviewer-instructions.md']) {
+    assert.ok(text(file).includes('https://github.com/hhf666feng/KeyHub'), file);
+    assert.doesNotMatch(text(file), /https:\/\/github\.com\/omaekumiko2-create\/OpenKeylet/, file);
+  }
+});
+
 test('canonical and legacy command binaries remain available from one implementation', () => {
   const cargo = text('src-tauri/Cargo.toml');
   assert.match(cargo, /\[package\][\s\S]*?name = "keyhub"/);

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/openkeylet-hero.svg" alt="KeyHub: local credentials for AI agents" width="100%" />
+  <img src=".github/assets/keyhub-hero.svg" alt="KeyHub: local credentials for AI agents" width="100%" />
 </p>
 
 # KeyHub

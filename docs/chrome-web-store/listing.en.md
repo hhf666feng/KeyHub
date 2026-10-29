@@ -40,8 +40,8 @@ GET STARTED
 4. Open a website, unlock with your KeyHub PIN if configured, and choose an action.
 5. Enable save suggestions only if you want the extension to detect submitted login information.
 
-Desktop downloads: https://github.com/omaekumiko2-create/OpenKeylet/releases/latest
-Documentation and support: https://github.com/omaekumiko2-create/OpenKeylet
+Desktop downloads: https://github.com/hhf666feng/KeyHub/releases/latest
+Documentation and support: https://github.com/hhf666feng/KeyHub
 
 LIMITATIONS
 
@@ -51,7 +51,7 @@ Browser management pages cannot be filled. Password, card and identity form work
 
 - Suggested category: Productivity; choose the closest available category in the dashboard.
 - Primary language: English; add the Chinese listing as a locale.
-- Support URL: https://github.com/omaekumiko2-create/OpenKeylet/issues
-- Homepage: https://github.com/omaekumiko2-create/OpenKeylet
+- Support URL: https://github.com/hhf666feng/KeyHub/issues
+- Homepage: https://github.com/hhf666feng/KeyHub
 - Privacy URL: use the published URL for PRIVACY.md or an equivalent hosted page; do not paste a local path.
 - Pricing: no charge for the extension or desktop application as currently distributed.

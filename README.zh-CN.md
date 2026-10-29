@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/openkeylet-hero.svg" alt="KeyHub：面向 AI Agent 的本地凭据管理器" width="100%" />
+  <img src=".github/assets/keyhub-hero.svg" alt="KeyHub：面向 AI Agent 的本地凭据管理器" width="100%" />
 </p>
 
 # KeyHub

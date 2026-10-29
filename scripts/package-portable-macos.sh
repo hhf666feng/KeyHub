@@ -53,7 +53,7 @@ cp "$project_root/README.md" "$project_root/README.zh-CN.md" \
 mkdir -p "$package_root/docs" "$package_root/.github/assets"
 cp "$project_root/docs/guide.md" "$project_root/docs/guide.zh-CN.md" "$package_root/docs/"
 cp -R "$project_root/docs/chrome-web-store" "$package_root/docs/chrome-web-store"
-cp "$project_root/.github/assets/openkeylet-hero.svg" "$package_root/.github/assets/"
+cp "$project_root/.github/assets/keyhub-hero.svg" "$package_root/.github/assets/"
 cp -R "$project_root/browser-extension" "$package_root/browser-extension"
 
 signature_details="$(/usr/bin/codesign --display --verbose=4 "$package_root/KeyHub.app" 2>&1 || true)"

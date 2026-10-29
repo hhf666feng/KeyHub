@@ -48,6 +48,6 @@ You can disable save suggestions, restrict extension site access in Chrome, lock
 
 ## Contact and changes
 
-Contact the KeyHub maintainers through [GitHub Issues](https://github.com/omaekumiko2-create/OpenKeylet/issues). For confidential security reports, use the repository's [private vulnerability reporting](https://github.com/omaekumiko2-create/OpenKeylet/security/advisories/new) if available; otherwise follow [SECURITY.md](SECURITY.md). Do not post credentials, vault files or personal data in public issues.
+Contact the KeyHub maintainers through [GitHub Issues](https://github.com/hhf666feng/KeyHub/issues). For confidential security reports, use the repository's [private vulnerability reporting](https://github.com/hhf666feng/KeyHub/security/advisories/new) if available; otherwise follow [SECURITY.md](SECURITY.md). Do not post credentials, vault files or personal data in public issues.
 
 Material changes to data practices will be reflected in this policy and disclosed in the product when required. The date above identifies this version.

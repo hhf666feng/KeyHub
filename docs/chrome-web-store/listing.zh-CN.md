@@ -40,8 +40,8 @@ KeyHub — 本地密码与 Passkey
 4. 打开网站，按需使用 KeyHub PIN 解锁，再选择操作。
 5. 如需自动识别待保存的登录信息，在扩展中主动开启保存提示。
 
-桌面端下载：https://github.com/omaekumiko2-create/OpenKeylet/releases/latest
-说明与支持：https://github.com/omaekumiko2-create/OpenKeylet
+桌面端下载：https://github.com/hhf666feng/KeyHub/releases/latest
+说明与支持：https://github.com/hhf666feng/KeyHub
 
 功能范围
 

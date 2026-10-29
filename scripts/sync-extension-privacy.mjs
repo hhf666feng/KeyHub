@@ -5,7 +5,7 @@ const repo = path.resolve(import.meta.dirname, "..");
 const escape = value => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 function inline(value) {
   return escape(value).replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, title, href) => {
-    const target = href.startsWith("https://") ? href : `https://github.com/omaekumiko2-create/OpenKeylet/blob/main/${href}`;
+    const target = href.startsWith("https://") ? href : `https://github.com/hhf666feng/KeyHub/blob/main/${href}`;
     return `<a href="${target}" target="_blank" rel="noopener noreferrer">${title}</a>`;
   });
 }

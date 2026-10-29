@@ -29,12 +29,12 @@ const privacyParagraphPrefixes = [
 ];
 const privacyHrefs = [
   "#english", "#chinese",
-  "https://github.com/omaekumiko2-create/OpenKeylet/issues",
-  "https://github.com/omaekumiko2-create/OpenKeylet/security/advisories/new",
-  "https://github.com/omaekumiko2-create/OpenKeylet/blob/main/SECURITY.md",
-  "https://github.com/omaekumiko2-create/OpenKeylet/blob/main/SECURITY.zh-CN.md",
-  "https://github.com/omaekumiko2-create/OpenKeylet/blob/main/README.md#migration-and-capability-parity",
-  "https://github.com/omaekumiko2-create/OpenKeylet/blob/main/README.zh-CN.md#迁移与能力保持",
+  "https://github.com/hhf666feng/KeyHub/issues",
+  "https://github.com/hhf666feng/KeyHub/security/advisories/new",
+  "https://github.com/hhf666feng/KeyHub/blob/main/SECURITY.md",
+  "https://github.com/hhf666feng/KeyHub/blob/main/SECURITY.zh-CN.md",
+  "https://github.com/hhf666feng/KeyHub/blob/main/README.md#migration-and-capability-parity",
+  "https://github.com/hhf666feng/KeyHub/blob/main/README.zh-CN.md#迁移与能力保持",
 ];
 
 const textContent = html => [...html.matchAll(/(?<=>)[^<]+/g)].map(match => match[0]).join("\n");
@@ -58,7 +58,7 @@ function assertPageBranding(file, source) {
 function renderPolicy(markdown) {
   const inline = text => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;")
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) => {
-      const target = href.startsWith("https://") ? href : `https://github.com/omaekumiko2-create/OpenKeylet/blob/main/${href}`;
+      const target = href.startsWith("https://") ? href : `https://github.com/hhf666feng/KeyHub/blob/main/${href}`;
       return `<a href="${target}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     });
   return markdown.trim().split(/\r?\n\r?\n/).map(block => {
@@ -71,7 +71,7 @@ function renderPolicy(markdown) {
 
 function assertPrivacyHrefs(source) {
   const hrefs = [...new Set([...source.matchAll(/href="([^"]+)"/g)].map(match => match[1]))];
-  assert.deepEqual(hrefs.sort(), [...privacyHrefs].sort(), "privacy upstream provenance href set stays frozen");
+  assert.deepEqual(hrefs.sort(), [...privacyHrefs].sort(), "privacy links target the owned KeyHub repository");
 }
 
 // Freeze the unauthorised protocol/data surfaces. Popup/vault/request presentation
@@ -110,7 +110,7 @@ test("manifest key, fixed ID, version, permissions and every non-display field s
   assert.equal(hash(JSON.stringify(manifest)), "3fc8948f50314d39bce80b6e21b7845717c2d432f8e38799f33884c753a280e2");
 });
 
-test("popup, passkey and privacy page text uses KeyHub without rewriting link targets", () => {
+test("popup, passkey and privacy page text uses exact KeyHub branding", () => {
   for (const file of htmlFiles) assertPageBranding(file, read(file));
 });
 
@@ -124,17 +124,17 @@ test("privacy prose exactly matches both generated root policies and the HTML sh
   assert.equal(hash(shell), "bdcc987e3af9f94e904cbc80494f25a6b6e40501482fef39c25847da96a782c7");
 });
 
-test("privacy links retain the exact upstream href set including migration provenance", () => {
+test("privacy links target the current KeyHub support and migration pages", () => {
   assertPrivacyHrefs(read("privacy.html"));
 });
 
-test("privacy allowlist rejects legacy branding elsewhere, altered legacy names and renamed upstream links", () => {
+test("privacy allowlist rejects legacy branding and stale repository links", () => {
   const source = read("privacy.html");
   assertPageBranding("privacy.html", source);
   assert.throws(() => assertPageBranding("privacy.html", source.replace("<h1>KeyHub privacy policy</h1>", "<h1>OpenKeylet privacy policy</h1>")));
   assert.throws(() => assertPageBranding("privacy.html", source.replace("(originally KRU)", "(originally kru)")));
   assert.throws(() => assertPageBranding("privacy.html", source.replace("dev.kru.desktop", "dev.KRU.desktop")));
-  assert.throws(() => assertPrivacyHrefs(source.replaceAll("/OpenKeylet/", "/KeyHub/")));
+  assert.throws(() => assertPrivacyHrefs(source.replaceAll("/hhf666feng/KeyHub/", "/omaekumiko2-create/OpenKeylet/")));
 });
 
 test("save, vault, passkey and bridge status messages use KeyHub", () => {

@@ -6,7 +6,7 @@ KeyHub is a companion to a local desktop vault. It has no KeyHub cloud account, 
 
 ## Setup
 
-1. Download the compatible desktop release from https://github.com/omaekumiko2-create/OpenKeylet/releases/latest. The publisher must confirm this release includes the features in the submitted extension before submission.
+1. Download the compatible desktop release from https://github.com/hhf666feng/KeyHub/releases/latest. The publisher must confirm this release includes the features in the submitted extension before submission.
 2. Run KeyHub on a supported desktop platform. Enable Browser Bridge in Settings. The default loopback port is 39272.
 3. Install the submitted store extension. In the desktop Browser Bridge settings, use “Open extensions page” to start the pairing window, then open the extension. Do not also install the bundled development extension.
 4. Confirm the extension shows CONNECTED. If the port was changed, enter it in the extension's Connection section. If pairing fails, the publisher must check that the desktop's allowed extension Origin matches the submitted store ID.

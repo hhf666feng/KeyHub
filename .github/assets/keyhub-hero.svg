@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">KeyHub — Local credentials for AI agents</title>
+  <desc id="desc">The KeyHub key-shaped K logo. A local vault connects AI agents to credential actions without returning hidden plaintext by default.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#34383E" stroke-opacity=".28" /></pattern>
+    <style>
+      text{font-family:"Helvetica Neue","Segoe UI",sans-serif}
+      .muted{fill:#B6B8BC}.ivory{fill:#F9F6EE}.amber{fill:#F1A24A}
+    </style>
+  </defs>
+  <rect width="1280" height="520" rx="24" fill="#25282D" />
+  <rect width="1280" height="520" rx="24" fill="url(#grid)" />
+  <circle cx="1180" cy="30" r="285" fill="#F1A24A" opacity=".035" />
+  <svg x="48" y="34" width="100" height="100" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="keyhub-mark-surface" x1="24" y1="12" x2="104" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34383E" />
+      <stop offset="1" stop-color="#25282D" />
+    </linearGradient>
+  </defs>
+  <rect class="logo-tile" x="12" y="12" width="104" height="104" rx="25" fill="url(#keyhub-mark-surface)" />
+  <g class="logo-key" fill="none" stroke="#F9F6EE" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M45 58V96M53 73L90 44" stroke-width="12" />
+    <circle cx="45" cy="42" r="14" stroke-width="9" />
+  </g>
+  <path class="logo-branch" d="M54 73L90 96" fill="none" stroke="#F1A24A" stroke-width="12" stroke-linecap="round" />
+  <circle class="logo-hub" cx="54" cy="73" r="5.5" fill="#25282D" stroke="#F9F6EE" stroke-width="1.5" />
+  </svg>
+  <text x="160" y="101" class="ivory" font-size="42" font-weight="650" letter-spacing="-1.2">KeyHub</text>
+  <text x="64" y="220" class="ivory" font-size="54" font-weight="650" letter-spacing="-1.8">Your agent does the work.</text>
+  <text x="64" y="287" class="amber" font-size="54" font-weight="650" letter-spacing="-1.8">Your hidden credentials stay local.</text>
+  <text x="66" y="348" class="muted" font-size="22">One local vault. Browser, terminal, SSH and API workflows.</text>
+  <path d="M64 399H1216" stroke="#484B50" />
+  <text x="66" y="452" class="ivory" font-size="17" letter-spacing="2">LOCAL FIRST  /  OPEN SOURCE  /  MCP</text>
+  <text x="1216" y="452" text-anchor="end" class="muted" font-size="17">Windows · macOS · Linux</text>
+</svg>
