@@ -9,8 +9,14 @@ import { createWorkspaceFixture, installWorkspaceFixture } from './fixtures/work
 
 const repo = path.resolve(import.meta.dirname, '..');
 const renderer = path.join(repo, 'renderer');
-const output = path.join(repo, '.github/assets/keyhub-demo.gif');
-const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'keyhub-readme-demo-'));
+const requestedLanguage = process.argv.find(argument => argument.startsWith('--language='))?.split('=')[1] || 'en';
+if (!['en', 'zh-CN'].includes(requestedLanguage)) {
+  throw new Error('Usage: node scripts/capture-readme-demo.mjs --language=<en|zh-CN>');
+}
+const language = requestedLanguage === 'zh-CN' ? 'zh' : 'en';
+const suffix = language === 'zh' ? '.zh-CN' : '';
+const output = path.join(repo, `.github/assets/keyhub-demo${suffix}.gif`);
+const temporary = await fs.mkdtemp(path.join(os.tmpdir(), `keyhub-readme-demo-${language}-`));
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const server = await startStaticServer(renderer);
 let browser;
@@ -75,7 +81,7 @@ try {
     if (new URL(route.request().url()).origin === server.url) return route.continue();
     return route.abort('blockedbyclient');
   });
-  await page.addInitScript(installWorkspaceFixture, createWorkspaceFixture({ language: 'en', theme: 'dark' }));
+  await page.addInitScript(installWorkspaceFixture, createWorkspaceFixture({ language, theme: 'dark' }));
   await page.goto(server.url);
   await page.locator('.connection-card[data-item-id="login-acme"]').waitFor();
   await showCursor(page);

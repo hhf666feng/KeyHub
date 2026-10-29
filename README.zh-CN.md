@@ -17,7 +17,7 @@ KeyHub 是面向 AI Agent 的本地凭据管理器与 `stdio` MCP 服务。保�
 ## 产品演示
 
 <p align="center">
-  <img src=".github/assets/keyhub-demo.gif" alt="KeyHub 演示：搜索本地密码库、查看不暴露明文的凭据详情，并复制 Agent 使用指令" width="100%" />
+  <img src=".github/assets/keyhub-demo.zh-CN.gif" alt="KeyHub 演示：搜索本地密码库、查看不暴露明文的凭据详情，并复制 Agent 使用指令" width="100%" />
 </p>
 
 <p align="center"><sub>录制使用隔离的合成密码库，不包含任何真实凭据。</sub></p>

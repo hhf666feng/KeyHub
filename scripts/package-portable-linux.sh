@@ -67,7 +67,8 @@ cp "$project_root/README.md" "$project_root/README.zh-CN.md" \
 mkdir -p "$package_root/docs" "$package_root/.github/assets"
 cp "$project_root/docs/guide.md" "$project_root/docs/guide.zh-CN.md" "$package_root/docs/"
 cp -R "$project_root/docs/chrome-web-store" "$package_root/docs/chrome-web-store"
-cp "$project_root/.github/assets/keyhub-hero.svg" "$project_root/.github/assets/keyhub-demo.gif" "$package_root/.github/assets/"
+cp "$project_root/.github/assets/keyhub-hero.svg" "$project_root/.github/assets/keyhub-demo.gif" \
+  "$project_root/.github/assets/keyhub-demo.zh-CN.gif" "$package_root/.github/assets/"
 cp -R "$project_root/browser-extension" "$package_root/browser-extension"
 
 (
