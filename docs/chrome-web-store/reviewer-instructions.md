@@ -1,6 +1,6 @@
 # KeyHub instructions for Chrome Web Store reviewers (draft)
 
-Prepared for a future submission; no upload, approval or publication is claimed. The KeyHub display-name update keeps v0.16.0 and the fixed extension ID, pairing token, bridge protocol, storage keys and permissions unchanged. Existing paired installations do not need re-pairing solely because of the rename; the setup below is for an isolated review installation.
+Prepared for a future submission; no upload, approval or publication is claimed. The KeyHub display-name update keeps v0.16.1 and the fixed extension ID, pairing token, bridge protocol, storage keys and permissions unchanged. Existing paired installations do not need re-pairing solely because of the rename; the setup below is for an isolated review installation.
 
 KeyHub is a companion to a local desktop vault. It has no KeyHub cloud account, subscription or reviewer login. Use synthetic credentials; never use a real password or payment card.
 

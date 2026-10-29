@@ -1,6 +1,6 @@
 [package]
 name = "keyhub"
-version = "0.16.0"
+version = "0.16.1"
 description = "Local password and credential manager for AI agents"
 authors = ["OpenKeylet contributors"]
 license = "MIT"

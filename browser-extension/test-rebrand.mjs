@@ -107,7 +107,8 @@ test("manifest key, fixed ID, version, permissions and every non-display field s
   delete manifest.name;
   delete manifest.description;
   delete manifest.action.default_title;
-  assert.equal(hash(JSON.stringify(manifest)), "3fc8948f50314d39bce80b6e21b7845717c2d432f8e38799f33884c753a280e2");
+  // Version-only release bump; display fields were removed above.
+  assert.equal(hash(JSON.stringify(manifest)), "b19b08a711269a95c75dd450070832e6515a61031115ef1a3c81a092a8cacffb");
 });
 
 test("popup, passkey and privacy page text uses exact KeyHub branding", () => {

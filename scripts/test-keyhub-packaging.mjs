@@ -342,13 +342,16 @@ test("smoke scripts discard inherited data and launcher overrides in an in-memor
   }
 });
 
-test("release workflow consumes canonical KeyHub artifacts without weakening signing or checksums", () => {
+test("release workflow consumes canonical artifacts and requires consistent signing", () => {
   const workflow = source(".github/workflows/release.yml");
   assert.match(workflow, /name: KeyHub portable release/);
   assert.match(workflow, /archives=\(KeyHub_\*\)/);
   assert.match(workflow, /--title "KeyHub \$GITHUB_REF_NAME"/);
-  assert.match(workflow, /KEYHUB_REQUIRE_DEVELOPER_ID: '1'/);
-  assert.match(workflow, /KEYHUB_REQUIRE_NOTARIZED: '1'/);
+  assert.match(workflow, /SIGNING_ENABLED=true/);
+  assert.match(workflow, /SIGNING_ENABLED=false/);
+  assert.match(workflow, /Partial Apple signing configuration is not allowed/);
+  assert.match(workflow, /KEYHUB_REQUIRE_DEVELOPER_ID=1/);
+  assert.match(workflow, /KEYHUB_REQUIRE_NOTARIZED=1/);
   assert.match(workflow, /scripts\/test-keyhub-packaging\.mjs/);
   assert.doesNotMatch(workflow, /OpenKeylet|openkeylet/);
   for (const guard of ["--verify-tag", "stapler validate", "spctl --assess", "--deep --strict", "Expected exactly four release archives", "sha256sum -c SHA256SUMS.txt"]) {

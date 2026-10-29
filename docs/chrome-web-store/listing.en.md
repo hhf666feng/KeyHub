@@ -1,6 +1,6 @@
 # KeyHub English store listing (draft)
 
-Draft copy only, not a published listing or release announcement. The display-name update retains v0.16.0 and the extension's fixed ID, pairing token, bridge protocol, storage keys and permissions. The upstream repository and download URLs below are unchanged; verify that the available desktop build is compatible before submission.
+Draft copy only, not a published listing or release announcement. The display-name update retains v0.16.1 and the extension's fixed ID, pairing token, bridge protocol, storage keys and permissions. The upstream repository and download URLs below are unchanged; verify that the available desktop build is compatible before submission.
 
 ## Name
 

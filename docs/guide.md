@@ -2,7 +2,7 @@
 
 [Product overview](../README.md) · [简体中文](guide.zh-CN.md) · [Security](../SECURITY.md)
 
-This guide describes the current `0.16.0` source and compatibility contracts, not a newly published release.
+This guide describes KeyHub `0.16.1` and its compatibility contracts.
 
 ## Vault and editing
 

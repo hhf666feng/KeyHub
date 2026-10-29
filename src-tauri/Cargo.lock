@@ -3102,7 +3102,7 @@ dependencies = [
 
 [[package]]
 name = "keyhub"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "anyhow",
  "argon2 0.5.3",

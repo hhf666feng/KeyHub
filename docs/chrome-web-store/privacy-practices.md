@@ -1,6 +1,6 @@
 # KeyHub privacy practices and permission justifications (draft)
 
-Draft for a future submission, not evidence of dashboard submission, approval or publication. This display-name update does not change v0.16.0, the fixed extension ID, pairing token, bridge protocol, storage keys or permissions. Use the English text below in the developer dashboard. Reconcile the selections with the final shipped build; the policy and the dashboard must describe the same behavior.
+Draft for a future submission, not evidence of dashboard submission, approval or publication. This display-name update does not change v0.16.1, the fixed extension ID, pairing token, bridge protocol, storage keys or permissions. Use the English text below in the developer dashboard. Reconcile the selections with the final shipped build; the policy and the dashboard must describe the same behavior.
 
 ## Single purpose
 

@@ -12,7 +12,7 @@ Local first · MIT licensed · No KeyHub account · Windows / macOS / Linux
 
 [简体中文](README.zh-CN.md) · [User guide](docs/guide.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](../../releases)
 
-> **Source status:** this checkout identifies as **0.16.0**. The KeyHub name and current source features do not imply a new published release. Check the assets and notes on the [releases page](../../releases) before downloading; build from source for this checkout's behavior.
+> **Current release:** KeyHub **0.16.1** adds a constrained MCP credential-creation workflow. Download builds and checksums from [Releases](../../releases/latest); use source builds for unreleased changes.
 
 ## Demo
 

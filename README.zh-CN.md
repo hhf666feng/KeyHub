@@ -12,7 +12,7 @@ KeyHub 是面向 AI Agent 的本地凭据管理器与 `stdio` MCP 服务。保�
 
 [English](README.md) · [使用指南](docs/guide.zh-CN.md) · [安全说明](SECURITY.zh-CN.md) · [隐私说明](PRIVACY.zh-CN.md) · [发布页](../../releases)
 
-> **源码状态：** 当前代码版本仍为 **0.16.0**。KeyHub 名称与当前源码能力不代表新版已发布。下载前请核对[发布页](../../releases)的附件和说明；需要当前代码行为时，请从源码构建。
+> **当前版本：** KeyHub **0.16.1** 新增受限的 MCP 凭据骨架创建流程。请从[发布页](../../releases/latest)下载构建并核对校验值；未发布改动请从源码构建。
 
 ## 产品演示
 

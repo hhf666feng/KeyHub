@@ -84,20 +84,22 @@ jobs:
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          for secret_name in \
-            APPLE_CERTIFICATE \
-            APPLE_CERTIFICATE_PASSWORD \
-            APPLE_API_ISSUER \
-            APPLE_API_KEY \
-            APPLE_API_KEY_P8_BASE64 \
-            KEYCHAIN_PASSWORD
-          do
-            if [[ -z "${!secret_name:-}" ]]; then
-              echo "Missing required GitHub Actions secret: $secret_name" >&2
-              exit 1
-            fi
+          configured=0
+          for secret_name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD \
+            APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_P8_BASE64 KEYCHAIN_PASSWORD; do
+            [[ -n "${!secret_name:-}" ]] && configured=$((configured + 1))
           done
+          if (( configured == 0 )); then
+            echo "SIGNING_ENABLED=false" >> "$GITHUB_ENV"
+            echo "::warning title=Unsigned macOS build::Apple signing secrets are not configured; producing an ad-hoc signed, unnotarized portable build."
+          elif (( configured == 6 )); then
+            echo "SIGNING_ENABLED=true" >> "$GITHUB_ENV"
+          else
+            echo "Partial Apple signing configuration is not allowed." >&2
+            exit 1
+          fi
       - name: Import Developer ID certificate
+        if: env.SIGNING_ENABLED == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -128,6 +130,7 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$signing_identity" >> "$GITHUB_ENV"
           echo "Imported signing identity: $signing_identity"
       - name: Prepare App Store Connect API key
+        if: env.SIGNING_ENABLED == 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
@@ -141,31 +144,33 @@ jobs:
       - name: Build and sign macOS application
         run: npm run build:mac
       - name: Notarize and staple macOS application
+        if: env.SIGNING_ENABLED == 'true'
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: bash scripts/notarize-macos.sh src-tauri/target/release/bundle/macos/KeyHub.app
-      - name: Verify signed and notarized macOS application
+      - name: Verify macOS application
         run: |
           app_path="src-tauri/target/release/bundle/macos/KeyHub.app"
-          signature_details="$(codesign --display --verbose=4 "$app_path" 2>&1)"
-          grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
-          grep -Fq "runtime" <<<"$signature_details"
-          grep -Fq "Timestamp=" <<<"$signature_details"
           codesign --verify --deep --strict --verbose=2 "$app_path"
-          xcrun stapler validate "$app_path"
-          spctl --assess --type execute --verbose=4 "$app_path"
+          if [[ "$SIGNING_ENABLED" == "true" ]]; then
+            signature_details="$(codesign --display --verbose=4 "$app_path" 2>&1)"
+            grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
+            grep -Fq "runtime" <<<"$signature_details"
+            grep -Fq "Timestamp=" <<<"$signature_details"
+            xcrun stapler validate "$app_path"
+            spctl --assess --type execute --verbose=4 "$app_path"
+          fi
       - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/KeyHub.app/Contents/MacOS/keyhub
-      - name: Package notarized macOS application
-        env:
-          KEYHUB_REQUIRE_DEVELOPER_ID: '1'
-        run: npm run portable:mac
+      - name: Package macOS application
+        run: |
+          if [[ "$SIGNING_ENABLED" == "true" ]]; then export KEYHUB_REQUIRE_DEVELOPER_ID=1; fi
+          npm run portable:mac
       - name: Verify archive checksum
         run: (cd dist && shasum -a 256 -c *.sha256)
       - name: Verify packaged macOS application
-        env:
-          KEYHUB_REQUIRE_NOTARIZED: '1'
         run: |
+          if [[ "$SIGNING_ENABLED" == "true" ]]; then export KEYHUB_REQUIRE_NOTARIZED=1; fi
           archives=(dist/*-portable.zip)
           test ${#archives[@]} -eq 1
           bash scripts/verify-portable-unix.sh "${archives[0]}" macos
@@ -175,7 +180,7 @@ jobs:
           if-no-files-found: error
           path: dist/*.zip
       - name: Remove Apple signing material
-        if: always()
+        if: always() && env.SIGNING_ENABLED == 'true'
         run: |
           security delete-keychain "$RUNNER_TEMP/keyhub-signing.keychain-db" 2>/dev/null || true
           rm -f \
