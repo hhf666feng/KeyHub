@@ -152,14 +152,17 @@ jobs:
       - name: Verify macOS application
         run: |
           app_path="src-tauri/target/release/bundle/macos/KeyHub.app"
-          codesign --verify --deep --strict --verbose=2 "$app_path"
           if [[ "$SIGNING_ENABLED" == "true" ]]; then
+            codesign --verify --deep --strict --verbose=2 "$app_path"
             signature_details="$(codesign --display --verbose=4 "$app_path" 2>&1)"
             grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
             grep -Fq "runtime" <<<"$signature_details"
             grep -Fq "Timestamp=" <<<"$signature_details"
             xcrun stapler validate "$app_path"
             spctl --assess --type execute --verbose=4 "$app_path"
+          else
+            # The portable packager applies the ad-hoc signature after adding resources.
+            echo "Developer ID signing is not configured; package verification will validate the ad-hoc app."
           fi
       - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/KeyHub.app/Contents/MacOS/keyhub
       - name: Package macOS application

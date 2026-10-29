@@ -352,6 +352,7 @@ test("release workflow consumes canonical artifacts and requires consistent sign
   assert.match(workflow, /Partial Apple signing configuration is not allowed/);
   assert.match(workflow, /KEYHUB_REQUIRE_DEVELOPER_ID=1/);
   assert.match(workflow, /KEYHUB_REQUIRE_NOTARIZED=1/);
+  assert.match(workflow, /portable packager applies the ad-hoc signature after adding resources/);
   assert.match(workflow, /scripts\/test-keyhub-packaging\.mjs/);
   assert.doesNotMatch(workflow, /OpenKeylet|openkeylet/);
   for (const guard of ["--verify-tag", "stapler validate", "spctl --assess", "--deep --strict", "Expected exactly four release archives", "sha256sum -c SHA256SUMS.txt"]) {
