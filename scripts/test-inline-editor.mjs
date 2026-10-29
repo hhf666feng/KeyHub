@@ -31,7 +31,8 @@ const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIG
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 1.5 });
-  page.setDefaultTimeout(5000);
+  // Hosted macOS runners can briefly stall a reload under full-suite load.
+  page.setDefaultTimeout(15000);
   // Poll with evaluate instead of waitForFunction, which requires CSP-blocked eval.
   const waitUntil = async (predicate, argument) => {
     const deadline = Date.now() + 5000;
