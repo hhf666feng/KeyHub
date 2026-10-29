@@ -3,17 +3,61 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const HAN_TEXT = /[\u3400-\u9fff]/;
 
+function bindBackdropGesture(backdrop, dismiss) {
+  let origin = null;
+  let released = null;
+  const clear = () => { origin = released = null; };
+  backdrop.addEventListener('pointerdown', event => {
+    clear();
+    origin = event.button === 0 && event.isPrimary && event.target === backdrop
+      ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+      : null;
+  });
+  const moved = event => Math.abs(event.clientX - origin.x) > 3 || Math.abs(event.clientY - origin.y) > 3;
+  backdrop.addEventListener('pointermove', event => {
+    if (origin && (event.pointerId !== origin.pointerId || moved(event))) clear();
+  });
+  backdrop.addEventListener('pointerup', event => {
+    released = origin && event.button === 0 && event.isPrimary
+      && event.pointerId === origin.pointerId
+      && event.target === backdrop
+      && !moved(event) ? { pointerId: event.pointerId } : null;
+    origin = null;
+  });
+  backdrop.addEventListener('click', event => {
+    const accepted = released && event.button === 0 && event.detail > 0
+      && event.target === backdrop
+      && (!('pointerId' in event) || event.pointerId === released.pointerId);
+    clear();
+    if (accepted) {
+      // Complete the click on the modal, never on a control uncovered at mouseup.
+      event.stopPropagation();
+      dismiss();
+    }
+  });
+  backdrop.addEventListener('pointercancel', clear);
+  backdrop.addEventListener('lostpointercapture', event => {
+    if (origin?.pointerId === event.pointerId) clear();
+  });
+  window.addEventListener('blur', clear);
+}
+
+// Search and creation stay visible while switching between the existing pages.
+$('#workspace-toolbar').append($('#title-search'), $('.creation-control'));
+$('.main-content').append($('#metrics'));
+
 const isMacOS = navigator.platform.startsWith('Mac') || navigator.userAgent.includes('Macintosh');
 document.documentElement.classList.toggle('platform-macos', isMacOS);
+if (isMacOS) $('.title-drag-region').prepend($('.window-controls'));
 
 if (isMacOS) {
   const titleDragRegion = document.querySelector('.title-drag-region');
-  const isTitleControl = (target) => Boolean(target.closest?.('button, input, select, textarea, a, [role="button"]'));
-  titleDragRegion.addEventListener('mousedown', (event) => {
-    if (event.button === 0 && !isTitleControl(event.target)) event.preventDefault();
+  window.KeyHubTitlebar.install({
+    element: titleDragRegion,
+    invoke,
+    isMacOS,
+    onError: error => toast(cleanError(error), 'error'),
   });
-  titleDragRegion.addEventListener('selectstart', (event) => event.preventDefault());
-  titleDragRegion.addEventListener('dragstart', (event) => event.preventDefault());
 }
 
 // Keep the first paint deterministic. The persisted setting from the vault is
@@ -36,15 +80,17 @@ const staticCopy = [
   ['#desktop-shortcut-enabled', 'aria-label', '创建桌面快捷方式', 'Create desktop shortcut'],
   ['#launch-at-login-enabled', 'aria-label', '开机自启动', 'Launch at login'],
   ['#pin-enabled', 'aria-label', '启用 PIN 锁', 'Enable PIN lock'],
-  ['#browser-enabled', 'aria-label', '启用 Browser Bridge', 'Enable Browser Bridge'],
+  ['#browser-enabled', 'aria-label', '启用浏览器桥接', 'Enable Browser Bridge'],
   ['.window-control[data-window-action="minimize"]', 'aria-label', '最小化', 'Minimize'],
+  ['.window-control[data-window-action="maximize"]', 'aria-label', '最大化或还原', 'Maximize or restore'],
   ['.window-control[data-window-action="close"]', 'aria-label', '关闭', 'Close'],
-  ['.nav-item[data-page="connections"] > span', 'text', '项目', 'ITEMS'],
-  ['.nav-item[data-page="activity"] > span', 'text', '记录', 'LOG'],
-  ['.nav-item[data-page="settings"] > span', 'text', '设置', 'SYSTEM'],
+  ['[data-workspace-settings="MCP"]', 'aria-label', '接入 AI Agent', 'Connect an agent'],
+  ['.nav-item[data-page="connections"] > span', 'text', '密钥库', 'Vault'],
+  ['.nav-item[data-page="activity"] > span', 'text', '使用记录', 'Activity'],
+  ['.nav-item[data-page="settings"] > span', 'text', '设置与接入', 'Settings'],
   ['#page-connections .page-header h1', 'text', '秘密项目', 'VAULT ITEMS'],
   ['#title-search-input', 'aria-label', '搜索秘密项目', 'Search vault items'],
-  ['#add-connection-button', 'text', '＋ 添加', '+ ADD'],
+  ['#add-connection-button', 'text', '＋ 新建凭据', '+ New credential'],
   ['#drafts-button', 'text', '草稿', 'DRAFT'],
   ['.creation-control', 'aria-label', '添加 / 草稿切换', 'Add / draft selector'],
   ['#generator-open', 'text', '生成器', 'GENERATE'],
@@ -55,23 +101,35 @@ const staticCopy = [
   ['#header-export-backup-button', 'text', '一键打包', 'EXPORT'],
   ['#header-import-backup-button', 'text', '一键导入包', 'IMPORT'],
   ['[data-module="SYSTEM / 01"] .settings-heading h2', 'text', '系统入口', 'SYSTEM ACCESS'],
-  ['[data-module="SYSTEM / 01"] .settings-heading p', 'text', '控制 OpenKeylet 的桌面快捷方式与开机启动。', 'Control the OpenKeylet desktop shortcut and launch at login.'],
+  ['[data-module="SYSTEM / 01"] .settings-heading p', 'text', '控制 KeyHub 的桌面快捷方式与开机启动。', 'Control the KeyHub desktop shortcut and launch at login.'],
   ['#desktop-shortcut-option strong', 'text', '创建快捷方式到桌面', 'CREATE DESKTOP SHORTCUT'],
-  ['#desktop-shortcut-option small', 'text', '在当前用户桌面创建 OpenKeylet 快捷方式', 'Create a OpenKeylet shortcut on the current user’s desktop.'],
+  ['#desktop-shortcut-option small', 'text', '在当前用户桌面创建 KeyHub 快捷方式', 'Create a KeyHub shortcut on the current user’s desktop.'],
   ['#launch-at-login-option strong', 'text', '开机自启动', 'LAUNCH AT LOGIN'],
-  ['#launch-at-login-option small', 'text', '登录系统后自动启动 OpenKeylet，并保持单实例', 'Start OpenKeylet after sign-in while preserving single-instance behavior.'],
+  ['#launch-at-login-option small', 'text', '登录系统后自动启动 KeyHub，并保持单实例', 'Start KeyHub after sign-in while preserving single-instance behavior.'],
   ['[data-module="MCP / 02"] .settings-heading h2', 'text', 'Agent 接入', 'AGENT SETUP'],
-  ['[data-module="MCP / 02"] .settings-heading p', 'text', '注册本地 stdio MCP；支持的 Agent 同时安装“认证任务优先使用 OpenKeylet”规则。', 'Register the local stdio MCP and install the OpenKeylet-first authentication rule where supported.'],
+  ['[data-module="MCP / 02"] .settings-heading p', 'text', '注册本地 stdio MCP；支持的 Agent 同时安装“认证任务优先使用 KeyHub”规则。', 'Register the local stdio MCP and install the KeyHub-first authentication rule where supported.'],
   ['[data-module="APP / 03"] .settings-heading h2', 'text', '窗口与锁定', 'WINDOW & LOCK'],
   ['[data-module="APP / 03"] .settings-heading p', 'text', '控制关闭按钮与本地 PIN 锁。', 'Control the close button and local PIN lock.'],
   ['label[for="close-behavior"] strong', 'text', '关闭按钮', 'CLOSE BUTTON'],
   ['label[for="close-behavior"] small', 'text', '最小化可保留托盘菜单', 'Minimizing keeps tray controls available.'],
   ['#close-behavior option[value="tray"]', 'text', '最小化到托盘', 'MINIMIZE TO TRAY'],
-  ['#close-behavior option[value="exit"]', 'text', '退出 OpenKeylet', 'QUIT OpenKeylet'],
+  ['#close-behavior option[value="exit"]', 'text', '退出 KeyHub', 'QUIT KeyHub'],
+  ['#menu-bar-only-option strong', 'text', '仅在菜单栏运行', 'Menu bar only'],
+  ['#menu-bar-only-option small', 'text', '隐藏底部 Dock 图标，点击顶部菜单栏图标打开快捷面板。', 'Hide the Dock icon. Click the menu bar icon for quick access.'],
+  ['#menu-bar-only-enabled', 'aria-label', '仅在菜单栏运行', 'Menu bar only'],
+  ['#quick-panel-label', 'text', '菜单栏快捷面板', 'Menu bar quick panel'],
+  ['#quick-panel-help', 'text', '点击顶部图标可随时打开，也可以在这里预览。', 'Click the menu bar icon any time, or preview the panel here.'],
+  ['#open-quick-panel', 'text', '打开快捷面板', 'Open quick panel'],
   ['.pin-option strong', 'text', 'PIN 锁', 'PIN LOCK'],
   ['.pin-option small', 'text', '关闭后移除当前 PIN；再次开启时设置新的 PIN', 'Turning this off removes the current PIN. Set a new PIN when enabling it again.'],
   ['.agent-restart-notice span', 'text', '完成后重启 Agent。', 'Restart the agent after setup.'],
+  ['.agent-restart-notice strong', 'text', '需要重启 Agent', 'NEW SESSION REQUIRED'],
+  ['#owner-lock-button', 'text', '锁定', 'LOCK'],
   ['#agent-client-list .agent-scan-placeholder', 'text', '正在扫描本机 Agent', 'SCANNING LOCAL AGENTS'],
+  ['#rescan-agents', 'text', '重新扫描', 'RESCAN'],
+  ['[data-copy-format="stdio-json"]', 'text', '复制 JSON', 'COPY JSON'],
+  ['[data-copy-format="stdio-toml"]', 'text', '复制 TOML', 'COPY TOML'],
+  ['.endpoint-box > span', 'text', '本地 STDIO', 'STDIO / LOCAL'],
   ['.manual-mcp-config summary', 'text', '其他 Agent / 手动配置', 'OTHER AGENT / MANUAL SETUP'],
   ['.manual-config-steps > div:nth-child(1) span', 'text', '打开目标 Agent 的 MCP 配置', 'Open the target agent MCP configuration'],
   ['.manual-config-steps > div:nth-child(2) span', 'text', '按配置格式复制 JSON 或 TOML', 'Copy JSON or TOML to match its config format'],
@@ -86,7 +144,7 @@ const staticCopy = [
   ['#browser-open-help', 'text', '未能自动打开。请在 Chrome 地址栏输入 chrome://extensions，再开启“开发者模式”。', "Could not open it automatically. Enter chrome://extensions in Chrome's address bar, then turn on Developer mode."],
   ['#browser-step-drag-title', 'text', '拖入插件', 'Drag in the extension'],
   ['#browser-step-drag-description', 'text', '按住下方标识，拖到扩展页的空白区域，松开即可安装。', 'Hold the icon below, drag it onto an empty area of the extensions page, and release to install.'],
-  ['#browser-install-complete', 'text', '安装后会自动连接，请保持 OpenKeylet 运行。', 'Once installed, the extension connects automatically. Keep OpenKeylet running.'],
+  ['#browser-install-complete', 'text', '安装后会自动连接，请保持 KeyHub 运行。', 'Once installed, the extension connects automatically. Keep KeyHub running.'],
   ['#browser-fallback-title', 'text', '拖拽无法安装？', "Can't install by dragging?"],
   ['#browser-fallback-description', 'text', '打开下方扩展目录，然后在扩展页点击“加载已解压的扩展程序”，选择该目录。', 'Open the extension folder below. On the extensions page, click Load unpacked and select that folder.'],
   ['#drag-extension-label', 'text', '按住此处，拖入扩展页', 'Hold and drag to the extensions page'],
@@ -102,6 +160,8 @@ const staticCopy = [
   ['#owner-pin', 'label', '六位数字 PIN', 'SIX-DIGIT PIN'],
   ['#owner-pin-confirm', 'label', '再次输入 PIN', 'CONFIRM PIN'],
   ['.lock-note span', 'text', '秘密由本机随机主密钥加密；PIN 用于本地解锁与验证。', 'Secrets are encrypted by the local random master key. The PIN is used for local unlocking and verification.'],
+  ['.lock-display > span', 'text', '所有者访问', 'OWNER ACCESS'],
+  ['.lock-display > small', 'text', '本地界面锁定不限制 MCP 使用', 'LOCAL GUI / MCP REMAINS READY'],
   ['#owner-pin-cancel', 'text', '取消', 'CANCEL'],
   ['[data-close-modal].icon-button', 'aria-label', '关闭编辑器', 'Close editor'],
   ['#connection-name', 'label', '名称', 'NAME'],
@@ -111,8 +171,16 @@ const staticCopy = [
   ['.template-copy strong', 'text', '从一个组合开始', 'START WITH A PRESET'],
   ['.template-copy small', 'text', '模板只添加模块，不会限制之后的修改。', 'Templates only add modules; you can change anything afterward.'],
   ['.module-editor-heading > div > strong', 'text', '项目模块', 'ITEM MODULES'],
-  ['.module-editor-heading > div > small', 'text', '拖动把手排序 · 开关控制 Agent 可见性', 'DRAG HANDLE TO REORDER · SWITCH CONTROLS AGENT VISIBILITY'],
+  ['.module-editor-heading > div > small', 'text', '拖动排序 · 开关控制 Agent 可读取的明文 · 自定义字段名可作为 ENV KEY', 'DRAG TO REORDER · SWITCH CONTROLS PLAINTEXT AGENTS CAN READ · CUSTOM NAMES CAN BE USED AS ENV KEYS'],
   ['#add-module-button', 'text', '＋ 添加模块', '+ ADD MODULE'],
+  ['[data-add-env-group]', 'text', '环境变量组…', 'ENVIRONMENT VARIABLE GROUP…'],
+  ['#env-group-title', 'text', '添加环境变量', 'ADD ENVIRONMENT VARIABLES'],
+  ['.env-group-heading small', 'text', '每行一个 KEY=VALUE，支持 # 注释和 export；值只保存在本地，添加到凭据并保存后才会写入。', 'One KEY=VALUE per line. Supports # comments and export. Values remain local and are written only after adding them and saving the credential.'],
+  ['#env-group-input', 'placeholder', 'DATABASE_URL=postgres://…\nAPI_TOKEN=…', 'DATABASE_URL=postgres://…\nAPI_TOKEN=…'],
+  ['#env-group-help', 'text', '字段名只能使用字母、数字和下划线，且不能以数字开头。行内 # 会作为值的一部分。', 'Field names use letters, numbers and underscores, and cannot start with a number. Inline # is kept as part of the value.'],
+  ['#env-group-cancel', 'text', '取消', 'CANCEL'],
+  ['#env-group-add', 'text', '添加变量', 'ADD VARIABLES'],
+  ['#env-group-close', 'aria-label', '关闭环境变量组', 'Close environment variable group'],
   ['#module-menu [data-add-module="username"]', 'text', '账号', 'USERNAME'],
   ['#module-menu [data-add-module="password"]', 'text', '密码', 'PASSWORD'],
   ['#module-menu [data-add-module="apiCredential"]', 'text', 'API 凭据', 'API CREDENTIAL'],
@@ -127,9 +195,11 @@ const staticCopy = [
   ['[data-item-template="card"] > span', 'html', '信用卡<small>卡号 + 有效期 + 安全码</small>', 'CARD<small>NUMBER + EXPIRY + CODE</small>'],
   ['[data-item-template="identity"] > span', 'html', '身份资料<small>姓名 + 联系方式 + 地址</small>', 'IDENTITY<small>NAME + CONTACT + ADDRESS</small>'],
   ['[data-item-template="secureNote"] > span', 'html', '安全笔记<small>加密保存长文本</small>', 'SECURE NOTE<small>ENCRYPTED TEXT</small>'],
+  ['[data-item-template="env"] > span', 'html', '环境变量<small>批量粘贴 KEY=VALUE</small>', 'ENVIRONMENT VARIABLES<small>PASTE MULTIPLE KEY=VALUE ENTRIES</small>'],
   ['[data-item-template="ssh"] > span', 'html', 'SSH<small>主机 + 端口 + 账号 + 密码</small>', 'SSH<small>HOST + PORT + USER + PASSWORD</small>'],
   ['[data-item-template="api"] > span', 'html', 'API<small>API 凭据</small>', 'API<small>API CREDENTIAL</small>'],
   ['[data-item-template="blank"] > span', 'html', '空白<small>从零添加模块</small>', 'BLANK<small>START WITH NO MODULES</small>'],
+  ['#template-passkey-note', 'text', 'Passkey 不在这里手动创建。请在支持 Passkey 的网站注册或登录时，通过 KeyHub 浏览器扩展创建；也可以从 Bitwarden 导入。', 'Passkeys are not created manually here. Use the KeyHub browser extension while registering or signing in on a supporting website; Bitwarden imports are also supported.'],
   ['#connection-enabled-label', 'text', '启用此项目', 'ENABLE ITEM'],
   ['#connection-enabled-help', 'text', '禁用后 Agent 无法使用', 'Agents cannot use a disabled item.'],
   ['.secret-hint', 'text', '当前项目的明文只在已解锁 GUI 中显示', 'Plaintext is visible only in the unlocked GUI.'],
@@ -138,6 +208,22 @@ const staticCopy = [
   ['.login-websites summary', 'text', '网站匹配', 'WEBSITE MATCHING'],
   ['.login-websites > p', 'text', '设置多个网站及匹配规则', 'Configure websites and matching rules.'],
   ['#login-uri-add', 'text', '＋ 添加网站', '+ ADD WEBSITE'],
+  ['#settings-search-empty', 'text', '没有匹配设置', 'NO MATCHING SETTINGS'],
+  ['#generator-title', 'text', '密码生成器', 'Password generator'],
+  ['#generator-length', 'label', '长度 · 8–128', 'Length · 8–128'],
+  ['#generator-result', 'aria-label', '生成的密码', 'Generated password'],
+  ['#generator-regenerate', 'text', '重新生成', 'Generate'],
+  ['#generator-copy', 'text', '复制', 'Copy'],
+  ['#generator-use', 'text', '使用', 'Use'],
+  ['#backup-password', 'label', '备份密码', 'Backup password'],
+  ['#backup-password-confirm', 'label', '再次输入', 'Confirm password'],
+  ['#backup-password-form button[type="submit"]', 'text', '选择文件', 'Choose file'],
+  ['#migration-title', 'text', '迁入密码库', 'Import vault'],
+  ['#migration-format', 'label', '来源', 'Source'],
+  ['#migration-select', 'text', '选择文件', 'Choose file'],
+  ['#migration-confirm', 'text', '确认导入', 'Import'],
+  ['#history-clear', 'text', '清除历史', 'Clear history'],
+  ['#generator-close, #backup-password-close, #migration-close, #vault-management-close', 'aria-label', '关闭', 'Close'],
 ];
 
 function applyLanguage() {
@@ -145,27 +231,28 @@ function applyLanguage() {
   window.OpenKeyletAppearance.setLanguage(localized);
   $$('.language-switch button').forEach((button) => button.classList.toggle('active', button.dataset.language === language));
   for (const [selector, target, zh, en] of staticCopy) {
-    const element = $(selector);
-    if (!element) continue;
-    const copy = localized(zh, en);
-    if (target === 'text') element.textContent = copy;
-    else if (target === 'html') element.innerHTML = copy;
-    else if (target === 'aria-label' || target === 'placeholder') element.setAttribute(target, copy);
-    else if (target === 'label' || target === 'label-html') {
-      const label = element.closest('label')?.querySelector(':scope > span') || element.closest('.field')?.querySelector(':scope > span');
-      if (label) target === 'label-html' ? label.innerHTML = copy : label.textContent = copy;
+    for (const element of $$(selector)) {
+      const copy = localized(zh, en);
+      if (target === 'text') element.textContent = copy;
+      else if (target === 'html') element.innerHTML = copy;
+      else if (target === 'aria-label' || target === 'placeholder') element.setAttribute(target, copy);
+      else if (target === 'label' || target === 'label-html') {
+        const label = element.closest('label')?.querySelector(':scope > span') || element.closest('.field')?.querySelector(':scope > span');
+        if (label) target === 'label-html' ? label.innerHTML = copy : label.textContent = copy;
+      }
     }
   }
   if (isMacOS) {
     $('[data-module="SYSTEM / 01"] .settings-heading p').textContent = localized(
-      '控制 OpenKeylet 的登录时启动。',
-      'Control whether OpenKeylet launches at login.',
+      '控制 KeyHub 的登录时启动。',
+      'Control whether KeyHub launches at login.',
     );
   }
   syncItemTypeFilter();
   syncActivityFilterControl();
   syncSettingsFilterControl();
   syncTitleSearch();
+  if (!$('#env-group-composer').classList.contains('hidden')) refreshEnvGroup();
 }
 
 function publicMessage(value, fallback = localized('操作失败', 'Operation failed')) {
@@ -195,7 +282,6 @@ const api = {
   deleteDraft: (id) => invoke('delete_editor_draft', { id }),
   copyOwnerValue: (value) => invoke('copy_owner_value', { value }),
   save: (input) => invoke('save_connection', { input, expectedUpdatedAt: editorExistingItem?.updatedAt || null }),
-  setEnabled: (id, enabled) => invoke('set_connection_enabled', { id, enabled }),
   reorder: (ids, expectedOrder) => invoke('reorder_connections', { ids, expectedOrder }),
   remove: (id, expectedUpdatedAt) => invoke('delete_connection', { id, expectedUpdatedAt }),
   trash: () => invoke('owner_trash'),
@@ -234,6 +320,9 @@ let currentActivityFilter = 'all';
 const pageSearch = { connections: '', activity: '', settings: '' };
 const itemTypeFilterOrder = ['all', 'ssh', 'login', 'api', 'passkey', 'card', 'identity', 'secureNote', 'custom'];
 let currentItemTypeFilter = 'all';
+let workspaceScope = 'all';
+let workspaceFolder = null;
+let workspaceSelectedId = null;
 const settingsFilterOrder = ['all', 'SYSTEM', 'MCP', 'APP', 'WEB', 'CLOUD', 'SAFE'];
 let currentSettingsFilter = 'all';
 let titleSearchOpen = false;
@@ -269,12 +358,15 @@ let activityMatchCount = 0;
 let activityLoadPending = false;
 const expandedActivityErrors = new Set();
 let ownerLockState = { pinConfigured: false, unlocked: false, expiresInSeconds: 0 };
+let privateReadEpoch = 0;
+let ownerStateGeneration = 0;
 let ownerPinSetupRequested = false;
 let confirmationResolver = null;
 let confirmationPreviousFocus = null;
 let confirmationInertElements = [];
 const githubBackup = window.OpenKeyletGithubBackup.create({
   invoke, localized, toast,
+  bindBackdropGesture,
   isUnlocked: () => ownerLockState.unlocked,
   confirmAction: confirmDestructiveAction,
   onRestore: () => refresh(),
@@ -342,7 +434,12 @@ function clearOwnerPlaintext() {
   finishConfirmation(false, false);
   closeEditor();
   currentModules.forEach((module) => { module.secretValue = ''; });
-  $$('[data-secret-value]').forEach((input) => { input.value = ''; });
+  $$('[data-secret-value]').forEach((input) => {
+    input.value = '';
+    input.removeAttribute('value');
+    if (input.tagName === 'TEXTAREA') input.textContent = '';
+  });
+  $('#module-list').replaceChildren();
 }
 
 function pinInputs(id) {
@@ -368,18 +465,22 @@ function renderOwnerLock() {
   const setupRequested = ownerPinSetupRequested && !configured;
   const locked = configured && !unlocked;
   const layerVisible = setupRequested || locked;
+  if (!unlocked) closeAgentUsage();
   $('#owner-lock-layer').classList.toggle('hidden', !layerVisible);
   $('#owner-lock-button').classList.toggle('hidden', !configured || !unlocked);
   $('#owner-pin-confirm-field').classList.toggle('hidden', configured);
   $('#owner-pin-cancel').classList.toggle('hidden', !setupRequested);
   pinInputs('owner-pin-confirm').forEach((input) => { input.required = !configured; });
-  $('#owner-lock-mode').textContent = configured ? 'OWNER VERIFY' : 'SET LOCAL PIN';
+  $('#owner-lock-mode').textContent = configured ? localized('身份验证', 'OWNER VERIFY') : localized('设置本地 PIN', 'SET LOCAL PIN');
   $('#owner-lock-title').textContent = configured
     ? localized('输入六位 PIN', 'ENTER SIX-DIGIT PIN')
     : localized('设置六位 PIN', 'SET SIX-DIGIT PIN');
-  $('#owner-lock-code').textContent = configured ? 'LOCK' : 'INIT';
-  $('#owner-unlock-action').textContent = configured ? 'UNLOCK' : 'SET PIN';
+  $('#owner-lock-code').textContent = configured ? localized('已锁定', 'LOCK') : localized('初始化', 'INIT');
+  $('#owner-unlock-action').textContent = configured ? localized('解锁', 'Unlock') : localized('设置 PIN', 'Set PIN');
   if (locked) {
+    privateReadEpoch += 1;
+    ownerStateGeneration += 1;
+    workspaceSelectedId = null;
     if (!$('#vault-management-modal').classList.contains('hidden')) closeVaultManagement();
     if (!$('#migration-modal').classList.contains('hidden')) closeMigration();
     closeGenerator();
@@ -391,11 +492,16 @@ function renderOwnerLock() {
   clearPin('owner-pin');
   clearPin('owner-pin-confirm');
   if (layerVisible) setTimeout(() => focusPin('owner-pin'), 0);
+  if (state) renderConnections();
 }
 
 async function refreshOwnerLock(showError = true) {
+  const generation = ++ownerStateGeneration;
+  const epoch = privateReadEpoch;
   try {
-    ownerLockState = await api.ownerStatus();
+    const status = await api.ownerStatus();
+    if (generation !== ownerStateGeneration || epoch !== privateReadEpoch) return;
+    ownerLockState = status;
     renderOwnerLock();
   } catch (error) {
     if (showError) toast(cleanError(error), 'error');
@@ -403,8 +509,10 @@ async function refreshOwnerLock(showError = true) {
 }
 
 async function lockOwner() {
-  try { ownerLockState = await api.ownerLock(); } catch (_) { ownerLockState.unlocked = false; }
+  ownerStateGeneration += 1;
+  ownerLockState.unlocked = false;
   renderOwnerLock();
+  try { await api.ownerLock(); } catch (_) {}
 }
 
 async function refresh(showError = true) {
@@ -432,28 +540,6 @@ function render() {
   renderSettings();
 }
 
-const segmentNames = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-const segmentGlyphs = {
-  0: 'abcdef', 1: 'bc', 2: 'abdeg', 3: 'abcdg', 4: 'bcfg',
-  5: 'acdfg', 6: 'acdefg', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg',
-  s: 'acdfg', e: 'adefg', t: 'defg', r: 'eg', d: 'bcdeg', y: 'bcdfg', '-': 'g',
-};
-
-function sevenSegmentGlyph(character) {
-  const lit = segmentGlyphs[String(character).toLowerCase()] || '';
-  const segments = segmentNames.map((segment) => `<i class="segment segment-${segment}" data-lit="${lit.includes(segment)}"></i>`).join('');
-  // Reuse the exact lamp contours; only the separate emission layer is blurred.
-  return `<span class="seven-digit" aria-hidden="true">${segments}<span class="seven-emission" aria-hidden="true">${segments}</span></span>`;
-}
-
-function sevenSegmentNumber(value, length = 4) {
-  const exact = Math.max(0, Math.trunc(Number(value) || 0));
-  const maximum = (10 ** length) - 1;
-  const overflow = exact > maximum;
-  const digits = String(Math.min(exact, maximum)).padStart(length, '0');
-  return `<span class="seven-number ${overflow ? 'overflow' : ''}" role="img" aria-label="${exact}">${[...digits].map(sevenSegmentGlyph).join('')}${overflow ? '<b class="seven-overflow" aria-hidden="true">+</b>' : ''}</span>`;
-}
-
 function activityCode(action = '') {
   const value = String(action).toUpperCase();
   if (/BROWSER|浏览器|\bWEB\b/.test(value)) return 'WEB';
@@ -465,68 +551,128 @@ function activityCode(action = '') {
   return 'CALL';
 }
 
+const workspaceCopy = {
+  library: ['密钥库', 'Library'],
+  all: ['全部凭据', 'All credentials'], favorites: ['我的收藏', 'Favorites'],
+  folders: ['文件夹', 'Folders'], connect: ['Agent 接入', 'Agent connections'],
+  connectHelp: ['本地 stdio MCP', 'Local stdio MCP'],
+  local: ['本地密码库', 'Local vault'],
+  credentials: ['名称', 'Name'], listHelp: ['选择查看详情 · 编辑时访问明文', 'Select to inspect · Edit to access values'],
+};
+
 function renderMetrics() {
-  const total = state.connections.length;
-  const enabled = state.connections.filter((item) => item.enabled).length;
-  const browserOn = ['listening', 'delegated'].includes(state.browserBridge.status);
-  const mcpReady = state.mcp.status === 'ready';
-  const now = Date.now();
-  const since24Hours = now - 86_400_000;
-  const activities24h = state.activities.filter((activity) => {
-    const timestamp = new Date(activity.time).getTime();
-    return Number.isFinite(timestamp) && timestamp >= since24Hours && timestamp <= now;
-  });
-  const errors24h = activities24h.filter((activity) => activity.status === 'error').length;
-  const registeredAgents = agentClients.filter((client) => client.state === 'registered').length;
-  const brokenAgents = agentClients.filter((client) => ['stale', 'conflict', 'error'].includes(client.state)).length;
-  const models = {
-    connections: {
-      value: total, mode: localized('密码库', 'VAULT'), unit: localized('项目', 'ITEMS'),
-      label: localized('密码库项目总数', 'Total vault items'),
-      secondary: { value: enabled, mode: localized('已启用', 'ENABLED'), unit: localized('项目', 'ITEMS'), label: localized('已启用项目数，包含所有类型', 'Enabled items across all item types') },
-    },
-    activity: {
-      value: activities24h.length, mode: localized('操作', 'CALLS'), unit: '24H',
-      label: localized('本地日志中最近 24 小时的操作数', 'Operations in the local log from the last 24 hours'),
-      secondary: { value: errors24h, mode: localized('失败', 'ERRORS'), unit: '24H', label: localized('本地日志中最近 24 小时的失败数', 'Errors in the local log from the last 24 hours') },
-    },
-    settings: {
-      value: registeredAgents, mode: localized('已接入', 'LINKED'), unit: 'AGENTS',
-      label: localized('已注册 OpenKeylet MCP 的 Agent 客户端数', 'Agent clients registered with OpenKeylet MCP'),
-      secondary: { value: brokenAgents, mode: localized('待修复', 'REPAIR'), unit: 'AGENTS', label: localized('需要修复接入配置的 Agent 客户端数', 'Agent clients whose connection configuration needs repair') },
-    },
-  };
-  const model = models[activePage] || models.connections;
-  const secondary = model.secondary;
-  // These lamps describe current services, independently of historical operation errors.
-  const services = [
-    {
-      name: 'MCP', value: mcpReady ? 'READY' : state.mcp.status === 'error' ? 'ERROR' : 'SETUP',
-      tone: mcpReady ? 'on' : state.mcp.status === 'error' ? 'fault' : 'warn',
-      label: mcpReady ? localized('本地 MCP 就绪', 'Local MCP is ready') : state.mcp.status === 'error' ? localized('本地 MCP 异常', 'Local MCP has an error') : localized('本地 MCP 需要配置', 'Local MCP needs setup'),
-    },
-    {
-      name: 'WEB', value: state.browserBridge.status === 'error' ? 'ERROR' : !browserOn ? 'OFF' : !state.browserBridge.paired ? 'PAIR' : state.browserBridge.connected ? 'ON' : 'WAIT',
-      tone: state.browserBridge.status === 'error' ? 'fault' : browserOn ? state.browserBridge.paired && state.browserBridge.connected ? 'on' : 'warn' : '',
-      label: state.browserBridge.status === 'error' ? localized('浏览器桥接异常', 'Browser Bridge has an error') : !browserOn ? localized('浏览器桥接已关闭', 'Browser Bridge is off') : !state.browserBridge.paired ? localized('浏览器扩展等待配对', 'Browser extension is waiting to pair') : state.browserBridge.connected ? localized('浏览器扩展已连接', 'Browser extension is connected') : localized('等待浏览器扩展连接', 'Waiting for the browser extension to connect'),
-    },
-    {
-      name: 'PIN', value: ownerLockState.pinConfigured ? 'ON' : 'OFF', tone: ownerLockState.pinConfigured ? 'on' : '',
-      label: ownerLockState.pinConfigured ? localized('已设置本地 PIN 保护', 'Local PIN protection is configured') : localized('尚未设置本地 PIN', 'Local PIN protection is not configured'),
-    },
+  const enabled = state.connections.filter(item => item.enabled).length;
+  const registered = agentClients.filter(client => client.state === 'registered').length;
+  const errors = agentClients.filter(client => ['stale', 'conflict', 'error'].includes(client.state)).length;
+  const bridge = state.browserBridge;
+  const browserLabel = bridge.status === 'error' ? localized('连接异常', 'Connection error')
+    : bridge.connected ? localized('已连接', 'Connected')
+    : !bridge.enabled ? localized('已关闭', 'Off')
+    : bridge.paired ? localized('等待扩展', 'Waiting for extension') : localized('尚未配对', 'Not paired');
+  const summaries = [
+    { icon: 'all', value: state.connections.length, label: localized('全部凭据', 'Total credentials'), hint: localized(`${enabled} 项已启用`, `${enabled} enabled`) },
+    { icon: 'MCP', value: registered, label: localized('已接入 Agent', 'Connected agents'), hint: errors ? localized(`${errors} 项接入待修复`, `${errors} need repair`) : localized('本地 stdio MCP', 'Local stdio MCP') },
+    { icon: 'WEB', value: browserLabel, label: localized('浏览器桥接', 'Browser Bridge'), hint: localized('当前扩展连接状态', 'Current extension connection'), status: true },
+    { icon: 'SAFE', value: ownerLockState.pinConfigured ? localized('已设置', 'Configured') : localized('未设置', 'Not configured'), label: localized('本地 PIN', 'Local PIN'), hint: localized('不限制 MCP 使用权限', 'Does not restrict MCP actions'), status: true },
   ];
-  $('#metrics').innerHTML = `
-    <div class="lcd-screen">
-      <div class="lcd-primary" role="group" aria-label="${escapeHtml(model.label)}" title="${escapeHtml(`${model.label}: ${model.value}`)}">
-        ${sevenSegmentNumber(model.value)}<div class="lcd-caption" aria-hidden="true"><span>${model.mode}</span><strong>${model.unit}</strong></div>
-      </div>
-      <div class="lcd-secondary" role="group" aria-label="${escapeHtml(secondary.label)}" title="${escapeHtml(`${secondary.label}: ${secondary.value}`)}">
-        ${sevenSegmentNumber(secondary.value, 3)}<div class="lcd-caption" aria-hidden="true"><span>${secondary.mode}</span><strong>${secondary.unit}</strong></div>
-      </div>
-      <div class="lcd-system" role="group" aria-label="${localized('当前服务状态', 'Current service status')}">
-        ${services.map((service) => `<div class="lcd-service" role="group" aria-label="${escapeHtml(service.label)}" title="${escapeHtml(service.label)}"><span aria-hidden="true">${service.name}</span><strong class="lcd-status ${service.tone}" aria-hidden="true">${service.value}</strong></div>`).join('')}
-      </div>
-    </div>`;
+  $('#metrics').className = 'metric-grid workspace-summary';
+  $('#metrics').setAttribute('role', 'status');
+  $('#metrics').setAttribute('aria-label', localized('本地状态', 'Local status'));
+  $('#metrics').innerHTML = summaries.map(metric => `<div class="workspace-metric" title="${escapeHtml(`${metric.label}: ${metric.value} · ${metric.hint}`)}"><span class="workspace-metric-icon">${itemTypeIcon(metric.icon)}</span><span class="workspace-metric-label">${metric.label}</span><strong class="${metric.status ? 'is-status' : ''}">${metric.value}</strong></div>`).join('');
+  renderWorkspaceNavigation();
+}
+
+function renderWorkspaceNavigation() {
+  document.body.dataset.workspacePage = activePage;
+  const headings = {
+    connections: [localized('凭据', 'Credentials'), localized('管理保存在此设备的凭据与 Agent 可见性。', 'Manage local credentials and inspect agent visibility.')],
+    activity: [localized('使用记录', 'Activity'), localized('查看此设备上的凭据操作记录。', 'Credential operations recorded on this device.')],
+    settings: [localized('设置', 'Settings'), localized('管理 Agent 接入、本地访问与备份。', 'Agent connections, local access and backups.')],
+  };
+  $('#workspace-heading').textContent = headings[activePage][0];
+  $('#workspace-description').textContent = headings[activePage][1];
+  $('#workspace-breadcrumb-section').textContent = activePage === 'settings' ? localized('应用', 'Application') : localized('密码库', 'Vault');
+  $('#workspace-breadcrumb-page').textContent = headings[activePage][0];
+  $('.workspace-breadcrumb').setAttribute('aria-label', localized('当前位置', 'Current location'));
+  $$('[data-workspace-copy]').forEach(element => { element.textContent = localized(...workspaceCopy[element.dataset.workspaceCopy]); });
+  $('#workspace-all-count').textContent = state.connections.length;
+  $('#workspace-favorite-count').textContent = state.connections.filter(item => item.favorite).length;
+  $$('[data-workspace-filter]').forEach(button => {
+    const active = workspaceFolder === null && button.dataset.workspaceFilter === workspaceScope;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const folders = [...new Set(state.connections.map(item => item.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const folderMarkup = folders.length ? folders.map(folder => `<button type="button" class="workspace-scope ${workspaceFolder === folder ? 'active' : ''}" data-workspace-folder="${escapeHtml(folder)}" aria-pressed="${workspaceFolder === folder}"><span>${escapeHtml(folder)}</span><small>${state.connections.filter(item => item.folder === folder).length}</small></button>`).join('')
+    : `<p class="workspace-no-folders">${localized('编辑凭据时可添加文件夹', 'Add folders in the credential editor')}</p>`;
+  if ($('#workspace-folders').innerHTML !== folderMarkup) $('#workspace-folders').innerHTML = folderMarkup;
+  $('.creation-control').classList.toggle('hidden', activePage !== 'connections');
+}
+
+function renderWorkspaceDetail(item) {
+  const panel = $('#workspace-detail');
+  panel.dataset.itemId = item?.id || '';
+  panel.hidden = !item || !ownerLockState.unlocked;
+  $('.workspace-vault-layout').classList.toggle('without-detail', panel.hidden);
+  if (!item || !ownerLockState.unlocked) {
+    panel.replaceChildren();
+    return;
+  }
+  const modules = item.modules || [];
+  const secrets = modules.filter(module => module.secret || MODULE_DEFS[module.kind]?.secret);
+  const visible = secrets.filter(module => module.agentVisible).length;
+  const capabilities = itemCapabilities(item);
+  const actionLabels = { fill: localized('填写凭据', 'Credential fill'), ssh: 'SSH', http: 'HTTP API', transfer: 'SFTP' };
+  panel.innerHTML = `<div class="workspace-detail-top"><span>${localized('凭据详情', 'CREDENTIAL DETAILS')}</span><span class="workspace-detail-state ${item.enabled ? '' : 'is-off'}"><i></i>${item.enabled ? localized('已启用', 'Enabled') : localized('已停用', 'Disabled')}</span></div>
+    <div class="workspace-detail-identity"><span class="workspace-detail-icon" data-kind="${itemDisplayKind(item)}">${itemTypeIcon(itemDisplayKind(item))}</span><span class="workspace-detail-type">${escapeHtml(itemDisplayType(item))}${item.favorite ? ' · ★' : ''}</span><h2>${escapeHtml(item.name)}</h2><p>${escapeHtml(item.description || localized('尚未添加公开用途说明', 'No public purpose added.'))}</p></div>
+    <dl class="workspace-detail-facts"><div><dt>${localized('文件夹', 'Folder')}</dt><dd>${escapeHtml(item.folder || localized('未分类', 'Unfiled'))}</dd></div><div><dt>${localized('最近更新', 'Updated')}</dt><dd>${item.updatedAt ? escapeHtml(formatTime(item.updatedAt)) : '—'}</dd></div></dl>
+    <section class="workspace-detail-section"><h3>${localized('字段与可见性', 'FIELDS & VISIBILITY')}<span>${localized(`${modules.length} 个字段`, `${modules.length} field${modules.length === 1 ? '' : 's'}`)}</span></h3><div class="workspace-detail-modules">${modules.map(module => {
+      const secret = module.secret || MODULE_DEFS[module.kind]?.secret !== false;
+      const label = module.kind === 'customSecret' || !MODULE_DEFS[module.kind] ? module.name || moduleLabel(module.kind) : moduleLabel(module.kind);
+      const missing = module.configured === false || !secret && (!String(module.value ?? '').trim() || module.kind === 'port' && Number(module.value) <= 0);
+      const value = missing ? localized('未设置', 'Not set') : secret ? localized('已保存 · 已加密', 'Saved · Encrypted') : String(module.value ?? '');
+      return `<div><div class="workspace-field-copy"><span class="workspace-field-label">${escapeHtml(label)}</span><span class="workspace-field-value ${missing ? 'is-missing' : ''}">${escapeHtml(value)}</span></div><small class="${secret && module.agentVisible ? 'is-visible' : ''}">${secret ? module.agentVisible ? localized('Agent 可见', 'Agent visible') : localized('Agent 隐藏', 'Agent hidden') : localized('公开字段', 'Public field')}</small></div>`;
+    }).join('') || `<p>${localized('暂无模块', 'No modules')}</p>`}</div></section>
+    <section class="workspace-detail-section"><h3>${localized('可用动作', 'AVAILABLE ACTIONS')}</h3><div class="workspace-capabilities">${capabilities.map(capability => `<span>${escapeHtml(actionLabels[capability] || capability)}</span>`).join('') || `<span>${localized('暂无可用动作', 'No available actions')}</span>`}</div>${itemUsageIssue(item) ? `<p class="workspace-action-help">${escapeHtml(itemUsageIssue(item))}</p>` : ''}</section>
+    <div class="workspace-visibility-note ${visible ? 'is-warning' : ''}">${itemTypeIcon(visible ? 'error' : 'SAFE')}<p><strong>${visible ? localized(`${visible} 个秘密字段对 Agent 可见`, `${visible} secret fields visible to agents`) : secrets.length ? localized('秘密字段不返回给 Agent', 'Secret fields hidden from agents') : localized('仅展示项目元数据', 'Metadata-only preview')}</strong><span>${localized('隐藏明文不限制可用动作的权限。修改字段需打开编辑器。', 'Hidden values do not restrict available actions. Open the editor to change fields.')}</span></p></div>
+    <div class="workspace-detail-actions"><button class="button primary" id="workspace-detail-edit" type="button" data-action="edit" data-id="${escapeHtml(item.id)}">${localized('编辑凭据', 'Edit credential')}</button>${itemOffersAgentUse(item) ? `<button class="button secondary" type="button" data-action="use" data-id="${escapeHtml(item.id)}" ${itemUsageIssue(item) ? 'disabled' : ''}>${localized('Agent 使用', 'Use with agent')}</button>` : ''}</div>`;
+  $('.workspace-detail-identity', panel).after($('.workspace-detail-actions', panel));
+}
+
+function itemOffersAgentUse(item) {
+  return ['ssh', 'api', 'login'].includes(itemDisplayKind(item)) || itemCapabilities(item).length > 0;
+}
+
+function itemUsageIssue(item) {
+  if (!item.enabled) return localized('此凭据已停用。请编辑凭据，启用并保存后再供 Agent 使用。', 'This credential is disabled. Edit the credential, enable it and save before agent use.');
+  if (itemDisplayKind(item) === 'ssh' && !itemCapabilities(item).includes('ssh')) return localized('SSH 认证信息未配置完整。请编辑凭据，检查账号，并保存密码或私钥；主机和端口也可在使用时指定。', 'SSH authentication is incomplete. Edit the credential, check the account, and save a password or private key; the host and port can also be supplied at use time.');
+  if (!itemCapabilities(item).length) return localized('凭据已保存，但暂无可用动作。请编辑凭据，补充需要的账号、密码或私钥等信息。', 'Credential saved, but no actions are available. Edit the credential and add the required account, password or private key.');
+  return '';
+}
+
+let usageReturnFocus = null;
+let usageInertElements = [];
+function closeAgentUsage() {
+  $('#workspace-use-dialog').classList.add('hidden');
+  $('#workspace-use-prompt').value = '';
+  usageInertElements.forEach(element => { element.inert = false; });
+  usageInertElements = [];
+  usageReturnFocus?.isConnected && usageReturnFocus.focus({ preventScroll: true });
+  usageReturnFocus = null;
+}
+function openAgentUsage(item, launcher) {
+  if (!ownerLockState.unlocked || itemUsageIssue(item)) return;
+  usageReturnFocus = launcher;
+  $('#workspace-use-title').textContent = localized('通过 Agent 使用凭据', 'Use a credential with your agent');
+  $('#workspace-use-help').textContent = localized('复制下方指令，粘贴到已接入 KeyHub 的 Agent，再说明要执行的任务。此处不会连接服务器、执行命令或读取秘密明文。', 'Copy this instruction into an agent connected to KeyHub, then describe your task. This dialog does not connect, execute commands or read secret values.');
+  $('#workspace-use-prompt').value = `use ${item.name} in KeyHub MCP`;
+  $('#workspace-use-copy').textContent = localized('复制指令', 'Copy instruction');
+  $('#workspace-use-close').setAttribute('aria-label', localized('关闭', 'Close'));
+  $('#workspace-use-prompt').setAttribute('aria-label', localized('Agent 使用指令', 'Agent instruction'));
+  usageInertElements = [...document.body.children].filter(element => element !== $('#workspace-use-dialog') && !element.inert && !['SCRIPT', 'STYLE'].includes(element.tagName));
+  usageInertElements.forEach(element => { element.inert = true; });
+  $('#workspace-use-dialog').classList.remove('hidden');
+  $('#workspace-use-copy').focus();
 }
 
 function itemDetail(item) {
@@ -541,12 +687,18 @@ function itemDetail(item) {
   if (targets.length) return targets.join(' · ');
   const count = (item.modules || []).filter((module) => module.secret).length || item.secret?.fields?.length || 0;
   return capabilities.includes('fill')
-    ? `${count} ENCRYPTED FIELD${count === 1 ? '' : 'S'}`
-    : localized('草稿 · 尚无可用动作', 'DRAFT · NO AVAILABLE ACTION');
+    ? localized(`${count} 个加密字段`, `${count} encrypted field${count === 1 ? '' : 's'}`)
+    : localized('已保存 · 暂无可用动作', 'Saved · No available actions');
 }
 
 function itemCapabilities(item) {
   return Array.isArray(item.capabilities) ? item.capabilities : [];
+}
+
+function itemMatchesTypeFilter(item, kind) {
+  if (kind === 'all') return true;
+  if (kind === 'passkey') return Boolean(item.passkeys?.length);
+  return itemDisplayKind(item) === kind;
 }
 
 function itemDisplayKind(item) {
@@ -610,13 +762,13 @@ function syncFilterStrip(selector, order, selected, attribute, label, showLabels
 
 function syncItemTypeFilter() {
   $('#item-type-switch').setAttribute('aria-label', localized('项目类型筛选', 'Item type filter'));
-  syncFilterStrip('#item-type-switch', itemTypeFilterOrder, currentItemTypeFilter, 'data-item-type-filter', itemFilterLabel);
+  syncFilterStrip('#item-type-switch', itemTypeFilterOrder, currentItemTypeFilter, 'data-item-type-filter', itemFilterLabel, true);
 }
 
 function syncSettingsFilterControl() {
   const labels = { all: ['全部设置', 'All settings'], SYSTEM: ['系统入口', 'System access'], MCP: ['Agent 接入', 'Agent setup'], APP: ['窗口与锁定', 'Window & lock'], WEB: ['浏览器', 'Browser'], CLOUD: ['云端备份', 'Cloud backup'], SAFE: ['本地数据', 'Local data'] };
   $('#settings-filter-switch').setAttribute('aria-label', localized('设置分组筛选', 'Settings section filter'));
-  syncFilterStrip('#settings-filter-switch', settingsFilterOrder, currentSettingsFilter, 'data-settings-filter', kind => localized(...labels[kind]));
+  syncFilterStrip('#settings-filter-switch', settingsFilterOrder, currentSettingsFilter, 'data-settings-filter', kind => localized(...labels[kind]), true);
 }
 
 async function selectFilterButton(button) {
@@ -668,8 +820,8 @@ async function selectCreationMode(mode) {
 
 function moduleAgentVisibilityText(visible) {
   return visible
-    ? { label: localized('Agent 可查看此值', 'Agent can see this value'), status: localized('Agent 可见', 'AGENT VISIBLE') }
-    : { label: localized('不向 Agent 显示此值', 'Hidden from agent'), status: localized('Agent 隐藏', 'AGENT HIDDEN') };
+    ? { label: localized('Agent 可见，点击关闭可见性', 'Agent visible. Click to hide.'), status: localized('Agent 可见', 'AGENT VISIBLE') }
+    : { label: localized('Agent 隐藏，点击允许 Agent 查看', 'Hidden from agent. Click to make visible.'), status: localized('Agent 隐藏', 'AGENT HIDDEN') };
 }
 
 function setModuleAgentVisibility(button, visible) {
@@ -678,12 +830,15 @@ function setModuleAgentVisibility(button, visible) {
   button.setAttribute('aria-label', label);
   button.title = label;
   button.closest('.module-row').querySelector('[data-module-visibility]').textContent = status;
+  const caption = button.closest('.module-row').querySelector('[data-module-agent-caption]');
+  if (caption) caption.textContent = status;
   syncModuleDraft();
 }
 
 // Every travelling cap uses the same drag lifecycle and its existing action.
 function switchControlFor(target) {
   const strip = target.closest?.('.filter-strip, .title-switch, .language-switch, .nav, .creation-options, .switch, .module-agent-toggle');
+  if (strip?.matches('.nav, .filter-strip')) return null;
   if (!strip || strip.closest('[inert]') || strip.matches(':disabled, [aria-disabled="true"]')) return null;
   if (strip.matches('.title-switch')) {
     return { strip, count: 2, read: () => Number(strip.getAttribute('aria-checked') === 'true'),
@@ -701,6 +856,7 @@ function switchControlFor(target) {
         else if (input.id === 'launch-at-login-enabled') await setSystemIntegration('startup', input.checked);
         else if (input.id === 'browser-enabled') await saveBrowserSettings();
         else if (input.id === 'pin-enabled') await savePinSettings();
+        else if (input.id === 'menu-bar-only-enabled') await saveMenuBarSettings();
       } };
   }
   if (strip.matches('.module-agent-toggle')) {
@@ -804,13 +960,12 @@ document.addEventListener('click', event => {
 }, true);
 
 function syncTitleSearch() {
-  const open = titleSearchOpen;
+  const open = true;
   const labels = { connections: ['搜索项目', 'Search items'], activity: ['搜索记录', 'Search activity'], settings: ['搜索设置', 'Search settings'] };
   const label = localized(...labels[activePage]);
   const control = $('#title-search');
   control.classList.toggle('is-open', open);
   control.classList.toggle('has-query', Boolean(pageSearch[activePage]));
-  $('.title-drag-region').classList.toggle('search-open', open);
   const input = $('#title-search-input');
   input.hidden = !open;
   input.dataset.pageSearch = activePage;
@@ -819,7 +974,7 @@ function syncTitleSearch() {
   if (input.value !== pageSearch[activePage]) input.value = pageSearch[activePage];
   const button = $('#title-search-toggle');
   button.setAttribute('aria-expanded', String(open));
-  button.title = open ? localized('收起搜索', 'Collapse search') : label;
+  button.title = label;
   if (pageSearch[activePage] && !open) button.title += localized(' · 筛选中', ' · Filter active');
   button.setAttribute('aria-label', button.title);
 }
@@ -834,7 +989,7 @@ function itemPermission(item) {
   const capabilities = itemCapabilities(item);
   if (capabilities.includes('http')) return 'HTTP';
   if (capabilities.includes('ssh')) return 'SSH';
-  return capabilities.includes('fill') ? 'FOCUS INPUT' : 'NOT EXPOSED';
+  return capabilities.includes('fill') ? localized('聚焦填写', 'FOCUS INPUT') : localized('未开放', 'NOT EXPOSED');
 }
 
 const activityFilterDefinitions = {
@@ -850,20 +1005,41 @@ function syncActivityFilterControl() {
   syncFilterStrip('#activity-filter-switch', activityFilterOrder, currentActivityFilter, 'data-activity-filter', kind => localized(...labels[kind]), true);
 }
 
+function connectionRenderSignature(query) {
+  return JSON.stringify([state.connections, query, language, inlineEditorItemId, currentItemTypeFilter, workspaceScope, workspaceFolder, ownerLockState.unlocked]);
+}
+
 function renderConnections() {
   if (itemPointerDrag || itemOrderSaving) return;
   const query = normalizeSearch(pageSearch.connections);
-  const signature = JSON.stringify([state.connections, query, language, inlineEditorItemId, currentItemTypeFilter]);
-  if (signature === renderedConnectionsSignature) return;
-  renderedConnectionsSignature = signature;
   const items = state.connections.filter((item) => {
     if (item.id === inlineEditorItemId) return true;
-    if (currentItemTypeFilter !== 'all' && itemDisplayKind(item) !== currentItemTypeFilter) return false;
+    if (workspaceFolder !== null && item.folder !== workspaceFolder) return false;
+    if (workspaceScope === 'favorites' && !item.favorite) return false;
+    if (!itemMatchesTypeFilter(item, currentItemTypeFilter)) return false;
     if (!query) return true;
     const fields = (item.secret?.fields || []).map((field) => field.name).join(' ');
     return normalizeSearch([item.name, item.description, item.folder, itemTypeLabel(item.itemType), itemDisplayType(item), itemCapabilities(item).join(' '), itemDetail(item), itemPermission(item), fields].join(' ')).includes(query);
   });
+  if (!items.some(item => item.id === workspaceSelectedId)) workspaceSelectedId = items[0]?.id || null;
+  const signature = connectionRenderSignature(query);
+  if (signature === renderedConnectionsSignature) {
+    if ($('#workspace-detail').dataset.itemId !== (workspaceSelectedId || '')) {
+      $$('.connection-card').forEach(card => {
+        const selected = card.dataset.itemId === workspaceSelectedId;
+        card.classList.toggle('is-selected', selected);
+        $('.connection-name', card).setAttribute('aria-pressed', String(selected));
+      });
+      renderWorkspaceDetail(items.find(item => item.id === workspaceSelectedId));
+    }
+    return;
+  }
+  renderedConnectionsSignature = signature;
   const container = $('#connections-list');
+  $('.workspace-vault-layout').classList.toggle('is-empty', items.length === 0);
+  $('#workspace-result-count').textContent = localized(`${items.length} 项`, `${items.length} items`);
+  $('#workspace-scope-label').textContent = workspaceFolder || (workspaceScope === 'favorites' ? localized('我的收藏', 'Favorites') : localized('全部凭据', 'All credentials'));
+  renderWorkspaceDetail(items.find(item => item.id === workspaceSelectedId));
   const editor = $('#connection-modal');
   const focusedEditorControl = editor.contains(document.activeElement) ? document.activeElement : null;
   // Preserve the live form (and unsaved values) when language or list data refreshes.
@@ -871,24 +1047,32 @@ function renderConnections() {
   if (inlineEditorItemId && !state.connections.some(item => item.id === inlineEditorItemId)) closeEditor();
   if (!items.length) {
     const hasItems = state.connections.length > 0;
-    container.innerHTML = `<div class="empty-state"><div><div class="empty-code">LOCAL VAULT</div><h3>${hasItems ? localized('没有匹配项目', 'NO MATCHING ITEMS') : localized('还没有秘密项目', 'NO VAULT ITEMS')}</h3><p>${hasItems ? localized('当前筛选没有结果。', 'No items match the current filters.') : localized('保存密码、Passkey、信用卡、身份资料和安全笔记，在需要时使用。', 'Keep passwords, passkeys, cards, identities and secure notes together.')}</p><button class="button primary" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除筛选', 'CLEAR FILTERS') : localized('添加项目', 'ADD ITEM')}</button></div></div>`;
+    const hasPasskeys = state.connections.some(item => Boolean(item.passkeys?.length));
+    if (currentItemTypeFilter === 'passkey') {
+      container.innerHTML = `<div class="empty-state"><div><span class="workspace-empty-icon">${itemTypeIcon('passkey')}</span><h3>${hasPasskeys ? localized('当前范围内没有 Passkey', 'No passkeys in this view') : localized('还没有 Passkey', 'No passkeys yet')}</h3><p>${hasPasskeys ? localized('清除当前搜索或文件夹筛选后重试。', 'Clear the current search or folder filter and try again.') : localized('Passkey 由浏览器扩展在网站注册或登录时创建，并自动出现在 KeyHub；它必须绑定网站域名，不能在桌面端手动生成。也可以从 Bitwarden 导入。', 'Passkeys are created by the browser extension during website registration or sign-in and appear in KeyHub automatically. They must be bound to a website domain and cannot be generated manually in the desktop app. Bitwarden imports are also supported.')}</p>${hasPasskeys ? `<button class="button primary" id="workspace-empty-action" data-action="clear-connection-filters">${localized('清除筛选', 'Clear filters')}</button>` : `<button class="button primary" id="workspace-empty-action" data-workspace-settings="WEB">${localized('查看浏览器接入', 'Browser setup')}</button>`}</div></div>`;
+      return;
+    }
+    container.innerHTML = `<div class="empty-state"><div><span class="workspace-empty-icon">${itemTypeIcon('login')}</span><h3>${hasItems ? localized('没有找到匹配的凭据', 'No matching credentials') : localized('添加第一项凭据', 'Add your first credential')}</h3><p>${hasItems ? localized('试试其他关键词，或清除当前筛选。', 'Try another search, or clear the current filters.') : localized('将 API 密钥、SSH 私钥或登录凭据保存在本机，按需供 Agent 使用。', 'Store an API key, SSH key or login locally for your agents to use.')}</p><button class="button primary" id="workspace-empty-action" data-action="${hasItems ? 'clear-connection-filters' : 'add'}">${hasItems ? localized('清除筛选', 'Clear filters') : localized('＋ 添加凭据', '+ Add credential')}</button></div></div>`;
     return;
   }
-  container.innerHTML = items.map((item) => {
+  container.innerHTML = items.map((item, index) => {
     const type = itemDisplayType(item);
     const canTest = item.enabled && item.canTest;
-    const agentActions = itemCapabilities(item).length > 0;
+    const agentActions = itemOffersAgentUse(item);
+    const usageIssue = itemUsageIssue(item);
     const reorderLabel = localized(`${item.name}：拖动排序，或按上/下方向键`, `${item.name}: drag to reorder, or use the Up/Down arrow keys`);
-    const toggleLabel = item.enabled
-      ? localized('停用此项目；Agent 将无法使用其中的秘密', 'Disable this item; agents will no longer be able to use its secrets')
-      : localized('启用此项目；Agent 将可以使用其中的秘密', 'Enable this item so agents can use its secrets');
-    return `<article class="connection-card ${itemCapabilities(item).includes('ssh') ? 'ssh' : itemCapabilities(item).includes('http') ? 'http' : 'fill'} ${item.enabled ? '' : 'disabled'}" data-item-id="${escapeHtml(item.id)}">
-      <div class="item-disclosure-well"><button class="item-disclosure" type="button" data-action="edit" data-id="${item.id}" aria-expanded="false" aria-controls="connection-modal" aria-label="${escapeHtml(localized(`展开编辑 ${item.name}`, `Expand editor for ${item.name}`))}" title="${localized('展开编辑', 'Expand editor')}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
+    return `<article class="connection-card ${itemCapabilities(item).includes('ssh') ? 'ssh' : itemCapabilities(item).includes('http') ? 'http' : 'fill'} ${item.enabled ? '' : 'disabled'} ${item.id === workspaceSelectedId ? 'is-selected' : ''}" data-item-id="${escapeHtml(item.id)}">
+      <div class="item-disclosure-well"><button class="item-disclosure" type="button" data-action="edit" data-id="${escapeHtml(item.id)}" aria-expanded="false" aria-controls="connection-modal" aria-label="${escapeHtml(localized(`编辑 ${item.name}`, `Edit ${item.name}`))}" title="${localized('编辑凭据', 'Edit credential')}">${localized('编辑', 'Edit')}</button></div>
       <span class="connection-type" role="img" data-item-type="${itemDisplayKind(item)}" aria-label="${escapeHtml(type)}" title="${escapeHtml(type)}">${itemTypeIcon(itemDisplayKind(item))}</span>
-      <button class="connection-name" type="button" draggable="false" data-item-reorder="${escapeHtml(item.id)}" aria-label="${escapeHtml(reorderLabel)}" aria-keyshortcuts="ArrowUp ArrowDown Home End" title="${escapeHtml(reorderLabel)}"><span class="lettering-ink">${escapeHtml(item.name)}</span></button>
+      <button class="connection-name" type="button" data-workspace-select="${escapeHtml(item.id)}" aria-pressed="${item.id === workspaceSelectedId}" title="${escapeHtml(item.name)}"><span class="workspace-row-name">${escapeHtml(item.name)}${item.favorite ? `<span class="workspace-row-star" aria-label="${localized('收藏', 'Favorite')}">★</span>` : ''}</span><small>${escapeHtml(itemDetail(item))}</small></button>
+      <button class="workspace-reorder" type="button" draggable="false" data-item-reorder="${escapeHtml(item.id)}" aria-label="${escapeHtml(reorderLabel)}" aria-keyshortcuts="ArrowUp ArrowDown Home End" title="${escapeHtml(reorderLabel)}"><svg viewBox="0 0 12 20" aria-hidden="true"><path d="M4 5h.01M8 5h.01M4 10h.01M8 10h.01M4 15h.01M8 15h.01"/></svg></button>
       <div class="card-actions" role="group" aria-label="${escapeHtml(item.name)}">
-        <button class="module-state item-toggle" type="button" data-action="toggle-enabled" data-id="${item.id}" aria-pressed="${item.enabled}" title="${toggleLabel}" aria-label="${toggleLabel}"><i class="status-dot ${item.enabled ? '' : 'off'}" aria-hidden="true"></i></button>
-        ${agentActions ? `<button class="small-button" type="button" data-action="test" data-id="${item.id}" ${canTest ? '' : 'disabled'}>CHECK</button><button class="small-button" type="button" data-action="copy-name" data-id="${item.id}" title="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}" aria-label="${localized('复制 OpenKeylet MCP 使用提示', 'Copy OpenKeylet MCP use prompt')}">USE</button>` : ''}${item.passwordHistoryCount ? `<button class="small-button" type="button" data-action="history" data-id="${item.id}">HISTORY</button>` : ''}<button class="small-button delete" type="button" data-action="delete" data-id="${item.id}">DEL</button>
+        <span class="workspace-item-state" data-enabled="${item.enabled}"><i class="status-dot ${item.enabled ? '' : 'off'}" aria-hidden="true"></i>${item.enabled ? localized('已启用', 'Enabled') : localized('已停用', 'Disabled')}</span>
+        ${agentActions ? `<button class="small-button workspace-use" type="button" data-action="use" data-id="${escapeHtml(item.id)}" title="${escapeHtml(usageIssue || localized('查看 Agent 使用指令，不会直接执行操作', 'View agent instructions; no action is executed'))}" ${usageIssue ? 'disabled' : ''}>${localized('Agent 使用', 'Use with agent')}</button>` : ''}
+      </div>
+      <button class="workspace-more" type="button" popovertarget="workspace-more-${index}" aria-expanded="false" aria-controls="workspace-more-${index}" aria-label="${escapeHtml(localized(`${item.name}：更多操作`, `${item.name}: More actions`))}" title="${localized('更多操作', 'More actions')}">···</button>
+      <div class="workspace-action-menu" id="workspace-more-${index}" popover="auto" role="group" aria-label="${escapeHtml(localized(`${item.name}的更多操作`, `More actions for ${item.name}`))}">
+        ${agentActions ? `<button type="button" data-action="test" data-id="${escapeHtml(item.id)}" ${canTest ? '' : 'disabled'}>${localized('测试连接', 'Test connection')}</button>` : ''}${item.passwordHistoryCount ? `<button type="button" data-action="history" data-id="${escapeHtml(item.id)}">${localized('密码历史', 'Password history')}</button>` : ''}<button class="delete" type="button" data-action="delete" data-id="${escapeHtml(item.id)}">${localized('删除凭据…', 'Delete credential…')}</button>
       </div>
     </article>`;
   }).join('');
@@ -930,8 +1114,11 @@ async function refreshDrafts(showError = false) {
     renderDrafts();
     return;
   }
+  const epoch = privateReadEpoch;
   try {
-    editorDrafts = await api.drafts();
+    const drafts = await api.drafts();
+    if (epoch !== privateReadEpoch || !ownerLockState.unlocked) return;
+    editorDrafts = drafts;
     renderDrafts();
   } catch (error) {
     if (showError) toast(cleanError(error), 'error');
@@ -940,6 +1127,7 @@ async function refreshDrafts(showError = false) {
 
 function formatTime(value) {
   const diff = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(diff)) return '—';
   if (diff < 60_000) return localized('刚刚', 'JUST NOW');
   if (diff < 3_600_000) return localized(`${Math.floor(diff / 60_000)} 分钟前`, `${Math.floor(diff / 60_000)} MIN AGO`);
   if (diff < 86_400_000) return localized(`${Math.floor(diff / 3_600_000)} 小时前`, `${Math.floor(diff / 3_600_000)} HR AGO`);
@@ -953,11 +1141,12 @@ function activityAction(action = '') {
   if (/重置.*SSH.*主机信任/.test(raw)) return 'Reset SSH host trust';
   if (/导入备份/.test(raw)) return 'Import portable backup';
   if (/填写|填入/.test(raw)) return `Fill secret field (${activityCode(raw)})`;
-  return 'OpenKeylet operation';
+  return 'KeyHub operation';
 }
 
 function activitySource(source = '') {
   if (language === 'en' && HAN_TEXT.test(String(source))) return 'APP';
+  if (language === 'zh' && /^(app|gui|browser|terminal|mcp)$/i.test(String(source))) return ({app:'应用',gui:'客户端',browser:'浏览器',terminal:'终端',mcp:'MCP'})[String(source).toLowerCase()];
   return source;
 }
 
@@ -972,7 +1161,7 @@ function renderActivity() {
   activityMatchCount = activities.length;
   if (!activities.length) {
     const hasActivity = state.activities.length > 0;
-    container.innerHTML = `<div class="empty-state"><div><h3>${hasActivity ? localized('没有匹配记录', 'NO MATCHING ACTIVITY') : localized('暂无操作记录', 'NO ACTIVITY YET')}</h3><p>${hasActivity ? localized('当前搜索或结果筛选没有记录。', 'No activity matches the current search and result filter.') : localized('Agent 使用 OpenKeylet 后，这里只显示不含秘密的摘要。', 'After an agent uses OpenKeylet, only secret-free summaries appear here.')}</p>${hasActivity ? `<button class="button primary" data-action="clear-activity-filters">${localized('重置搜索与筛选', 'RESET SEARCH & FILTER')}</button>` : ''}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div><h3>${hasActivity ? localized('没有匹配记录', 'NO MATCHING ACTIVITY') : localized('暂无操作记录', 'NO ACTIVITY YET')}</h3><p>${hasActivity ? localized('当前搜索或结果筛选没有记录。', 'No activity matches the current search and result filter.') : localized('Agent 使用 KeyHub 后，这里只显示不含秘密的摘要。', 'After an agent uses KeyHub, only secret-free summaries appear here.')}</p>${hasActivity ? `<button class="button primary" data-action="clear-activity-filters">${localized('重置搜索与筛选', 'RESET SEARCH & FILTER')}</button>` : ''}</div></div>`;
     return;
   }
   container.innerHTML = activities.slice(0, activityVisibleCount).map(({ activity, sourceIndex }) => {
@@ -1009,34 +1198,76 @@ function renderSettings() {
   const mcpFault = state.mcp.status === 'error';
   const mcpStrip = $('#mcp-status-strip');
   mcpStrip.className = `status-strip ${mcpFault ? 'error' : ''}`;
-  mcpStrip.innerHTML = `<span class="status-dot"></span><span class="status-key">${mcpFault ? 'FAULT' : 'READY'}</span><span>${mcpFault ? escapeHtml(publicMessage(state.mcp.error)) : localized('Agent 使用时自动启动 stdio，无需常驻服务。', 'stdio starts on demand. No background service.')}</span>`;
+  mcpStrip.innerHTML = `<span class="status-dot"></span><span class="status-key">${mcpFault ? localized('异常', 'FAULT') : localized('就绪', 'READY')}</span><span>${mcpFault ? escapeHtml(publicMessage(state.mcp.error)) : localized('Agent 使用时自动启动 stdio，无需常驻服务。', 'stdio starts on demand. No background service.')}</span>`;
   $('#agent-restart-notice').classList.toggle('hidden', !agentRestartRequired);
   $('#desktop-shortcut-enabled').checked = Boolean(systemIntegrationState.desktopShortcut);
   $('#launch-at-login-enabled').checked = Boolean(systemIntegrationState.launchAtLogin);
   $('#pin-enabled').checked = ownerLockState.pinConfigured || ownerPinSetupRequested;
   $('#close-behavior').value = state.settings.closeBehavior === 'exit' ? 'exit' : 'tray';
+  $('#menu-bar-only-option').hidden = !document.documentElement.classList.contains('platform-macos');
+  $('#menu-bar-only-enabled').checked = Boolean(state.settings.menuBarOnly);
   $('#browser-enabled').checked = state.settings.browserEnabled;
   $('#browser-port').value = state.settings.browserPort;
   const bridge = state.browserBridge;
   const online = ['listening', 'delegated'].includes(bridge.status);
   const strip = $('#browser-status-strip');
   strip.className = `status-strip ${bridge.status === 'error' ? 'error' : online ? '' : 'offline'}`;
-  strip.innerHTML = `<span class="status-dot"></span><span class="status-key">${bridge.status === 'error' ? 'FAULT' : online ? (bridge.connected ? 'CONNECTED' : bridge.paired ? 'WAITING' : 'READY') : 'OFF'}</span><span>${bridge.status === 'error' ? escapeHtml(publicMessage(bridge.error)) : online ? escapeHtml(bridge.endpoint) : localized('Browser Bridge 已关闭', 'Browser Bridge is off')}</span>`;
+  strip.innerHTML = `<span class="status-dot"></span><span class="status-key">${bridge.status === 'error' ? localized('异常', 'FAULT') : online ? (bridge.connected ? localized('已连接', 'CONNECTED') : bridge.paired ? localized('等待连接', 'WAITING') : localized('就绪', 'READY')) : localized('已关闭', 'OFF')}</span><span>${bridge.status === 'error' ? escapeHtml(publicMessage(bridge.error)) : online ? escapeHtml(bridge.endpoint) : localized('浏览器桥接已关闭', 'Browser Bridge is off')}</span>`;
   $('#reset-pairing-button').disabled = !bridge.paired;
   renderAgents();
   applySettingsSearch();
 }
 
-const agentLabels = { notDetected: 'NOT FOUND', available: 'READY', registered: 'CONNECTED', stale: 'NEEDS REPAIR', conflict: 'CONFLICT', error: 'ERROR' };
+const agentLabels = { notDetected: ['未找到', 'NOT FOUND'], available: ['就绪', 'READY'], registered: ['已连接', 'CONNECTED'], stale: ['需修复', 'NEEDS REPAIR'], conflict: ['配置冲突', 'CONFLICT'], error: ['错误', 'ERROR'] };
+function agentDiagnosticText(value) {
+  return String(value || '')
+    .replace(/\b(Bearer|Basic)\s+[^\s;,]+/gi, '$1 [REDACTED]')
+    .replace(/((?:["']?)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|password|secret|authorization)(?:["']?)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s;,]+)/gi, '$1[REDACTED]')
+    .slice(0, 1600);
+}
+function agentDetectionIssue(client) {
+  const message = String(client.message || '').trim();
+  if (/Configuration detected, but no callable CLI was found/i.test(message)) return {
+    reason: localized('检测到配置，但未找到可调用的命令行程序（CLI）。', 'Configuration found, but no callable CLI was found.'),
+    help: localized('安装或恢复此 Agent 的命令行工具，确认终端中可以运行后，点击“重新扫描”。旧配置或失效的快捷链接也会导致此状态。', 'Install or restore this agent’s CLI, confirm it runs in a terminal, then rescan. A leftover configuration or broken launcher link can cause this state.'),
+  };
+  if (/timed out/i.test(message)) return {
+    reason: localized('Agent 命令行检测超时，尚未确认连接状态。', 'Agent CLI detection timed out; connection state is not confirmed.'),
+    help: localized('检查命令行工具是否能正常启动，再重新扫描。此状态不代表密钥库或远程服务故障。', 'Check that the CLI starts normally, then rescan. This does not indicate a vault or remote-service failure.'),
+  };
+  if (/Unable to start Agent CLI/i.test(message)) return {
+    reason: localized('找到了命令行程序，但无法启动。', 'The CLI was found but could not be started.'),
+    help: localized('检查程序路径、执行权限及运行环境，再重新扫描。', 'Check the executable path, permissions and runtime, then rescan.'),
+  };
+  if (/Invalid .*configuration|not a table|not an object/i.test(message)) return {
+    reason: localized('Agent 配置格式无效，无法读取接入状态。', 'Invalid Agent configuration format (TOML / JSON / JSONC); unable to read connection state.'),
+    help: localized('核对下方配置文件的格式，修正后重新扫描。KeyHub 不会在检测时覆盖该配置。', 'Check the configuration file shown below, correct its format, then rescan. Detection does not overwrite this configuration.'),
+  };
+  return {
+    reason: message ? agentDiagnosticText(message) : localized('检测失败，Agent 未返回具体原因。', 'Detection failed; the agent returned no specific reason.'),
+    help: localized('查看下方诊断信息，检查命令行工具与配置后重新扫描。', 'Review the diagnostics below, check the CLI and configuration, then rescan.'),
+  };
+}
+function agentDiagnostics(client) {
+  if (client.state !== 'error') return '';
+  const issue = agentDetectionIssue(client);
+  const facts = [
+    [localized('诊断消息', 'Diagnostic message'), agentDiagnosticText(client.message) || localized('未返回具体原因', 'No specific reason returned')],
+    [localized('配置文件', 'Configuration file'), agentDiagnosticText(client.configPath) || localized('未提供路径', 'Path not provided')],
+    [localized('命令行程序', 'CLI executable'), agentDiagnosticText(client.installPath) || localized('未找到可调用的 CLI', 'No callable CLI found')],
+  ];
+  return `<p class="agent-recovery-help">${escapeHtml(issue.help)}</p><details class="agent-diagnostics"><summary>${localized('诊断详情', 'Diagnostics')}</summary><dl>${facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl></details>`;
+}
 function agentDetail(client) {
+  if (client.state === 'error') return agentDetectionIssue(client).reason;
   const details = language === 'en'
-    ? { notDetected: 'Not installed', available: 'Ready to connect', registered: 'Connected', stale: 'OpenKeylet setup needs repair', conflict: 'Config conflict', error: 'Detection failed' }
-    : { notDetected: '未安装或未发现', available: '可连接', registered: '已连接', stale: 'OpenKeylet 连接或全局规则需要修复', conflict: '配置冲突', error: '检测失败' };
+    ? { notDetected: 'Not installed', available: 'Ready to connect', registered: 'Connected', stale: 'KeyHub setup needs repair', conflict: 'Config conflict', error: 'Detection failed' }
+    : { notDetected: '未安装或未发现', available: '可连接', registered: '已连接', stale: 'KeyHub 连接或全局规则需要修复', conflict: '配置冲突', error: '检测失败' };
   return details[client.state] || publicMessage(client.message, localized('状态已更新', 'Status updated'));
 }
 function renderAgents() {
   const container = $('#agent-client-list');
-  container.innerHTML = agentClients.length ? agentClients.map((client) => `<div class="agent-client-row ${client.canRegister ? '' : 'is-disabled'}"><span class="agent-client-copy"><strong>${escapeHtml(client.displayName)}</strong><span>${escapeHtml(agentDetail(client))}</span></span><div class="agent-row-controls"><span class="agent-state ${escapeHtml(client.state)}">${escapeHtml(agentLabels[client.state] || client.state)}</span><div class="agent-row-actions">${client.canRegister ? `<button type="button" class="agent-row-action primary" data-agent-action="connect" data-client-id="${escapeHtml(client.clientId)}">CONNECT</button>` : ''}${client.canRepair ? `<button type="button" class="agent-row-action primary" data-agent-action="repair" data-client-id="${escapeHtml(client.clientId)}">REPAIR</button>` : ''}${client.canRemove ? `<button type="button" class="agent-row-action" data-agent-action="remove" data-client-id="${escapeHtml(client.clientId)}">REMOVE</button>` : ''}</div></div></div>`).join('') : `<div class="agent-scan-placeholder">${localized('没有检测到支持的 Agent', 'NO SUPPORTED AGENT DETECTED')}</div>`;
+  container.innerHTML = agentClients.length ? agentClients.map((client) => `<div class="agent-client-row ${client.state === 'notDetected' ? 'is-disabled' : ''}" data-agent-client="${escapeHtml(client.clientId)}"><div class="agent-client-copy"><strong>${escapeHtml(client.displayName)}</strong><span>${escapeHtml(agentDetail(client))}</span>${agentDiagnostics(client)}</div><div class="agent-row-controls"><span class="agent-state ${escapeHtml(client.state)}">${escapeHtml(localized(...(agentLabels[client.state] || ['未知状态', 'Unknown'])))}</span><div class="agent-row-actions">${client.canRegister ? `<button type="button" class="agent-row-action primary" data-agent-action="connect" data-client-id="${escapeHtml(client.clientId)}">${localized('连接', 'CONNECT')}</button>` : ''}${client.canRepair ? `<button type="button" class="agent-row-action primary" data-agent-action="repair" data-client-id="${escapeHtml(client.clientId)}">${localized('修复', 'REPAIR')}</button>` : ''}${client.canRemove ? `<button type="button" class="agent-row-action" data-agent-action="remove" data-client-id="${escapeHtml(client.clientId)}">${localized('移除', 'REMOVE')}</button>` : ''}</div></div></div>`).join('') : `<div class="agent-scan-placeholder">${localized('没有检测到支持的 Agent', 'NO SUPPORTED AGENT DETECTED')}</div>`;
   applySettingsSearch();
 }
 
@@ -1137,7 +1368,7 @@ function renderModules() {
   finishModulePointerDrag(false);
   const container = $('#module-list');
   if (!currentModules.length) {
-    container.innerHTML = `<div class="module-empty"><b>EMPTY / DRAFT</b><span>${localized('选择模板或添加任意模块', 'Choose a template or add any module')}</span></div>`;
+    container.innerHTML = `<div class="module-empty"><b>${localized('暂无模块 / 草稿', 'EMPTY / DRAFT')}</b><span>${localized('选择模板或添加任意模块', 'Choose a template or add any module')}</span></div>`;
     syncModuleDraft();
     return;
   }
@@ -1147,15 +1378,15 @@ function renderModules() {
     const { label: agentVisibilityLabel, status: agentVisibilityStatus } = moduleAgentVisibilityText(agentVisible);
     const secretName = moduleSecretName(module);
     const nameControl = module.kind === 'customSecret'
-      ? `<input class="input module-name-input" data-module-name value="${escapeHtml(module.name || '')}" placeholder="${localized('字段名称', 'FIELD NAME')}" />`
+      ? `<label class="module-name-field"><span>${localized('字段 / 环境变量名', 'FIELD / ENV KEY')}</span><input class="input module-name-input" data-module-name value="${escapeHtml(module.name || '')}" placeholder="DATABASE_URL" aria-label="${localized('字段或环境变量名称', 'Field or environment variable name')}" /></label>`
       : `<strong>${escapeHtml(moduleLabel(module.kind))}</strong>`;
-    const secretCaption = secretName && !PERSONAL_FIELDS.includes(module.kind) && module.kind !== 'customSecret' ? `<small>${escapeHtml(secretName)}</small>` : '';
+    const secretCaption = '';
     const customName = `${nameControl}<div class="module-metadata">${secretCaption}<span class="module-visibility-state" data-module-visibility aria-hidden="true">${agentVisibilityStatus}</span></div>`;
     let control = '';
     let actions = '';
     if (module.kind === 'privateKey') {
-      const keyState = module.pending ? module.privateKeyName : module.configured ? (module.privateKeyName || 'IMPORTED KEY') : localized('尚未导入', 'NOT IMPORTED');
-      control = `<div class="module-key-control"><span>${escapeHtml(keyState)}</span><button type="button" class="copy-secret-button" data-choose-module-key>SELECT</button></div>${module.secretValue ? `<div class="secret-input-control module-secret-control multiline module-key-secret"><textarea class="input textarea secret-masked" data-secret-value readonly>${escapeHtml(module.secretValue)}</textarea></div>` : '<input type="hidden" data-secret-value value="" />'}`;
+      const keyState = module.pending ? module.privateKeyName : module.configured ? (module.privateKeyName || localized('已导入私钥', 'IMPORTED KEY')) : localized('尚未导入', 'NOT IMPORTED');
+      control = `<div class="module-key-control"><span>${escapeHtml(keyState)}</span><button type="button" class="copy-secret-button" data-choose-module-key>${localized('选择文件', 'SELECT')}</button></div>${module.secretValue ? `<div class="secret-input-control module-secret-control multiline module-key-secret"><textarea class="input textarea secret-masked" data-secret-value readonly>${escapeHtml(module.secretValue)}</textarea></div>` : '<input type="hidden" data-secret-value value="" />'}`;
       const keyActionsDisabled = !module.secretValue;
       actions = `${secretActionButton('reveal', true, keyActionsDisabled)}${secretActionButton('copy', true, keyActionsDisabled)}`;
     } else if (definition.secret) {
@@ -1173,7 +1404,7 @@ function renderModules() {
     }
     const removeLabel = localized('删除模块', 'Remove module');
     const reorderLabel = localized('拖动调整顺序，或聚焦后按上/下方向键', 'Drag to reorder, or focus and use the Up/Down arrow keys');
-    return `<div class="module-row" data-module-index="${index}" data-kind="${escapeHtml(module.kind)}" data-name="${escapeHtml(module.name || '')}" data-existing="${Boolean(module.existing)}" data-configured="${Boolean(module.configured)}" data-private-key-name="${escapeHtml(module.privateKeyName || '')}" data-pending="${Boolean(module.pending)}"><button type="button" class="module-drag-handle" data-module-drag-handle aria-label="${reorderLabel}" title="${reorderLabel}" aria-keyshortcuts="ArrowUp ArrowDown"><svg viewBox="0 0 12 20" aria-hidden="true"><path d="M4 5h.01M8 5h.01M4 10h.01M8 10h.01M4 15h.01M8 15h.01"/></svg></button><button type="button" class="module-agent-toggle" data-module-agent-visible aria-pressed="${agentVisible}" aria-label="${agentVisibilityLabel}" title="${agentVisibilityLabel}"><i aria-hidden="true"></i></button><div class="module-identity">${customName}</div><div class="module-control">${control}</div><div class="module-actions ${actions ? 'full' : 'single'}">${actions}<button type="button" class="remove-module module-action-icon" data-remove-module aria-label="${removeLabel}" title="${removeLabel}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M7.5 5.5V3.25h5v2.25M5.25 5.5l.75 11h8l.75-11M8.25 8.5v5M11.75 8.5v5"/></svg></button></div></div>`;
+    return `<div class="module-row" data-module-index="${index}" data-kind="${escapeHtml(module.kind)}" data-name="${escapeHtml(module.name || '')}" data-existing="${Boolean(module.existing)}" data-configured="${Boolean(module.configured)}" data-private-key-name="${escapeHtml(module.privateKeyName || '')}" data-pending="${Boolean(module.pending)}"><button type="button" class="module-drag-handle" data-module-drag-handle aria-label="${reorderLabel}" title="${reorderLabel}" aria-keyshortcuts="ArrowUp ArrowDown"><svg viewBox="0 0 12 20" aria-hidden="true"><path d="M4 5h.01M8 5h.01M4 10h.01M8 10h.01M4 15h.01M8 15h.01"/></svg></button><span class="module-agent-control"><button type="button" class="module-agent-toggle" data-module-agent-visible aria-pressed="${agentVisible}" aria-label="${agentVisibilityLabel}" title="${agentVisibilityLabel}"><i aria-hidden="true"></i></button><small class="module-agent-caption" data-module-agent-caption>${agentVisibilityStatus}</small></span><div class="module-identity">${customName}</div><div class="module-control">${control}</div><div class="module-actions ${actions ? 'full' : 'single'}">${actions}<button type="button" class="remove-module module-action-icon" data-remove-module aria-label="${removeLabel}" title="${removeLabel}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M7.5 5.5V3.25h5v2.25M5.25 5.5l.75 11h8l.75-11M8.25 8.5v5M11.75 8.5v5"/></svg></button></div></div>`;
   }).join('');
   syncModuleDraft();
 }
@@ -1222,6 +1453,138 @@ function setModuleMenu(open) {
   $('#add-module-button').setAttribute('aria-expanded', String(Boolean(open)));
 }
 
+const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ENV_GROUP_LIMIT = 256;
+
+function normalizedSecretName(name) {
+  return String(name || '').toLocaleLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function envValue(raw) {
+  const value = raw.trim();
+  if (!value) return '';
+  const quote = value[0];
+  if (!['"', "'"].includes(quote)) return value;
+  if (!value.endsWith(quote) || value.length < 2) throw new Error(localized('引号未闭合', 'Unclosed quote'));
+  const inner = value.slice(1, -1);
+  return quote === '"'
+    ? inner.replace(/\\([nrt\\"])/g, (_, character) => ({ n: '\n', r: '\r', t: '\t', '\\': '\\', '"': '"' })[character])
+    : inner;
+}
+
+function parseEnvGroup(text) {
+  const entries = [];
+  const errors = [];
+  const seen = new Set();
+  String(text || '').split(/\r?\n/).forEach((line, index) => {
+    const lineNumber = index + 1;
+    let source = line.trim();
+    if (!source || source.startsWith('#')) return;
+    if (/^export\s+/i.test(source)) source = source.replace(/^export\s+/i, '');
+    const separator = source.indexOf('=');
+    if (separator < 1) {
+      errors.push({ line: lineNumber, code: 'format' });
+      return;
+    }
+    const key = source.slice(0, separator).trim();
+    if (!ENV_KEY.test(key)) {
+      errors.push({ line: lineNumber, code: 'key', key: key.slice(0, 80) });
+      return;
+    }
+    const normalized = normalizedSecretName(key);
+    if (seen.has(normalized)) {
+      errors.push({ line: lineNumber, code: 'duplicate', key });
+      return;
+    }
+    seen.add(normalized);
+    try {
+      entries.push({ line: lineNumber, key, value: envValue(source.slice(separator + 1)) });
+    } catch (error) {
+      errors.push({ line: lineNumber, code: 'quote', key, message: error.message });
+    }
+  });
+  if (entries.length > ENV_GROUP_LIMIT) errors.push({ line: 0, code: 'limit', count: entries.length });
+  return { entries, errors };
+}
+
+function envGroupErrorText(error) {
+  if (error.code === 'format') return localized(`第 ${error.line} 行缺少 KEY=VALUE 格式`, `Line ${error.line}: expected KEY=VALUE`);
+  if (error.code === 'key') return localized(`第 ${error.line} 行的变量名无效：${error.key || '空名称'}`, `Line ${error.line}: invalid variable name: ${error.key || 'empty'}`);
+  if (error.code === 'duplicate') return localized(`变量名重复：${error.key}`, `Duplicate variable name: ${error.key}`);
+  if (error.code === 'quote') return localized(`第 ${error.line} 行：${error.message}`, `Line ${error.line}: ${error.message}`);
+  if (error.code === 'limit') return localized(`一次最多添加 ${ENV_GROUP_LIMIT} 个变量，当前识别到 ${error.count} 个`, `Add at most ${ENV_GROUP_LIMIT} variables at a time; ${error.count} were found`);
+  return localized('环境变量格式无效', 'Invalid environment variable format');
+}
+
+function envGroupConflict(key) {
+  const normalized = normalizedSecretName(key);
+  const builtIn = [...Object.keys(MODULE_DEFS).map(kind => kind.toLocaleLowerCase()), 'token', 'apikey'];
+  if (builtIn.includes(normalized)) return localized(`变量名与内置字段冲突：${key}`, `Variable name conflicts with a built-in field: ${key}`);
+  const existing = currentModules.find(module => module.kind === 'customSecret' && normalizedSecretName(module.name) === normalized);
+  return existing ? localized(`变量名已存在：${key}`, `Variable name already exists: ${key}`) : '';
+}
+
+function refreshEnvGroup() {
+  const parsed = parseEnvGroup($('#env-group-input').value);
+  let error = parsed.errors[0] ? envGroupErrorText(parsed.errors[0]) : '';
+  if (!error && !parsed.entries.length) error = localized('粘贴至少一个 KEY=VALUE', 'Paste at least one KEY=VALUE');
+  if (!error) error = parsed.entries.map(entry => envGroupConflict(entry.key)).find(Boolean) || '';
+  const status = $('#env-group-status');
+  status.textContent = error || localized(`已识别 ${parsed.entries.length} 个变量`, `${parsed.entries.length} variable${parsed.entries.length === 1 ? '' : 's'} parsed`);
+  status.classList.toggle('error', Boolean(error));
+  $('#env-group-input').setAttribute('aria-invalid', String(Boolean(error)));
+  $('#env-group-add').disabled = Boolean(error);
+  $('#env-group-add').textContent = parsed.entries.length && !error
+    ? localized(`添加 ${parsed.entries.length} 个变量`, `ADD ${parsed.entries.length} VARIABLE${parsed.entries.length === 1 ? '' : 'S'}`)
+    : localized('添加变量', 'ADD VARIABLES');
+}
+
+function openEnvGroup() {
+  syncModuleDraft();
+  setModuleMenu(false);
+  $('#template-picker').classList.add('hidden');
+  $('#env-group-composer').classList.remove('hidden');
+  $('#save-connection-button').disabled = true;
+  $('#env-group-input').focus({ preventScroll: false });
+  refreshEnvGroup();
+}
+
+function closeEnvGroup(restoreFocus = true) {
+  const composer = $('#env-group-composer');
+  if (composer.classList.contains('hidden')) return;
+  composer.classList.add('hidden');
+  $('#env-group-input').value = '';
+  $('#env-group-input').removeAttribute('aria-invalid');
+  $('#env-group-status').textContent = '';
+  $('#env-group-status').classList.remove('error');
+  $('#env-group-add').disabled = true;
+  $('#save-connection-button').disabled = false;
+  if (restoreFocus) $('#add-module-button').focus({ preventScroll: true });
+}
+
+function addEnvironmentGroup() {
+  refreshEnvGroup();
+  if ($('#env-group-add').disabled) return;
+  const { entries } = parseEnvGroup($('#env-group-input').value);
+  syncModuleDraft();
+  const conflict = entries.map(entry => envGroupConflict(entry.key)).find(Boolean);
+  if (conflict) {
+    $('#env-group-status').textContent = conflict;
+    $('#env-group-status').classList.add('error');
+    return;
+  }
+  currentModules.push(...entries.map(entry => ({
+    kind: 'customSecret', name: entry.key, value: '', secretValue: entry.value,
+    configured: false, existing: false, privateKeyName: '', pending: false, agentVisible: false,
+  })));
+  closeEnvGroup(false);
+  renderModules();
+  const rows = $$('.module-row[data-kind="customSecret"]');
+  const firstAdded = rows.at(-entries.length);
+  ($('[data-module-name]', firstAdded) || firstAdded)?.focus({ preventScroll: true });
+  toast(localized(`已添加 ${entries.length} 个环境变量`, `${entries.length} environment variable${entries.length === 1 ? '' : 's'} added`));
+}
+
 function addModule(kind, options = {}) {
   syncModuleDraft();
   if (kind !== 'customSecret' && currentModules.some((module) => module.kind === kind)) {
@@ -1257,6 +1620,14 @@ function applyTemplate(template) {
     api: ['apiCredential'],
     blank: [],
   };
+  if (template === 'env') {
+    value('#connection-type', 'custom');
+    currentModules = [];
+    $('#template-picker').classList.add('hidden');
+    renderModules();
+    openEnvGroup();
+    return;
+  }
   value('#connection-type', template === 'blank' ? 'custom' : template);
   currentModules = (presets[template] || []).map((kind) => ({ kind, name: kind, value: kind === 'port' ? '22' : '', secretValue: '', configured: false, existing: false, privateKeyName: '', pending: false, agentVisible: defaultModuleAgentVisible(kind) }));
   $('#template-picker').classList.add('hidden');
@@ -1283,8 +1654,9 @@ function placeItemEditor() {
     card.classList.add('is-editing');
     const trigger = $('.item-disclosure', card);
     trigger.setAttribute('aria-expanded', 'true');
-    trigger.setAttribute('aria-label', localized(`收起编辑 ${editorExistingItem.name}`, `Collapse editor for ${editorExistingItem.name}`));
-    trigger.title = localized('收起编辑', 'Collapse editor');
+    trigger.setAttribute('aria-label', localized(`完成编辑 ${editorExistingItem.name}`, `Finish editing ${editorExistingItem.name}`));
+    trigger.textContent = localized('完成', 'Done');
+    trigger.title = localized('收起编辑并保留未保存修改', 'Close editor and keep unsaved changes');
     editorReturnFocus = trigger;
   } else editorHome.after(editor);
   editor.classList.toggle('inline-editor', Boolean(card));
@@ -1316,12 +1688,14 @@ async function animateInlineEditor(open) {
 }
 
 async function openEditor(item = null, draft = null) {
-  if (editorOpening) return false;
+  if (editorOpening || !ownerLockState.unlocked) return false;
+  const epoch = privateReadEpoch;
   editorOpening = true;
   try {
     const launcher = document.activeElement;
     const collapseCurrent = inlineEditorItemId && inlineEditorItemId === item?.id && !draft;
     if (!$('#connection-modal').classList.contains('hidden') && !await closeEditorWithDraft()) return false;
+    if (epoch !== privateReadEpoch || !ownerLockState.unlocked) return false;
     if (collapseCurrent) return true;
     if (!draft && item) draft = editorDrafts.find((candidate) => candidate.input?.id === item.id) || null;
     if (!item && draft?.input?.id) item = state.connections.find((candidate) => candidate.id === draft.input.id) || null;
@@ -1331,6 +1705,7 @@ async function openEditor(item = null, draft = null) {
     } else if (item) {
       try {
         const view = await api.ownerSecrets(item.id);
+        if (epoch !== privateReadEpoch || !ownerLockState.unlocked) return false;
         ownerValues = Object.fromEntries(view.fields.map((field) => [field.name, field.value]));
       } catch (error) {
         toast(cleanError(error), 'error');
@@ -1371,6 +1746,7 @@ async function openEditor(item = null, draft = null) {
     void animateInlineEditor(true).then(completed => {
       if (!completed) return;
       requestAnimationFrame(() => {
+        if (!$('#workspace-use-dialog').classList.contains('hidden')) return;
         if (!$('#connection-modal').classList.contains('hidden') && editorExistingItem === item) {
           if ($('#connection-modal').contains(document.activeElement)) return;
           if (inlineEditorItemId) $('#connection-name').scrollIntoView({ block: 'nearest' });
@@ -1386,6 +1762,7 @@ function closeEditor() {
   editorFoldAnimation?.cancel();
   editorFoldAnimation = null;
   $('#connection-modal').classList.remove('is-folding');
+  closeEnvGroup(false);
   finishModulePointerDrag(false);
   $('#connection-modal').classList.add('hidden');
   setModuleMenu(false);
@@ -1394,8 +1771,9 @@ function closeEditor() {
     card.classList.remove('is-editing');
     const trigger = $('.item-disclosure', card);
     trigger.setAttribute('aria-expanded', 'false');
-    trigger.setAttribute('aria-label', localized(`展开编辑 ${editorExistingItem.name}`, `Expand editor for ${editorExistingItem.name}`));
-    trigger.title = localized('展开编辑', 'Expand editor');
+    trigger.setAttribute('aria-label', localized(`编辑 ${editorExistingItem.name}`, `Edit ${editorExistingItem.name}`));
+    trigger.textContent = localized('编辑', 'Edit');
+    trigger.title = localized('编辑凭据', 'Edit credential');
     editorReturnFocus = trigger;
   }
   inlineEditorItemId = null;
@@ -1403,6 +1781,8 @@ function closeEditor() {
   editorSourceInput = null;
   editorOpenedFromDraft = false;
   editorInitialSnapshot = '';
+  currentModules = [];
+  $('#module-list').replaceChildren();
   if (editorReturnFocus?.isConnected && !editorReturnFocus.closest('.hidden')) editorReturnFocus.focus({ preventScroll: true });
   editorReturnFocus = null;
 }
@@ -1472,6 +1852,13 @@ function editorHasDraftContent() {
 }
 
 function closeEditorWithDraft() {
+  if (!$('#env-group-composer').classList.contains('hidden') && $('#env-group-input').value.trim()) {
+    refreshEnvGroup();
+    toast(localized('请先添加或取消当前环境变量组，再关闭编辑器', 'Add or cancel the current environment variable group before closing the editor.'), 'error');
+    $('#env-group-input').focus({ preventScroll: false });
+    return Promise.resolve(false);
+  }
+  closeEnvGroup(false);
   if (editorClosing) return editorClosing;
   editorClosing = saveDraftAndCloseEditor().finally(() => { editorClosing = null; });
   return editorClosing;
@@ -1526,6 +1913,16 @@ async function saveDesktopSettings() {
   }
 }
 
+async function saveMenuBarSettings() {
+  const input = $('#menu-bar-only-enabled');
+  input.disabled = true;
+  try {
+    state.settings = await api.settings({ menuBarOnly: input.checked });
+    toast(localized('显示方式已保存', 'Display preference saved'));
+  } catch (error) { toast(cleanError(error), 'error'); }
+  finally { input.disabled = false; renderSettings(); }
+}
+
 async function setSystemIntegration(kind, enabled) {
   const input = kind === 'desktop' ? $('#desktop-shortcut-enabled') : $('#launch-at-login-enabled');
   input.disabled = true;
@@ -1564,8 +1961,12 @@ async function savePinSettings() {
     return;
   }
   toggle.disabled = true;
+  const generation = ++ownerStateGeneration;
+  const epoch = privateReadEpoch;
   try {
-    ownerLockState = await api.ownerDisablePin();
+    const status = await api.ownerDisablePin();
+    if (generation !== ownerStateGeneration || epoch !== privateReadEpoch) return;
+    ownerLockState = status;
     ownerPinSetupRequested = false;
     renderOwnerLock();
     renderMetrics();
@@ -1708,6 +2109,7 @@ function renderLoginUris(rules) {
 }
 $('#login-uri-add').onclick = () => renderLoginUris([...$$('#login-uri-list .login-uri-row').map(row => ({uri:$('[data-login-uri]',row).value,matchType:$('[data-login-match]',row).value})),{uri:'',matchType:'origin'}]);
 $('#login-uri-list').onclick = event => event.target.closest('[data-remove-uri]')?.closest('.login-uri-row').remove();
+$('#env-group-input').addEventListener('input', refreshEnvGroup);
 
 let migrationId = null;
 let migrationSequence = 0;
@@ -1715,7 +2117,7 @@ const migrationWarnings = {
   nonWebUris: ['非网页地址已保留，设为“不匹配”。','Non-web addresses are preserved with matching disabled.'],
   defaultDomainMatch: ['未指定规则的网址使用主域名匹配；保存的协议和端口必须一致。可在项目内调整。','Unspecified rules use base-domain matching, with matching scheme and port. Edit rules in the item.'],
   unsupportedTotp: ['部分验证码密钥格式尚不支持生成；原始密钥已保留。','Some TOTP formats cannot generate codes yet; their original keys are preserved.'],
-  passkeyCounter: ['包含旧版计数型 Passkey。导入后请只在 OpenKeylet 中使用这些 Passkey，避免另一副本的计数超前。','Includes legacy counter-based passkeys. Use these only in OpenKeylet after migration to avoid diverging counters.'],
+  passkeyCounter: ['包含旧版计数型 Passkey。导入后请只在 KeyHub 中使用这些 Passkey，避免另一副本的计数超前。','Includes legacy counter-based passkeys. Use these only in KeyHub after migration to avoid diverging counters.'],
   linkedFields: ['关联字段已作为加密自定义字段保留，暂不自动关联填写。','Linked fields are preserved as encrypted custom fields; automatic linking is unavailable.'],
   passwordHistory: ['最近 20 条旧密码会进入密码历史，更早的记录保留在加密自定义字段中。','The latest 20 previous passwords appear in history; older records are archived in an encrypted custom field.'],
   reprompt: ['原逐项主密码验证设置不生效；本地 PIN 锁仍适用。','Source per-item master-password reprompt settings are not applied; the local PIN lock still applies.'],
@@ -1771,6 +2173,35 @@ $('#migration-confirm').onclick = async () => {
 };
 
 document.addEventListener('click', async (event) => {
+  const scopeButton = event.target.closest('[data-workspace-filter], [data-workspace-folder]');
+  if (scopeButton) {
+    if (inlineEditorItemId && !await closeEditorWithDraft()) return;
+    workspaceScope = scopeButton.dataset.workspaceFilter || 'all';
+    workspaceFolder = scopeButton.hasAttribute('data-workspace-folder') ? scopeButton.dataset.workspaceFolder : null;
+    await selectPage('connections');
+    renderConnections();
+    $$('[data-workspace-folder]').find(button => button.dataset.workspaceFolder === workspaceFolder)?.focus({ preventScroll: true });
+  }
+  const workspaceItem = event.target.closest('[data-workspace-select]');
+  if (workspaceItem) {
+    workspaceSelectedId = workspaceItem.dataset.workspaceSelect;
+    $$('.connection-card').forEach(card => {
+      const selected = card.dataset.itemId === workspaceSelectedId;
+      card.classList.toggle('is-selected', selected);
+      $('.connection-name', card).setAttribute('aria-pressed', String(selected));
+    });
+    renderWorkspaceDetail(state.connections.find(item => item.id === workspaceSelectedId));
+    if (event.detail === 2) await openEditor(state.connections.find(item => item.id === workspaceSelectedId));
+  }
+  const settingsShortcut = event.target.closest('[data-workspace-settings]');
+  if (settingsShortcut) {
+    if (inlineEditorItemId && !await closeEditorWithDraft()) return;
+    currentSettingsFilter = settingsShortcut.dataset.workspaceSettings;
+    pageSearch.settings = '';
+    await selectPage('settings');
+    syncSettingsFilterControl();
+    applySettingsSearch();
+  }
   if (event.target.closest('#title-search-toggle')) setTitleSearchOpen(!titleSearchOpen);
   else if (titleSearchOpen && !event.target.closest('#title-search')) setTitleSearchOpen(false, false);
   const filterButton = event.target.closest('.filter-strip button');
@@ -1812,12 +2243,14 @@ document.addEventListener('click', async (event) => {
   else if (!event.target.closest('#module-menu')) setModuleMenu(false);
   const addModuleButton = event.target.closest('[data-add-module]');
   if (addModuleButton) addModule(addModuleButton.dataset.addModule);
+  if (event.target.closest('[data-add-env-group]')) openEnvGroup();
+  if (event.target.closest('#env-group-close') || event.target.closest('#env-group-cancel')) closeEnvGroup();
+  if (event.target.closest('#env-group-add')) addEnvironmentGroup();
   const templateButton = event.target.closest('[data-item-template]');
   if (templateButton) applyTemplate(templateButton.dataset.itemTemplate);
   if (event.target.closest('#add-connection-button') || event.target.closest('[data-action="add"]')) {
     await selectCreationMode('add');
   }
-  if (event.target === $('#connection-modal') && !inlineEditorItemId) await closeEditorWithDraft();
   if (event.target.closest('[data-close-modal]')) await closeEditorWithDraft();
   const copyInput = event.target.closest('[data-copy-input]');
   const copyModule = event.target.closest('[data-copy-module-secret], [data-copy-module-value]');
@@ -1874,9 +2307,13 @@ document.addEventListener('click', async (event) => {
     ($('[data-remove-module]', remainingRows[Math.min(index, remainingRows.length - 1)] || $('#module-list')) || $('#add-module-button')).focus();
   }
   const action = event.target.closest('[data-action]');
+  const moreMenu = action?.closest('.workspace-action-menu');
+  if (moreMenu?.matches(':popover-open')) moreMenu.hidePopover();
   if (action?.dataset.action === 'clear-connection-filters') {
     pageSearch.connections = '';
     currentItemTypeFilter = 'all';
+    workspaceScope = 'all'; workspaceFolder = null;
+    renderWorkspaceNavigation();
     $('[data-page-search="connections"]').value = '';
     syncItemTypeFilter();
     syncTitleSearch();
@@ -1891,19 +2328,13 @@ document.addEventListener('click', async (event) => {
   }
   if (action?.dataset.id) {
     const item = state.connections.find((candidate) => candidate.id === action.dataset.id);
-    if (action.dataset.action === 'toggle-enabled') {
-      try {
-        await api.setEnabled(item.id, !item.enabled);
-        toast(item.enabled ? localized('项目已停用', 'Item disabled') : localized('项目已启用', 'Item enabled'));
-        await refresh();
-      } catch (error) { toast(cleanError(error), 'error'); }
-    }
+    if (action.dataset.action === 'use') openAgentUsage(item, action);
     if (action.dataset.action === 'edit') await openEditor(item);
     if (action.dataset.action === 'history') await openVaultManagement('history', item.id);
     if (action.dataset.action === 'copy-name') {
       try {
-        await api.copyOwnerValue(`use ${item.name} in OpenKeylet MCP`);
-        toast(localized('OpenKeylet MCP 使用提示已复制', 'OpenKeylet MCP use prompt copied'));
+        await api.copyOwnerValue(`use ${item.name} in KeyHub MCP`);
+        toast(localized('KeyHub MCP 使用提示已复制', 'KeyHub MCP use prompt copied'));
       } catch (error) { toast(cleanError(error), 'error'); }
     }
     if (action.dataset.action === 'test') {
@@ -1935,8 +2366,8 @@ document.addEventListener('click', async (event) => {
     if (kind === 'remove') {
       const client = agentClients.find((candidate) => candidate.clientId === agentAction.dataset.clientId);
       if (!await confirmDestructiveAction({
-        title: localized(`移除 ${client?.displayName || 'Agent'} 的 OpenKeylet 接入？`, `Remove OpenKeylet from ${client?.displayName || 'this agent'}?`),
-        message: localized('将删除该 Agent 的 OpenKeylet MCP 配置；之后可以重新连接。', 'This removes the OpenKeylet MCP configuration from the agent. You can connect it again later.'),
+        title: localized(`移除 ${client?.displayName || 'Agent'} 的 KeyHub 接入？`, `Remove KeyHub from ${client?.displayName || 'this agent'}?`),
+        message: localized('将删除该 Agent 的 KeyHub MCP 配置；之后可以重新连接。', 'This removes the KeyHub MCP configuration from the agent. You can connect it again later.'),
         acceptLabel: localized('移除', 'REMOVE'),
         tag: localized('确认移除接入', 'CONFIRM INTEGRATION REMOVAL'),
       })) return;
@@ -2273,6 +2704,41 @@ document.addEventListener('paste', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (!$('#env-group-composer').classList.contains('hidden')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeEnvGroup();
+      return;
+    }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && event.target === $('#env-group-input')) {
+      event.preventDefault();
+      addEnvironmentGroup();
+      return;
+    }
+  }
+  if (!$('#workspace-use-dialog').classList.contains('hidden')) {
+    if (event.key === 'Escape') { event.preventDefault(); closeAgentUsage(); }
+    if (event.key === 'Tab') {
+      const controls = $$('#workspace-use-dialog button, #workspace-use-dialog textarea');
+      const index = controls.indexOf(document.activeElement);
+      event.preventDefault();
+      controls[(index + (event.shiftKey ? -1 : 1) + controls.length) % controls.length].focus();
+    }
+    return;
+  }
+  const menuTrigger = event.target.closest('.workspace-more');
+  const triggeredMenu = menuTrigger && document.getElementById(menuTrigger.getAttribute('aria-controls'));
+  const menu = event.target.closest('.workspace-action-menu') || (triggeredMenu?.matches(':popover-open') ? triggeredMenu : null);
+  if (menu && ['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape', 'Tab'].includes(event.key)) {
+    const trigger = menu.closest('.connection-card').querySelector('.workspace-more');
+    if (event.key === 'Escape' || event.key === 'Tab') { menu.hidePopover(); trigger.focus(); if (event.key === 'Escape') event.preventDefault(); }
+    else {
+      event.preventDefault();
+      const controls = $$('button:not(:disabled)', menu), index = controls.indexOf(document.activeElement);
+      controls[event.key === 'Home' ? 0 : event.key === 'End' ? controls.length - 1 : (index + (event.key === 'ArrowUp' ? -1 : 1) + controls.length) % controls.length]?.focus();
+    }
+    return;
+  }
   if (event.key === 'Escape' && switchPointerDrag) {
     event.preventDefault(); void finishSwitchDrag(false); return;
   }
@@ -2356,7 +2822,7 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   const pageSearchAvailable = $('#connection-modal').classList.contains('hidden') && $('#owner-lock-layer').classList.contains('hidden') && !githubBackup.isOpen();
-  if (pageSearchAvailable && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f' && !event.altKey) {
+  if (pageSearchAvailable && (event.ctrlKey || event.metaKey) && ['f', 'k'].includes(event.key.toLowerCase()) && !event.altKey) {
     event.preventDefault();
     setTitleSearchOpen(true);
     const search = $(`[data-page-search="${activePage}"]`);
@@ -2380,6 +2846,10 @@ document.addEventListener('keydown', (event) => {
 
 $('#connection-form').addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!$('#env-group-composer').classList.contains('hidden')) {
+    refreshEnvGroup();
+    return toast(localized('请先添加或取消当前环境变量组', 'Add or cancel the current environment variable group first.'), 'error');
+  }
   const button = $('#save-connection-button');
   button.disabled = true;
   try {
@@ -2403,9 +2873,13 @@ $('#owner-lock-form').addEventListener('submit', async (event) => {
   const cancelButton = $('#owner-pin-cancel');
   button.disabled = true;
   cancelButton.disabled = true;
+  const generation = ++ownerStateGeneration;
+  const epoch = privateReadEpoch;
   try {
     const settingPin = !ownerLockState.pinConfigured;
-    ownerLockState = ownerLockState.pinConfigured ? await api.ownerUnlock(pin) : await api.ownerSetPin(pin);
+    const status = ownerLockState.pinConfigured ? await api.ownerUnlock(pin) : await api.ownerSetPin(pin);
+    if (generation !== ownerStateGeneration || epoch !== privateReadEpoch) return;
+    ownerLockState = status;
     ownerPinSetupRequested = false;
     renderOwnerLock();
     if (state) {
@@ -2430,9 +2904,28 @@ $('#owner-pin-cancel').addEventListener('click', () => {
   renderSettings();
 });
 $('#confirmation-modal').addEventListener('click', (event) => {
-  if (event.target === $('#confirmation-modal') || event.target.closest('#confirmation-cancel')) finishConfirmation(false);
+  if (event.target.closest('#confirmation-cancel')) finishConfirmation(false);
   if (event.target.closest('#confirmation-accept')) finishConfirmation(true);
 });
+bindBackdropGesture($('#connection-modal'), () => { if (!inlineEditorItemId) void closeEditorWithDraft(); });
+bindBackdropGesture($('#confirmation-modal'), () => finishConfirmation(false));
+bindBackdropGesture($('#workspace-use-dialog'), closeAgentUsage);
+$('#workspace-use-close').addEventListener('click', closeAgentUsage);
+$('#workspace-use-copy').addEventListener('click', async () => {
+  if (!ownerLockState.unlocked || $('#workspace-use-dialog').classList.contains('hidden')) return;
+  try { await api.copyOwnerValue($('#workspace-use-prompt').value); toast(localized('指令已复制，请粘贴到 Agent', 'Instruction copied. Paste it into your agent.')); }
+  catch (error) { toast(cleanError(error), 'error'); }
+});
+document.addEventListener('toggle', event => {
+  if (!event.target.matches('.workspace-action-menu')) return;
+  const menu = event.target, trigger = menu.closest('.connection-card')?.querySelector('.workspace-more');
+  trigger?.setAttribute('aria-expanded', String(event.newState === 'open'));
+  if (event.newState === 'open' && trigger) {
+    const box = trigger.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, box.right - menu.offsetWidth))}px`;
+    menu.style.top = `${Math.max(8, Math.min(innerHeight - menu.offsetHeight - 8, box.bottom + 5))}px`;
+  }
+}, true);
 $('#clear-activity-button').addEventListener('click', async () => {
   if (!await confirmDestructiveAction({
     title: localized('清空本地操作记录？', 'Clear the local activity log?'),
@@ -2455,6 +2948,8 @@ if (!isMacOS) $('#desktop-shortcut-enabled').addEventListener('change', (event) 
 $('#launch-at-login-enabled').addEventListener('change', (event) => setSystemIntegration('startup', event.currentTarget.checked));
 $('#pin-enabled').addEventListener('change', savePinSettings);
 $('#close-behavior').addEventListener('change', saveDesktopSettings);
+$('#menu-bar-only-enabled').addEventListener('change', saveMenuBarSettings);
+$('#open-quick-panel').addEventListener('click', () => api.window('quick').catch(error => toast(cleanError(error), 'error')));
 $('#quick-pairing-button').addEventListener('click', async event => {
   const button = event.currentTarget;
   button.disabled = true;
@@ -2548,7 +3043,24 @@ $('#page-activity .activity-panel').addEventListener('scroll', (event) => {
   if (panel.scrollHeight - panel.scrollTop - panel.clientHeight < 160) queueMoreActivities();
 }, { passive: true });
 
-window.__TAURI__.event.listen('state-changed', async () => { await refresh(false); await refreshDrafts(); });
+window.__TAURI__.event.listen('state-changed', async () => { await refreshOwnerLock(false); await refresh(false); await refreshDrafts(); });
+window.__TAURI__.event.listen('workspace-navigation', async ({ payload }) => {
+  if (!['connections', 'activity', 'settings'].includes(payload?.page)) return;
+  if (!$('#connection-modal').classList.contains('hidden') && !await closeEditorWithDraft()) return;
+  await refreshOwnerLock(false);
+  await refresh(false);
+  if (payload.page === 'connections') {
+    currentItemTypeFilter = 'all'; workspaceScope = 'all'; workspaceFolder = null;
+    pageSearch.connections = ''; workspaceSelectedId = payload.itemId || null;
+    syncItemTypeFilter();
+  }
+  if (payload.page === 'settings') {
+    currentSettingsFilter = ['APP', 'MCP', 'WEB'].includes(payload.section) ? payload.section : 'all';
+    pageSearch.settings = ''; syncSettingsFilterControl();
+  }
+  await selectPage(payload.page);
+  render();
+});
 window.__TAURI__.event.listen('pin-setup-requested', async () => {
   await refreshOwnerLock(false);
   if (ownerLockState.pinConfigured) return;
@@ -2556,7 +3068,7 @@ window.__TAURI__.event.listen('pin-setup-requested', async () => {
   renderOwnerLock();
   if (state) renderSettings();
 });
-window.addEventListener('focus', async () => { await refresh(false); await refreshOwnerLock(false); await refreshDrafts(); });
+window.addEventListener('focus', async () => { await refreshOwnerLock(false); await refresh(false); await refreshDrafts(); });
 window.addEventListener('resize', positionModuleMenu);
 $('.form-scroll', $('#connection-modal')).addEventListener('scroll', positionModuleMenu, { passive: true });
 $('#connections-list').addEventListener('scroll', positionModuleMenu, { passive: true });
@@ -2576,7 +3088,6 @@ $('#drag-extension-button').addEventListener('keydown', event => { if(event.key=
 
 async function bootstrap() {
   applyLanguage();
-  initLettering();
   await refreshOwnerLock();
   await refresh();
   await refreshDrafts();

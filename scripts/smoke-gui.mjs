@@ -10,12 +10,12 @@ if (process.env.CI !== "true" || process.env.GITHUB_ACTIONS !== "true") {
 
 const executableArgument = process.argv[2];
 if (!executableArgument) {
-  throw new Error("usage: node scripts/smoke-gui.mjs <openkeylet executable>");
+  throw new Error("usage: node scripts/smoke-gui.mjs <keyhub executable>");
 }
 const executable = path.resolve(executableArgument);
-assert.ok(fs.existsSync(executable), `OpenKeylet executable does not exist: ${executable}`);
+assert.ok(fs.existsSync(executable), `KeyHub executable does not exist: ${executable}`);
 
-const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "openkeylet-gui-smoke-"));
+const smokeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "keyhub-gui-smoke-"));
 const env = {
   ...process.env,
   HOME: path.join(smokeRoot, "home"),
@@ -24,6 +24,13 @@ const env = {
   XDG_CACHE_HOME: path.join(smokeRoot, "cache"),
   XDG_STATE_HOME: path.join(smokeRoot, "state"),
 };
+// Inherited overrides must not redirect a smoke run to a real vault or launcher.
+for (const variable of [
+  "KEYHUB_DATA_DIR", "OPENKEYLET_DATA_DIR", "KRU_DATA_DIR",
+  "KEYHUB_LAUNCHER_PATH", "OPENKEYLET_LAUNCHER_PATH", "KRU_LAUNCHER_PATH",
+]) {
+  delete env[variable];
+}
 for (const directory of [env.HOME, env.XDG_DATA_HOME, env.XDG_CONFIG_HOME, env.XDG_CACHE_HOME, env.XDG_STATE_HOME]) {
   fs.mkdirSync(directory, { recursive: true });
 }
@@ -50,11 +57,11 @@ try {
     });
     child.once("exit", (code, signal) => {
       clearTimeout(timer);
-      reject(new Error(`OpenKeylet GUI exited early (${code ?? signal}). ${output}`));
+      reject(new Error(`KeyHub GUI exited early (${code ?? signal}). ${output}`));
     });
   });
-  assert.equal(child.exitCode, null, `OpenKeylet GUI did not remain alive. ${output}`);
-  console.log("OpenKeylet GUI remained alive for 4 seconds.");
+  assert.equal(child.exitCode, null, `KeyHub GUI did not remain alive. ${output}`);
+  console.log("KeyHub GUI remained alive for 4 seconds.");
 } finally {
   if (process.platform === "win32" && child.pid) {
     spawnSync("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });

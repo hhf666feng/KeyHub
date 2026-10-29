@@ -122,7 +122,7 @@ impl MasterKey {
 
         if vault_exists {
             bail!(
-                "Vault master key is missing; OpenKeylet will not show a macOS Keychain authorization prompt or generate a new key that overwrites existing data"
+                "Vault master key is missing; KeyHub will not show a macOS Keychain authorization prompt or generate a new key that overwrites existing data"
             );
         }
 

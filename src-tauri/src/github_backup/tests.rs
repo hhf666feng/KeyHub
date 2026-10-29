@@ -144,7 +144,7 @@ async fn mock_handler(
             return StatusCode::CONFLICT.into_response();
         }
         assert_eq!(request["branch"], "main");
-        assert_eq!(request["message"], "Update encrypted OpenKeylet backup");
+        assert_eq!(request["message"], "Update encrypted KeyHub backup");
         let bytes = STANDARD
             .decode(request["content"].as_str().unwrap())
             .unwrap();

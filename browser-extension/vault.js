@@ -5,7 +5,7 @@ const OpenKeyletVaultUI = (() => {
   const loginFields = {username:"账号 / Username",password:"密码 / Password",totp:"TOTP 密钥 / TOTP key",secureNote:"备注 / Notes"};
   let snapshot={items:[],trash:[]}, signature="", editing=null, history=null, busy=false, sequence=0, confirmResolver=null;
   const button=(text,handler,kind="")=>{
-    const b=document.createElement("button"); b.type="button"; b.textContent=text; if(kind)b.className=kind; b.onclick=handler; return b;
+    const b=document.createElement("button"); b.type="button"; KeyHubUI.text(b, () => KeyHubUI.t(text)); if(kind)b.className=kind; b.onclick=handler; return b;
   };
   function closeEditor() {
     sequence++; editing=null; q("vault-editor").reset(); q("vault-editor").hidden=true;
@@ -17,7 +17,7 @@ const OpenKeyletVaultUI = (() => {
     resolve?.(value);
   }
   function ask(message) {
-    answerConfirm(false);q("vault-confirm-message").textContent=message;q("vault-confirm").hidden=false;q("vault-confirm").showModal();q("vault-confirm-accept").focus();
+    answerConfirm(false);KeyHubUI.text(q("vault-confirm-message"), () => KeyHubUI.t(message));q("vault-confirm").hidden=false;q("vault-confirm").showModal();q("vault-confirm-accept").focus();
     return new Promise(resolve=>{confirmResolver=resolve;});
   }
   async function mutate(action,args) {
@@ -31,7 +31,7 @@ const OpenKeyletVaultUI = (() => {
     const next=JSON.stringify(value);if(next===signature)return;signature=next;snapshot=value;
     const folder=q("vault-folder").value;
     const folders=[...new Set([...value.items,...value.trash.map(v=>v.item)].map(i=>i.folder).filter(Boolean))].sort();
-    q("vault-folder").replaceChildren(new Option("所有文件夹 / All folders",""),...folders.map(f=>new Option(f,f)));
+    q("vault-folder").replaceChildren(KeyHubUI.option(() => KeyHubUI.t("所有文件夹 / All folders"), ""),...folders.map(f=>new Option(f,f)));
     if(folders.includes(folder))q("vault-folder").value=folder;render();
   }
   function render() {
@@ -44,11 +44,11 @@ const OpenKeyletVaultUI = (() => {
       &&(!term||[item.name,item.folder,item.baseUrl,...(item.loginUris||[]).map(u=>u.uri)].join(" ").toLocaleLowerCase().includes(term)))
       .sort((a,b)=>Number(b.item.favorite)-Number(a.item.favorite)||a.item.name.localeCompare(b.item.name));
     const container=q("vault-all-items");container.replaceChildren();
-    if(!entries.length){const p=document.createElement("p");p.textContent=trash?"回收站为空或没有匹配项 / No matching trash items":"没有匹配项目 / No matching items";container.append(p);}
+    if(!entries.length){const p=document.createElement("p");KeyHubUI.text(p, () => trash?KeyHubUI.t("回收站为空或没有匹配项 / No matching trash items"):KeyHubUI.t("没有匹配项目 / No matching items"));container.append(p);}
     for(const entry of entries){
       const item=entry.item,row=document.createElement("article");row.className="vault-row";row.dataset.vaultId=item.id;
       const title=document.createElement("strong");title.textContent=(item.favorite?"★ ":"")+item.name;
-      const sub=document.createElement("small");sub.textContent=[labels[item.itemType]||item.itemType,item.folder,!item.enabled?"已停用 / Disabled":""].filter(Boolean).join(" · ");
+      const sub=document.createElement("small");KeyHubUI.text(sub, () => [KeyHubUI.t(labels[item.itemType]||item.itemType),item.folder,!item.enabled?KeyHubUI.t("已停用 / Disabled"):""].filter(Boolean).join(" · "));
       const actions=document.createElement("div");actions.className="personal-actions";
       row.append(title,sub,actions);container.append(row);
       if(trash){
@@ -69,22 +69,22 @@ const OpenKeyletVaultUI = (() => {
   }
   function addUri(uri="",matchType="origin") {
     const row=document.createElement("div");row.className="vault-uri-row";
-    const input=document.createElement("input");input.value=uri;input.maxLength=8192;input.dataset.uri="";input.setAttribute("aria-label","网站 / Website");
+    const input=document.createElement("input");input.value=uri;input.maxLength=8192;input.dataset.uri="";input.setAttribute("aria-label",KeyHubUI.t("网站 / Website"));
     const select=document.createElement("select");select.dataset.match="";
-    for(const [key,name] of [["origin","同源 / Origin"],["domain","主域名 / Domain"],["host","主机 / Host"],["exact","完整网址 / Exact"],["prefix","前缀 / Prefix"],["regex","正则 / Regex"],["never","不匹配 / Never"]])select.add(new Option(name,key));
+    for(const [key,name] of [["origin","同源 / Origin"],["domain","主域名 / Domain"],["host","主机 / Host"],["exact","完整网址 / Exact"],["prefix","前缀 / Prefix"],["regex","正则 / Regex"],["never","不匹配 / Never"]])select.add(KeyHubUI.option(() => KeyHubUI.t(name),key));
     select.value=matchType;row.append(input,select,button("×",()=>row.remove(),"secondary"));q("vault-uri-rows").append(row);
   }
   function showEditor(item,fields=[]) {
     closeEditor();closeHistory();closeSave();closePersonal();
     editing=item;
-    q("vault-editor-title").textContent=labels[item.itemType]||item.itemType;
+    KeyHubUI.text(q("vault-editor-title"), () => KeyHubUI.t(labels[item.itemType]||item.itemType));
     q("vault-item-name").value=item.name||"";q("vault-item-folder").value=item.folder||"";
     q("vault-item-favorite").checked=Boolean(item.favorite);q("vault-item-enabled").checked=item.enabled!==false;
     const values=Object.fromEntries(fields.map(field=>[field.name,field.value]));
     const standard=item.itemType==="login"?loginFields:{...(PERSONAL_LABELS[item.itemType]||{}),secureNote:"备注 / Notes"};
     const existing=(item.modules||[]).filter(m=>m.secret).map(m=>m.kind==="customSecret"?m.name:m.kind);
     for(const name of [...new Set([...Object.keys(standard),...existing])]){
-      const label=document.createElement("label");label.textContent=standard[name]||name;
+      const label=document.createElement("label");KeyHubUI.text(label, () => standard[name] ? KeyHubUI.t(standard[name]) : name);
       const row=document.createElement("div");row.className="vault-field";
       const input=document.createElement(name==="secureNote"?"textarea":"input");input.dataset.vaultField=name;
       input.id=`vault-field-${q("vault-editor-fields").children.length}`;label.htmlFor=input.id;input.autocomplete="off";
@@ -93,7 +93,7 @@ const OpenKeyletVaultUI = (() => {
       else input.type=["username","cardholderName","cardBrand","cardExpMonth","cardExpYear","identityTitle","firstName","middleName","lastName","company","email","phone","address1","address2","address3","city","state","postalCode","country"].includes(name)?"text":"password";
       input.value=values[name]||"";if(name==="privateKey")input.readOnly=true;
       const actions=document.createElement("div");actions.className="personal-actions";
-      if(input.tagName==="INPUT"&&input.type==="password")actions.append(button("显示 / Show",e=>{input.type=input.type==="password"?"text":"password";e.currentTarget.textContent=input.type==="password"?"显示 / Show":"隐藏 / Hide";},"secondary"));
+      if(input.tagName==="INPUT"&&input.type==="password")actions.append(button("显示 / Show",e=>{input.type=input.type==="password"?"text":"password";KeyHubUI.text(e.currentTarget, () => input.type==="password"?KeyHubUI.t("显示 / Show"):KeyHubUI.t("隐藏 / Hide"));},"secondary"));
       actions.append(button("复制 / Copy",async()=>{try{await navigator.clipboard.writeText(input.value);showError("已复制 / Copied");}catch(e){showError(e);}},"secondary"));
       row.append(label,input,actions);q("vault-editor-fields").append(row);
     }
@@ -134,7 +134,7 @@ const OpenKeyletVaultUI = (() => {
         description:item.description||"",httpAuthType:item.httpAuthType||"",authHeader:item.authHeader||"",authLocation:item.authLocation||"",
         authPrefix:item.authPrefix||"",apiAuthHeaders:item.apiAuthHeaders||[],testPath:item.testPath||""};
       await call("vault-save",{input,expectedUpdatedAt:item.updatedAt});
-      closeEditor();signature="";showError("已保存到 OpenKeylet / Saved");
+      closeEditor();signature="";showError("已保存到 KeyHub / Saved");
     }catch(e){showError(e);}finally{busy=false;refresh();}
   }
   async function openHistory(id) {
@@ -144,14 +144,14 @@ const OpenKeyletVaultUI = (() => {
       history={id,updatedAt:view.updatedAt};q("vault-history-rows").replaceChildren();
       for(const entry of view.entries){
         const row=document.createElement("div");row.className="vault-row";
-        const date=document.createElement("small");date.textContent=new Date(entry.changedAt).toLocaleString();
+        const date=document.createElement("small");KeyHubUI.text(date, () => KeyHubUI.date(entry.changedAt));
         const input=document.createElement("input");input.type="password";input.readOnly=true;input.autocomplete="off";input.value=entry.password;
         const actions=document.createElement("div");actions.className="personal-actions";
-        actions.append(button("显示 / Show",e=>{input.type=input.type==="password"?"text":"password";e.currentTarget.textContent=input.type==="password"?"显示 / Show":"隐藏 / Hide";}),
+        actions.append(button("显示 / Show",e=>{input.type=input.type==="password"?"text":"password";KeyHubUI.text(e.currentTarget, () => input.type==="password"?KeyHubUI.t("显示 / Show"):KeyHubUI.t("隐藏 / Hide"));}),
           button("复制 / Copy",async()=>{try{await navigator.clipboard.writeText(input.value);showError("已复制 / Copied");}catch(e){showError(e);}}));
         row.append(date,input,actions);q("vault-history-rows").append(row);
       }
-      if(!view.entries.length)q("vault-history-rows").textContent="暂无旧密码 / No previous passwords";
+      if(!view.entries.length)KeyHubUI.text(q("vault-history-rows"), () => KeyHubUI.t("暂无旧密码 / No previous passwords"));
       q("vault-history-clear").hidden=!view.entries.length;q("vault-history").hidden=false;
     }catch(e){showError(e);}finally{busy=false;}
   }

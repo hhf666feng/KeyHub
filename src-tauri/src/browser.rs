@@ -481,7 +481,7 @@ impl BrowserBridge {
 }
 
 async fn health() -> &'static str {
-    "OpenKeylet Browser Bridge"
+    "KeyHub Browser Bridge"
 }
 
 async fn internal_health(

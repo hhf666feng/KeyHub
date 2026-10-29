@@ -1,26 +1,28 @@
-# Security
+# KeyHub security
 
 **English** · [简体中文](SECURITY.zh-CN.md)
 
-OpenKeylet is a local credential execution tool exposed through stdio MCP. Its primary goal is to let an Agent complete authentication without placing hidden credential plaintext in ordinary MCP arguments or responses.
+KeyHub is a local credential execution tool exposed through stdio MCP. Its primary goal is to let an Agent complete authentication without placing hidden credential plaintext in ordinary MCP arguments or responses.
+
+The OpenKeylet → KeyHub rebrand changes presentation and the canonical executable/MCP ID (`keyhub`), not the threat model or permissions. Existing `{{openkeylet:module}}` and `{{kru:module}}` templates remain accepted alongside canonical `{{keyhub:module}}`; supported `OPENKEYLET_*` and `KRU_*` overrides remain compatible, with `KEYHUB_*` preferred. Client migration is an explicit repair of recognized managed entries, not a blanket rewrite of real configurations. See the [migration guide](README.md#migration-and-capability-parity).
 
 ## Security goals
 
 - Vault secrets are encrypted at rest with authenticated encryption.
 - Modules that are not marked `agentVisible` do not return plaintext through `items_search`.
 - Hidden values can be used locally by `credential_fill`, `ssh_run`, `ssh_upload`, `ssh_download`, and `http_send`.
-- Known stored credentials are redacted from activity errors, terminal output, SSH output, and API responses where OpenKeylet can identify them.
-- OpenKeylet-controlled authentication headers cannot be replaced by the caller; saved service URLs are defaults rather than authorization boundaries.
+- Known stored credentials are redacted from activity errors, terminal output, SSH output, and API responses where KeyHub can identify them.
+- KeyHub-controlled authentication headers cannot be replaced by the caller; saved service URLs are defaults rather than authorization boundaries.
 
 ## Explicitly agent-visible values
 
-The per-module **Agent visible** switch is a disclosure decision. When it is enabled, `items_search` includes that module's `value`, and the value may enter the Agent's context and its model provider's logs. For a visible TOTP module, OpenKeylet returns only the current six-digit code, never the permanent TOTP seed.
+The per-module **Agent visible** switch is a disclosure decision. When it is enabled, `items_search` includes that module's `value`, and the value may enter the Agent's context and its model provider's logs. For a visible TOTP module, KeyHub returns only the current six-digit code, never the permanent TOTP seed.
 
-Do not enable Agent visibility for a value that must remain outside the Agent context. This switch is separate from whether the module may be used by OpenKeylet for fill, SSH, or API actions.
+Do not enable Agent visibility for a value that must remain outside the Agent context. This switch is separate from whether the module may be used by KeyHub for fill, SSH, or API actions.
 
-## What OpenKeylet does not protect against
+## What KeyHub does not protect against
 
-OpenKeylet is not a sandbox, policy engine, DLP system, or authorization server. It does not defend against:
+KeyHub is not a sandbox, policy engine, DLP system, or authorization server. It does not defend against:
 
 - a malicious or compromised Agent;
 - another process running as the same operating-system user;
@@ -29,7 +31,7 @@ OpenKeylet is not a sandbox, policy engine, DLP system, or authorization server.
 - sensitive data newly produced by a command or remote service;
 - a task whose requested destination or operation is itself unsafe.
 
-MCP tool annotations are descriptive hints. OpenKeylet enforces its actual restrictions in the Rust backend and never treats annotations or prompt instructions as authorization.
+MCP tool annotations are descriptive hints. KeyHub enforces its actual restrictions in the Rust backend and never treats annotations or prompt instructions as authorization.
 
 ## Action boundaries
 
@@ -39,33 +41,55 @@ The extension popup uses exact scheme, host and port unless an item has explicit
 
 Optional save suggestions sample visible login fields on a browser-generated form submission after trusted user interaction, not on each keystroke. This is a convenience heuristic, not evidence that a site is trustworthy or that authentication succeeded. Only HTTPS/local pages with the same origin as their top-level tab are eligible. Drafts are bounded to ten tabs and five minutes, held in service-worker memory, and never written to extension storage or sent to an external service. The source URL comes from Chrome's sender metadata. Cross-origin navigation, tab close, bridge disconnection, opt-out, dismissal and explicit extension locking discard drafts. Only a trusted extension page can read them after the configured PIN unlock or commit them with version checks; page messages cannot save or read credentials. The on-page notice carries no captured values. Existing-login comparisons occur locally only while unlocked. Browser/worker restart may discard an unsaved suggestion.
 
-`credential_fill` writes one value to the currently focused control. When the caller sets `submit=true`, OpenKeylet also submits the focused browser form or presses Enter in a desktop or managed-terminal target. Desktop fill depends on the real operating-system foreground focus; background DOM focus is not sufficient. OpenKeylet cannot prove that the focused destination is trustworthy.
+`credential_fill` writes one value to the currently focused control. When the caller sets `submit=true`, KeyHub also submits the focused browser form or presses Enter in a desktop or managed-terminal target. Desktop fill depends on the real operating-system foreground focus; background DOM focus is not sufficient. KeyHub cannot prove that the focused destination is trustworthy.
 
 ### Managed terminal
 
-OpenKeylet remembers the most recently selected compatible project and the current managed terminal within each stdio MCP session. A unique `items_search` result or any explicit item selects the project, allowing later fill, SSH, transfer, HTTP, and terminal actions to omit the repeated name. `terminal_start`, or explicitly using another terminal ID, selects the current terminal so later write, read, fill, and stop calls can omit the repeated UUID. A PTY also keeps its own project binding until it ends. This is conversational convenience state, not an authorization boundary; ended terminals and disabled, deleted, or incompatible projects are ignored automatically.
+KeyHub remembers the most recently selected compatible project and the current managed terminal within each stdio MCP session. A unique `items_search` result or any explicit item selects the project, allowing later fill, SSH, transfer, HTTP, and terminal actions to omit the repeated name. `terminal_start`, or explicitly using another terminal ID, selects the current terminal so later write, read, fill, and stop calls can omit the repeated UUID. A PTY also keeps its own project binding until it ends. This is conversational convenience state, not an authorization boundary; ended terminals and disabled, deleted, or incompatible projects are ignored automatically.
 
-OpenKeylet does not add a policy shell. `terminal_run` executes an ordinary one-shot local shell command, while `terminal_start` opens the requested program or native Windows script when an interactive process is needed. Children inherit OpenKeylet's normal user environment so installed tools behave as they do for the user. `terminal_run` can write caller-provided text directly to standard input, avoiding shell interpolation and temporary files. It and `terminal_start` can substitute `{{openkeylet:module}}` placeholders in commands or working directories; one-shot stdin, PTY arguments, and later `terminal_write` input support the same local substitution, and `secretEnv` can inject selected modules into a child environment. `terminal_write` may press Enter and `terminal_read` may wait for a requested marker without a OpenKeylet deadline unless the caller supplies one. Those values and common encodings are redacted from returned output. Local commands and ordinary terminal input may affect local or external systems. Redaction covers values filled or injected by OpenKeylet, not unrelated environment variables or every secret a process may print.
+KeyHub does not add a policy shell. `terminal_run` executes an ordinary one-shot local shell command, while `terminal_start` opens the requested program or native Windows script when an interactive process is needed. Children inherit KeyHub's normal user environment so installed tools behave as they do for the user. `terminal_run` can write caller-provided text directly to standard input, avoiding shell interpolation and temporary files. It and `terminal_start` can substitute `{{keyhub:module}}` placeholders in commands or working directories; one-shot stdin, PTY arguments, and later `terminal_write` input support the same local substitution, and `secretEnv` can inject selected modules into a child environment. `terminal_write` may press Enter and `terminal_read` may wait for a requested marker without a KeyHub deadline unless the caller supplies one. Those values and common encodings are redacted from returned output. Local commands and ordinary terminal input may affect local or external systems. Redaction covers values filled or injected by KeyHub, not unrelated environment variables or every secret a process may print.
 
 ### SSH
 
-An item with a saved password or private key can grant the Agent full SSH command execution and recursive SFTP file-or-directory transfer. Host, port, and username may be saved as defaults or supplied by the Agent for the current call; port 22 is used when neither source provides a port. `ssh_run` can write caller-provided text directly to the remote process's standard input and substitute `{{openkeylet:module}}` placeholders in that input, its command, or working directory. `secretEnv` can inject additional stored modules into the remote environment. OpenKeylet redacts those values from returned output. Upload and download paths are selected by the Agent for the user's task, and existing destinations are replaced by default after a complete temporary copy has been prepared, including file-to-directory and directory-to-file changes. OpenKeylet has no observation, diagnostic, restricted, or execution mode. It does not pin or compare SSH host fingerprints; using an SSH credential delegates selection of the runtime destination to the Agent.
+An item with a saved password or private key can grant the Agent full SSH command execution and recursive SFTP file-or-directory transfer. Host, port, and username may be saved as defaults or supplied by the Agent for the current call; port 22 is used when neither source provides a port. `ssh_run` can write caller-provided text directly to the remote process's standard input and substitute `{{keyhub:module}}` placeholders in that input, its command, or working directory. `secretEnv` can inject additional stored modules into the remote environment. KeyHub redacts those values from returned output. Upload and download paths are selected by the Agent for the user's task, and existing destinations are replaced by default after a complete temporary copy has been prepared, including file-to-directory and directory-to-file changes. KeyHub has no observation, diagnostic, restricted, or execution mode. It does not pin or compare SSH host fingerprints; using an SSH credential delegates selection of the runtime destination to the Agent.
 
 ### API requests
 
 Any enabled item with a configured secret can be used as an HTTP request context. When an item stores a service URL, the caller may omit the request URL to use it, pass a relative path, or provide another absolute HTTP/HTTPS URL. Without a saved URL, the Agent supplies an absolute HTTP/HTTPS URL. The saved URL is a convenience, not an Origin allowlist: using an item for HTTP delegates selection of the request destination to the Agent.
 
-For authentication schemes not covered by the built-in API credential or Basic combinations, placeholders such as `{{openkeylet:password}}` or `{{openkeylet:service token}}` resolve the named module directly and are substituted locally in URL, header, query, JSON/text body, or form values. `http_send.secretBindings` is only an optional alias map when the placeholder name differs from the module. The resolved value is added to response and activity redaction without being returned to the caller; TOTP bindings use the current code rather than the stored seed.
+For authentication schemes not covered by the built-in API credential or Basic combinations, placeholders such as `{{keyhub:password}}` or `{{keyhub:service token}}` resolve the named module directly and are substituted locally in URL, header, query, JSON/text body, or form values. `http_send.secretBindings` is only an optional alias map when the placeholder name differs from the module. The resolved value is added to response and activity redaction without being returned to the caller; TOTP bindings use the current code rather than the stored seed.
 
-OpenKeylet follows HTTP/HTTPS redirects, including redirects to another Origin, until the service stops redirecting or the caller's optional timeout is reached. The caller may send ordinary headers, cookies, `Host`, or its own authorization values; only headers OpenKeylet injects for the saved credential remain controlled by OpenKeylet. Response headers and bodies are not classified by field name: only secret values already known to OpenKeylet are redacted, so new cookies, credentials, or other sensitive data returned by a service can enter Agent context. Activity records include the HTTP method, Origin, and path without the query string. Known stored secrets are redacted before the activity is saved.
+KeyHub follows HTTP/HTTPS redirects, including redirects to another Origin, until the service stops redirecting or the caller's optional timeout is reached. The caller may send ordinary headers, cookies, `Host`, or its own authorization values; only headers KeyHub injects for the saved credential remain controlled by KeyHub. Response headers and bodies are not classified by field name: only secret values already known to KeyHub are redacted, so new cookies, credentials, or other sensitive data returned by a service can enter Agent context. Activity records include the HTTP method, Origin, and path without the query string. Known stored secrets are redacted before the activity is saved.
 
-`http_send` can upload local files or save a response to a local file when the caller supplies a path. OpenKeylet does not independently decide whether a user-requested local file is appropriate to send, which HTTP/HTTPS destination should receive it, or where an explicitly requested response should be stored. Existing response files are replaced by default; the caller can explicitly disable replacement.
+`http_send` can upload local files or save a response to a local file when the caller supplies a path. KeyHub does not independently decide whether a user-requested local file is appropriate to send, which HTTP/HTTPS destination should receive it, or where an explicitly requested response should be stored. Existing response files are replaced by default; the caller can explicitly disable replacement.
 
 ## Local data and backups
 
-The vault and master-key files remain in the current user's application-data directory. PIN protects GUI plaintext viewing and extension vault access, and verifies each passkey operation. It is not a separate encryption key and does not stop another process running as the same user.
+The vault and master-key files remain in the current user's `mcp-vault/v2` application-data directory. The application identifier `dev.kru.desktop` and OS keyring service/account `mcp-vault` / `master-key-v2` are unchanged. PIN protects GUI plaintext viewing and extension vault access, and verifies each passkey operation. It is not a separate encryption key, does not disable MCP actions and does not stop another process running as the same user.
+
+On macOS, the current implementation uses an application-private `master.key`
+file, not Keychain-backed access control. It can migrate the existing Keychain
+key without changing the key bytes; `keyhub key migrate` is the explicit recovery
+command when authorization is needed. Windows and Linux try the existing OS
+keyring entry and fall back to a permission-restricted key file. Protect the
+entire data directory: copying both the vault and its key can expose its contents.
+
+The browser extension keeps its fixed ID, pairing token, bridge protocol and storage keys. A display-name change does not rotate pairing credentials or broaden the allowed extension origin.
 
 New desktop `.mvault` exports use a separate user password, a random 128-bit salt, Argon2id (64 MiB, 3 iterations, 1 lane), and XChaCha20-Poly1305 with version-bound associated data. No password or unlock key is included in the file. An incorrect password does not modify the local vault. Legacy and current CLI automatically unlocked packages still include their unlock material and must be protected like plaintext secrets. Both containers remain importable.
+
+Format names and authenticated associated data (AAD) are compatibility identifiers, not display branding. They remain byte-for-byte unchanged:
+
+| Context | Retained format / AAD |
+| --- | --- |
+| Stored secret envelope | `mcp-vault/secret/v2` AAD |
+| Password-protected `.mvault` | `openkeylet-password-backup` format; `openkeylet/password-backup/v1` AAD |
+| CLI self-unlocking `.mvault` | `mcp-vault-backup` format; existing versioned AAD `kru/backup/v3` through `kru/backup/v8` |
+| Portable payload | `mcp-vault-portable` format |
+| GitHub snapshot | `openkeylet.vault.json` filename; `openkeylet-cloud-backup` format; `openkeylet/cloud-backup/v1` AAD |
+| Local GitHub device state | `openkeylet-github-device` format |
+
+Do not rename these identifiers to `keyhub` or reinterpret a self-unlocking CLI package as a password-protected or cloud-safe backup.
 
 Card, identity and secure-note fields use the existing encrypted secret envelope and default to hidden from agents. These fields alone do not enable generic SSH/HTTP/agent-fill capabilities. Browser access requires an unlocked session and a user-selected operation. Autofill checks the current origin, allows only HTTPS or local development addresses, skips hidden fields and never submits forms.
 
@@ -73,13 +97,13 @@ Deleted items remain encrypted in the local trash until explicitly purged, and c
 
 ## Optional GitHub snapshots
 
-GitHub backup uses a separate authenticated-encryption format, not the self-unlocking `.mvault` container. A random 256-bit recovery key encrypts the entire portable payload with XChaCha20-Poly1305 and version-specific associated data. Neither the recovery key nor the repository access token is uploaded. Both are encrypted locally with the device's existing vault key, excluded from exports, and accessible through GUI commands only after the owner unlock check. Serialized local secret buffers are zeroized after use.
+GitHub backup uses a separate authenticated-encryption format in `openkeylet.vault.json`, not the self-unlocking `.mvault` container. A random 256-bit recovery key encrypts the entire portable payload with XChaCha20-Poly1305 and version-specific associated data. Existing recovery keys remain valid after the rename; there is no automatic rotation. Neither the recovery key nor the repository access token is uploaded. Both are encrypted locally with the device's existing vault key, excluded from exports, and accessible through GUI commands only after the owner unlock check. Serialized local secret buffers are zeroized after use.
 
 Account checks and optional private repository creation require unlocked owner commands. When explicitly selected, local GitHub CLI authorization is read through a hidden, bounded subprocess with a timeout; the token is not returned to the renderer. Repository creation is limited to the authenticated user's account and always requests private visibility. Existing repositories are never renamed or made private automatically. First upload is an explicit setup option and uses the same encrypted snapshot and conflict checks as later uploads.
 
 The client talks only to GitHub.com's API, refuses redirects, bounds response/snapshot sizes, and does not echo remote error bodies. It checks repository identity, default branch and private visibility before uploads and restores. Updates use the previously acknowledged blob SHA; conflicting or uncertain writes are never force-retried. These checks do not stop the repository owner from later making a repository public, deleting it, or changing it between API calls. Authentication protects snapshot contents, not availability or rollback: the current manual backup format does not provide cryptographic freshness guarantees against a malicious repository operator.
 
-Recovery imports merge into the vault transactionally, without deleting or overwriting local items. Git history retains past ciphertext. Disconnecting does not erase remote backups, remove other clones, revoke the token, or rotate the recovery key. Anyone with the recovery key and any snapshot can decrypt that snapshot. A compromised local user account remains outside the security boundary. Keep the recovery key separately; OpenKeylet cannot reset it for a user who has lost every copy and connected device.
+Recovery imports merge into the vault transactionally, without deleting or overwriting local items. Git history retains past ciphertext. Disconnecting does not erase remote backups, remove other clones, revoke the token, or rotate the recovery key. Anyone with the recovery key and any snapshot can decrypt that snapshot. A compromised local user account remains outside the security boundary. Keep the recovery key separately; KeyHub cannot reset it for a user who has lost every copy and connected device.
 
 ## Reporting a vulnerability
 

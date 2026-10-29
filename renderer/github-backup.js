@@ -1,6 +1,6 @@
 /* GitHub backup UI. No credentials are persisted in browser storage. */
 window.OpenKeyletGithubBackup = {
-  create({ invoke, localized, toast, isUnlocked, confirmAction, onRestore }) {
+  create({ invoke, localized, toast, isUnlocked, confirmAction, onRestore, bindBackdropGesture }) {
     const $ = (id) => document.getElementById(id);
     const modal = $('github-modal');
     let status = { connected: false };
@@ -39,7 +39,7 @@ window.OpenKeyletGithubBackup = {
       'github-cli-help': ['已用 gh auth login 登录 GitHub 的用户可直接复用授权；仅安装 Git 不代表已登录。授权在连接后加密保存在本机。也可切换为访问令牌。', 'Reuse your gh auth login authorization. Installing Git alone does not sign you in. Authorization is stored encrypted on this device after connecting. You can also use an access token.'],
       'github-check-account': ['检查账号', 'CHECK ACCOUNT'],
       'github-login-help': ['GitHub 登录帮助 ↗', 'LOGIN HELP ↗'],
-      'github-create-repository-label': ['由 OpenKeylet 在我的账号下创建此私有仓库', 'Create this private repository in my account'],
+      'github-create-repository-label': ['由 KeyHub 在我的账号下创建此私有仓库', 'Create this private repository in my account'],
       'github-first-upload-label': ['连接成功后，立即上传第一份加密备份', 'Upload the first encrypted backup after connecting'],
       'github-repository-input-label': ['私有仓库', 'Private repository'],
       'github-create-repo': ['创建私有仓库 ↗', 'CREATE PRIVATE REPO ↗'],
@@ -65,8 +65,8 @@ window.OpenKeyletGithubBackup = {
       GITHUB_AUTH_SOURCE: ['请选择受支持的授权方式。', 'Choose a supported authorization method.'],
       GITHUB_CREATE_MODE: ['恢复已有备份时不能创建仓库。', 'Repository creation is unavailable when restoring an existing backup.'],
       GITHUB_CREATE_OWNER: ['只能在当前授权账号下创建仓库，请先检查账号。组织仓库请在 GitHub 建好后连接。', 'Create under the authenticated account. Check the account first. Create organization repositories on GitHub before connecting.'],
-      GITHUB_REPOSITORY_EXISTS: ['仓库已存在或名称不可用。已有仓库请取消勾选“由 OpenKeylet 创建”，或使用其他名称。', 'The repository exists or its name is unavailable. Uncheck Create repository to connect an existing one, or choose another name.'],
-      GITHUB_CREATE_UNCONFIRMED: ['创建仓库的结果尚未确认。请在 GitHub 检查；若已创建，取消勾选“由 OpenKeylet 创建”后连接。', 'Repository creation could not be confirmed. Check GitHub; if it exists, uncheck Create repository and connect.'],
+      GITHUB_REPOSITORY_EXISTS: ['仓库已存在或名称不可用。已有仓库请取消勾选“由 KeyHub 创建”，或使用其他名称。', 'The repository exists or its name is unavailable. Uncheck Create repository to connect an existing one, or choose another name.'],
+      GITHUB_CREATE_UNCONFIRMED: ['创建仓库的结果尚未确认。请在 GitHub 检查；若已创建，取消勾选“由 KeyHub 创建”后连接。', 'Repository creation could not be confirmed. Check GitHub; if it exists, uncheck Create repository and connect.'],
       GITHUB_REPOSITORY_INVALID: ['请输入 owner/repository 或 GitHub 仓库链接。', 'Enter owner/repository or a GitHub repository URL.'],
       GITHUB_TOKEN_INVALID: ['请输入有效的 GitHub 访问令牌。', 'Enter a valid GitHub access token.'],
       GITHUB_KEY_INVALID: ['恢复密钥格式不正确。请完整粘贴以 okv1_ 开头的密钥。', 'Paste the complete recovery key beginning with okv1_.'],
@@ -204,7 +204,7 @@ window.OpenKeyletGithubBackup = {
     $('github-connect').addEventListener('click', openModal);
     $('github-reconfigure').addEventListener('click', openModal);
     $('github-modal-close').addEventListener('click', () => { if (!busy) closeModal(); });
-    modal.addEventListener('click', (event) => { if (event.target === modal && !busy) closeModal(); });
+    bindBackdropGesture(modal, () => { if (!busy) closeModal(); });
     modal.addEventListener('keydown', (event) => {
       event.stopPropagation();
       if (event.key === 'Escape') { event.preventDefault(); if (!busy) closeModal(); }
@@ -237,7 +237,7 @@ window.OpenKeyletGithubBackup = {
         const account = await invoke('github_backup_account',{input});
         if(epoch!==secretEpoch || !isUnlocked() || modal.classList.contains('hidden'))return;
         accountLogin=account.login;
-        if(!$('github-repository').value.trim()) $('github-repository').value=`${account.login}/openkeylet-vault`;
+        if(!$('github-repository').value.trim()) $('github-repository').value=`${account.login}/keyhub-vault`;
       } catch(error) { if(epoch===secretEpoch)formError=error; }
       finally { input.token='';busy=false;render(); }
     });

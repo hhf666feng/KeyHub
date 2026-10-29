@@ -29,7 +29,7 @@ pub struct GuiInstance {
 
 impl GuiInstance {
     pub fn acquire(data_dir: &Path) -> Result<Self> {
-        fs::create_dir_all(data_dir).context("Unable to create the OpenKeylet data directory")?;
+        fs::create_dir_all(data_dir).context("Unable to create the KeyHub data directory")?;
         let lock_path = data_dir.join("gui-instance.lock");
         let descriptor_path = data_dir.join("gui-instance.json");
         let lock = OpenOptions::new()
@@ -38,7 +38,7 @@ impl GuiInstance {
             .read(true)
             .write(true)
             .open(&lock_path)
-            .context("Unable to open the OpenKeylet GUI instance lock")?;
+            .context("Unable to open the KeyHub GUI instance lock")?;
         let started = Instant::now();
 
         loop {
@@ -47,12 +47,12 @@ impl GuiInstance {
                 Err(error) if lock_is_contended(&error) => {
                     request_takeover(&descriptor_path);
                     if started.elapsed() >= TAKEOVER_TIMEOUT {
-                        bail!("The previous OpenKeylet instance did not exit within 6 seconds");
+                        bail!("The previous KeyHub instance did not exit within 6 seconds");
                     }
                     thread::sleep(TAKEOVER_RETRY);
                 }
                 Err(error) => {
-                    return Err(error).context("Unable to lock the OpenKeylet GUI instance");
+                    return Err(error).context("Unable to lock the KeyHub GUI instance");
                 }
             }
         }
@@ -60,7 +60,7 @@ impl GuiInstance {
 
     fn become_primary(lock: File, descriptor_path: PathBuf) -> Result<Self> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
-            .context("Unable to create the OpenKeylet GUI handoff channel")?;
+            .context("Unable to create the KeyHub GUI handoff channel")?;
         let port = listener.local_addr()?.port();
         let token = uuid::Uuid::new_v4().to_string();
         let descriptor = serde_json::to_vec(&InstanceDescriptor {
@@ -80,7 +80,7 @@ impl GuiInstance {
         let listener = self
             .listener
             .take()
-            .context("OpenKeylet GUI handoff channel started")?;
+            .context("KeyHub GUI handoff channel started")?;
         let token = self.token.clone();
         thread::Builder::new()
             .name("openkeylet-gui-instance".to_owned())
@@ -105,7 +105,7 @@ impl GuiInstance {
                     }
                 }
             })
-            .context("Unable to start the OpenKeylet GUI handoff listener")?;
+            .context("Unable to start the KeyHub GUI handoff listener")?;
         Ok(())
     }
 }
@@ -138,11 +138,11 @@ fn request_takeover(descriptor_path: &Path) {
 
 fn write_descriptor(path: &Path, value: &[u8]) -> Result<()> {
     let mut file = AtomicWriteFile::open(path)
-        .context("Unable to create the OpenKeylet GUI instance descriptor file")?;
+        .context("Unable to create the KeyHub GUI instance descriptor file")?;
     file.write_all(value)
-        .context("Unable to write the OpenKeylet GUI instance descriptor file")?;
+        .context("Unable to write the KeyHub GUI instance descriptor file")?;
     file.commit()
-        .context("Unable to save the OpenKeylet GUI instance descriptor file")?;
+        .context("Unable to save the KeyHub GUI instance descriptor file")?;
     Ok(())
 }
 

@@ -1,10 +1,10 @@
-# Privacy practices and permission justifications
+# KeyHub privacy practices and permission justifications (draft)
 
-Use the English text below in the developer dashboard. Reconcile the selections with the final shipped build; the policy and the dashboard must describe the same behavior.
+Draft for a future submission, not evidence of dashboard submission, approval or publication. This display-name update does not change v0.16.0, the fixed extension ID, pairing token, bridge protocol, storage keys or permissions. Use the English text below in the developer dashboard. Reconcile the selections with the final shipped build; the policy and the dashboard must describe the same behavior.
 
 ## Single purpose
 
-OpenKeylet lets the user manage and use credentials from their local OpenKeylet desktop vault while browsing: saving and filling logins, confirming passkey operations, and filling selected cards and identities. The desktop companion is required. All extension features support this local credential-management purpose, including explicitly requested credential actions from the desktop's agent integration.
+KeyHub lets the user manage and use credentials from their local KeyHub desktop vault while browsing: saving and filling logins, confirming passkey operations, and filling selected cards and identities. The desktop companion is required. All extension features support this local credential-management purpose, including explicitly requested credential actions from the desktop's agent integration.
 
 ## Permission justifications
 

@@ -2,6 +2,7 @@ pub mod api_catalog;
 pub mod backup;
 pub mod browser;
 pub mod browser_vault;
+pub mod cli;
 pub mod crypto;
 pub mod executor;
 pub mod generator;
@@ -30,7 +31,11 @@ pub mod desktop;
 #[cfg(feature = "gui")]
 pub mod gui_instance;
 #[cfg(feature = "gui")]
+pub mod quick_panel;
+#[cfg(feature = "gui")]
 pub mod system_integration;
+#[cfg(feature = "gui")]
+pub mod window_zoom;
 
 #[cfg(feature = "gui")]
 pub use commands::run_gui;

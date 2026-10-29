@@ -15,7 +15,7 @@ const server=http.createServer(async(req,res)=>{
   catch{res.writeHead(404);res.end();}
 });
 server.listen(0,"127.0.0.1");await once(server,"listening");
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{})});
 try{
   const page=await browser.newPage({viewport:{width:460,height:690}});
   const errors=[];page.on("pageerror",error=>errors.push(error.message));
@@ -52,7 +52,7 @@ try{
   await page.locator("#github-connect").click();
   await page.locator("#github-check-account").click();
   await page.waitForFunction(()=>document.querySelector("#github-account-status").textContent.includes("fixture-user"));
-  assert.equal(await page.locator("#github-repository").inputValue(),"fixture-user/openkeylet-vault");
+  assert.equal(await page.locator("#github-repository").inputValue(),"fixture-user/keyhub-vault");
   assert.equal(await page.locator("#github-token").isVisible(),false);
   await page.screenshot({path:path.join(artifacts,"account.png")});
   await page.locator("#github-create-repository").check();

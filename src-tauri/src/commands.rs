@@ -21,7 +21,8 @@ use std::{
     time::Instant,
 };
 use tauri::{
-    AppHandle, Emitter, LogicalSize, Manager, State, WebviewWindow,
+    AppHandle, Emitter, LogicalSize, Manager, State, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -42,6 +43,8 @@ pub struct AppRuntime {
     github_backup: Mutex<GithubBackup>,
     agent_registry: AgentRegistry,
     tray_available: AtomicBool,
+    quick_dismissed_at: std::sync::Mutex<Option<Instant>>,
+    window_zoom: Mutex<crate::window_zoom::ZoomState>,
 }
 
 struct PendingImport {
@@ -55,8 +58,10 @@ struct OwnerSession {
     unlocked: bool,
 }
 
-const WINDOW_LOGICAL_WIDTH: f64 = 460.0;
-const WINDOW_LOGICAL_HEIGHT: f64 = 690.0;
+const WINDOW_LOGICAL_WIDTH: f64 = 1200.0;
+const WINDOW_LOGICAL_HEIGHT: f64 = 800.0;
+const WINDOW_MIN_LOGICAL_WIDTH: f64 = 760.0;
+const WINDOW_MIN_LOGICAL_HEIGHT: f64 = 600.0;
 
 async fn owner_lock_state(runtime: &AppRuntime) -> Result<OwnerLockState, String> {
     let pin_configured = runtime
@@ -84,6 +89,22 @@ async fn require_owner_unlocked(runtime: &AppRuntime) -> Result<(), String> {
         Ok(())
     } else {
         Err("GUI is locked; enter the six-digit PIN".to_owned())
+    }
+}
+
+async fn owner_read_guard(
+    runtime: &AppRuntime,
+) -> Result<tokio::sync::MutexGuard<'_, OwnerSession>, String> {
+    let session = runtime.owner_session.lock().await;
+    if !runtime
+        .vault
+        .owner_pin_configured()
+        .map_err(command_error)?
+        || session.unlocked
+    {
+        Ok(session)
+    } else {
+        Err("GUI is locked; enter the six-digit PIN".into())
     }
 }
 
@@ -134,6 +155,7 @@ async fn owner_disable_pin(runtime: State<'_, AppRuntime>) -> Result<OwnerLockSt
 
 #[tauri::command]
 async fn owner_unlock(
+    app: AppHandle,
     runtime: State<'_, AppRuntime>,
     pin: String,
 ) -> Result<OwnerLockState, String> {
@@ -145,13 +167,18 @@ async fn owner_unlock(
         return Err("Incorrect PIN".to_owned());
     }
     keep_owner_unlocked(&runtime).await;
+    emit_changed(&app);
     owner_lock_state(&runtime).await
 }
 
 #[tauri::command]
-async fn owner_lock(runtime: State<'_, AppRuntime>) -> Result<OwnerLockState, String> {
+async fn owner_lock(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+) -> Result<OwnerLockState, String> {
     runtime.owner_session.lock().await.unlocked = false;
     *runtime.pending_import.lock().await = None;
+    emit_changed(&app);
     owner_lock_state(&runtime).await
 }
 
@@ -160,8 +187,7 @@ async fn owner_secret_view(
     runtime: State<'_, AppRuntime>,
     id: Uuid,
 ) -> Result<OwnerSecretView, String> {
-    require_owner_unlocked(&runtime).await?;
-    keep_owner_unlocked(&runtime).await;
+    let _authorization = owner_read_guard(&runtime).await?;
     runtime.vault.owner_secret_view(id).map_err(command_error)
 }
 
@@ -169,8 +195,7 @@ async fn owner_secret_view(
 async fn owner_editor_drafts(
     runtime: State<'_, AppRuntime>,
 ) -> Result<Vec<OwnerEditorDraft>, String> {
-    require_owner_unlocked(&runtime).await?;
-    keep_owner_unlocked(&runtime).await;
+    let _authorization = owner_read_guard(&runtime).await?;
     runtime.vault.list_editor_drafts().map_err(command_error)
 }
 
@@ -181,7 +206,6 @@ async fn save_editor_draft(
     mut input: ConnectionInput,
 ) -> Result<OwnerEditorDraft, String> {
     require_owner_unlocked(&runtime).await?;
-    keep_owner_unlocked(&runtime).await;
     if input.private_key_import_path == "pending" {
         let path = runtime
             .pending_private_key
@@ -214,8 +238,7 @@ async fn copy_owner_value(
     runtime: State<'_, AppRuntime>,
     value: String,
 ) -> Result<(), String> {
-    require_owner_unlocked(&runtime).await?;
-    keep_owner_unlocked(&runtime).await;
+    let _authorization = owner_read_guard(&runtime).await?;
     app.clipboard().write_text(&value).map_err(command_error)
 }
 
@@ -412,10 +435,26 @@ async fn update_settings(
     runtime: State<'_, AppRuntime>,
     patch: SettingsPatch,
 ) -> Result<crate::model::Settings, String> {
+    if let Some(requested) = patch.menu_bar_only {
+        let tray_available = runtime.tray_available.load(Ordering::Acquire);
+        if requested && (!cfg!(target_os = "macos") || !tray_available) {
+            return Err("Menu-bar-only mode requires the macOS status icon".into());
+        }
+        apply_dock_mode(&app, requested, tray_available).map_err(command_error)?;
+    }
     let settings = runtime
         .vault
         .update_settings_patch(patch)
-        .map_err(command_error)?;
+        .map_err(|error| {
+            if let Ok(previous) = runtime.vault.settings() {
+                let _ = apply_dock_mode(
+                    &app,
+                    previous.menu_bar_only,
+                    runtime.tray_available.load(Ordering::Acquire),
+                );
+            }
+            command_error(error)
+        })?;
     runtime.browser.sync().await;
     emit_changed(&app);
     Ok(settings)
@@ -582,6 +621,8 @@ async fn drag_browser_extension(app: AppHandle, window: WebviewWindow) -> Result
     let drag_window = window.clone();
     window
         .run_on_main_thread(move || {
+            // Linux's fallible GTK lookup must return through the oneshot sender.
+            #[allow(clippy::redundant_closure_call)]
             let result = (|| -> Result<(), String> {
                 #[cfg(target_os = "linux")]
                 let native = drag_window.gtk_window().map_err(command_error)?;
@@ -700,8 +741,8 @@ async fn export_backup(
     let selected = app
         .dialog()
         .file()
-        .add_filter("OpenKeylet backup", &["mvault"])
-        .set_file_name("openkeylet-backup.mvault")
+        .add_filter("KeyHub backup", &["mvault"])
+        .set_file_name("keyhub-backup.mvault")
         .blocking_save_file();
     let Some(path) = selected else {
         return Ok(None);
@@ -833,7 +874,7 @@ async fn import_backup(
     let selected = app
         .dialog()
         .file()
-        .add_filter("OpenKeylet backup", &["mvault"])
+        .add_filter("KeyHub backup", &["mvault"])
         .blocking_pick_file();
     let Some(path) = selected else {
         return Ok(None);
@@ -932,7 +973,19 @@ async fn window_action(
     action: String,
 ) -> Result<(), String> {
     match action.as_str() {
+        "quick" => {
+            let tray = window
+                .app_handle()
+                .tray_by_id("openkeylet-tray")
+                .ok_or("Tray unavailable")?;
+            let rect = tray
+                .rect()
+                .map_err(command_error)?
+                .ok_or("Tray position unavailable")?;
+            toggle_quick_panel(window.app_handle(), rect).map_err(command_error)
+        }
         "minimize" => window.minimize().map_err(command_error),
+        "maximize" => toggle_workspace_zoom(&window).await,
         "close" => {
             let tray_available = runtime.tray_available.load(Ordering::Acquire);
             if !tray_available {
@@ -955,34 +1008,354 @@ async fn window_action(
     }
 }
 
+/// Zoom on the display that currently contains the window and restore the
+/// exact previous frame on the next invocation. Windows/Linux keep native
+/// maximize because only macOS has the borderless `mainScreen` fallback.
+async fn toggle_workspace_zoom(window: &WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if window.is_fullscreen().map_err(command_error)? {
+            return Ok(());
+        }
+        let runtime = window.state::<AppRuntime>();
+        let mut zoom = runtime.window_zoom.lock().await;
+        let monitor = window
+            .current_monitor()
+            .map_err(command_error)?
+            .or(window.primary_monitor().map_err(command_error)?)
+            .ok_or_else(|| "No usable monitor for window zoom".to_owned())?;
+        let scale = monitor.scale_factor();
+        if !scale.is_finite() || scale <= 0.0 {
+            return Err("Invalid monitor scale".to_owned());
+        }
+        let work_area = monitor.work_area();
+        let work_position = work_area.position.to_logical::<f64>(scale);
+        let work_size = work_area.size.to_logical::<f64>(scale);
+        let work = crate::window_zoom::Frame {
+            x: work_position.x,
+            y: work_position.y,
+            width: work_size.width,
+            height: work_size.height,
+        };
+        let window_scale = window.scale_factor().map_err(command_error)?;
+        if !window_scale.is_finite() || window_scale <= 0.0 {
+            return Err("Invalid window scale".to_owned());
+        }
+        let position = window.outer_position().map_err(command_error)?;
+        let size = window.outer_size().map_err(command_error)?;
+        let current = crate::window_zoom::Frame {
+            x: position.x as f64 / window_scale,
+            y: position.y as f64 / window_scale,
+            width: size.width as f64 / window_scale,
+            height: size.height as f64 / window_scale,
+        };
+        let (target, next) = zoom.next(current, work);
+        window
+            .set_size(LogicalSize::new(target.width, target.height))
+            .map_err(command_error)?;
+        window
+            .set_position(tauri::LogicalPosition::new(target.x, target.y))
+            .map_err(command_error)?;
+        // macOS frame setters enqueue AppKit work. Keep one zoom in flight until
+        // the queued frame is visible, so a second click cannot save stale bounds.
+        for _ in 0..30 {
+            let scale = window.scale_factor().map_err(command_error)?;
+            let position = window.outer_position().map_err(command_error)?;
+            let size = window.outer_size().map_err(command_error)?;
+            if (crate::window_zoom::Frame {
+                x: position.x as f64 / scale,
+                y: position.y as f64 / scale,
+                width: size.width as f64 / scale,
+                height: size.height as f64 / scale,
+            })
+            .approximately_equals(target)
+            {
+                *zoom = next;
+                return Ok(());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        Err("Window did not reach the requested zoom bounds".to_owned())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if window.is_maximized().map_err(command_error)? {
+            window.unmaximize().map_err(command_error)
+        } else {
+            window.maximize().map_err(command_error)
+        }
+    }
+}
+
 fn should_hide_on_close(close_behavior: &str, tray_available: bool) -> bool {
     tray_available && !close_behavior.eq_ignore_ascii_case("exit")
 }
 
 fn show_main_window(app: &AppHandle) {
+    if let Some(quick) = app.get_webview_window("quick") {
+        let _ = quick.hide();
+    }
     #[cfg(target_os = "macos")]
-    let _ = app.show();
+    if !app
+        .state::<AppRuntime>()
+        .vault
+        .settings()
+        .map(|settings| settings.menu_bar_only)
+        .unwrap_or(false)
+    {
+        let _ = app.show();
+    }
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
     }
+    if let Ok(settings) = app.state::<AppRuntime>().vault.settings() {
+        let _ = apply_dock_mode(
+            app,
+            settings.menu_bar_only,
+            app.state::<AppRuntime>()
+                .tray_available
+                .load(Ordering::Acquire),
+        );
+    }
+}
+
+fn apply_dock_mode(app: &AppHandle, requested: bool, tray_available: bool) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        let resident = crate::quick_panel::resident_mode(requested, tray_available, true);
+        app.set_activation_policy(if resident {
+            tauri::ActivationPolicy::Accessory
+        } else {
+            tauri::ActivationPolicy::Regular
+        })?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, requested, tray_available);
+    Ok(())
+}
+
+#[tauri::command]
+async fn quick_state(runtime: State<'_, AppRuntime>) -> Result<serde_json::Value, String> {
+    // Detection may spawn bounded CLI probes; recheck the lock AFTER those await points.
+    let agents = runtime
+        .agent_registry
+        .list()
+        .await
+        .into_iter()
+        .map(|agent| {
+            serde_json::json!({
+                "clientId": agent.client_id, "displayName": agent.display_name,
+                "detected": agent.detected, "state": agent.state,
+            })
+        })
+        .collect::<Vec<_>>();
+    let browser = runtime.browser.status().await;
+    let session = runtime.owner_session.lock().await;
+    let pin_configured = runtime
+        .vault
+        .owner_pin_configured()
+        .map_err(command_error)?;
+    let unlocked = !pin_configured || session.unlocked;
+    let summary = runtime
+        .vault
+        .quick_summary(unlocked)
+        .map_err(command_error)?;
+    let settings = runtime.vault.settings().map_err(command_error)?;
+    Ok(serde_json::json!({
+        "language":settings.language, "menuBarOnly":settings.menu_bar_only,
+        "owner":{"pinConfigured":pin_configured,"unlocked":unlocked},
+        "credentials":summary.credentials,"activities":summary.activities,
+        "credentialCount":summary.credential_count,"enabledCount":summary.enabled_count,
+        "agents":agents,"browser":{"enabled":browser.enabled,"connected":browser.connected,"status":browser.status}
+    }))
+}
+
+#[tauri::command]
+fn quick_open_main(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    page: String,
+    item_id: Option<Uuid>,
+    section: Option<String>,
+) -> Result<(), String> {
+    if !matches!(page.as_str(), "connections" | "activity" | "settings")
+        || section
+            .as_ref()
+            .is_some_and(|value| !matches!(value.as_str(), "APP" | "MCP" | "WEB"))
+    {
+        return Err("Unknown workspace route".into());
+    }
+    if let Some(id) = item_id
+        && (page != "connections"
+            || !runtime
+                .vault
+                .quick_summary(true)
+                .map_err(command_error)?
+                .credentials
+                .iter()
+                .any(|item| item.id == id))
+    {
+        return Err("Credential no longer exists".into());
+    }
+    show_main_window(&app);
+    app.emit_to(
+        "main",
+        "workspace-navigation",
+        serde_json::json!({"page":page,"itemId":item_id,"section":section}),
+    )
+    .map_err(command_error)
+}
+
+fn quit_application(app: &AppHandle) {
+    if let Err(error) = crate::runtime_epoch::invalidate(app.state::<AppRuntime>().vault.data_dir())
+    {
+        eprintln!("KeyHub: failed to stop MCP sessions: {error:#}");
+    }
+    app.exit(0);
+}
+
+#[tauri::command]
+async fn quick_action(
+    app: AppHandle,
+    runtime: State<'_, AppRuntime>,
+    action: String,
+) -> Result<(), String> {
+    match action.as_str() {
+        "hide" => {
+            if let Some(quick) = app.get_webview_window("quick") {
+                quick.hide().map_err(command_error)?;
+            }
+        }
+        "lock" => {
+            runtime.owner_session.lock().await.unlocked = false;
+            *runtime.pending_import.lock().await = None;
+            emit_changed(&app);
+            if !runtime
+                .vault
+                .owner_pin_configured()
+                .map_err(command_error)?
+            {
+                show_main_window(&app);
+                app.emit_to("main", "pin-setup-requested", ())
+                    .map_err(command_error)?;
+            }
+        }
+        "quit" => quit_application(&app),
+        _ => return Err("Unknown quick-panel action".into()),
+    }
+    Ok(())
+}
+
+fn toggle_quick_panel(app: &AppHandle, rect: tauri::Rect) -> Result<()> {
+    let quick = if let Some(window) = app.get_webview_window("quick") {
+        window
+    } else {
+        WebviewWindowBuilder::new(app, "quick", WebviewUrl::App("quick.html".into()))
+            .title("KeyHub Quick Panel")
+            .inner_size(crate::quick_panel::WIDTH, crate::quick_panel::HEIGHT)
+            .resizable(false)
+            .maximizable(false)
+            .minimizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .visible(false)
+            .transparent(true)
+            .shadow(true)
+            .build()?
+    };
+    if quick.is_visible()? {
+        quick.hide()?;
+        return Ok(());
+    }
+    // Clicking the status item can blur the panel before its click event arrives.
+    if app
+        .state::<AppRuntime>()
+        .quick_dismissed_at
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take()
+        .is_some_and(|time| time.elapsed().as_millis() < 200)
+    {
+        return Ok(());
+    }
+    let anchor = rect.position.to_physical::<f64>(1.0);
+    #[cfg(target_os = "macos")]
+    let monitor = {
+        let monitors = app.available_monitors()?;
+        let sizes = monitors
+            .iter()
+            .map(|monitor| {
+                [
+                    monitor.position().x as f64,
+                    monitor.position().y as f64,
+                    monitor.size().width as f64,
+                    monitor.size().height as f64,
+                    monitor.scale_factor(),
+                    monitor.work_area().position.y as f64,
+                ]
+            })
+            .collect::<Vec<_>>();
+        let anchor_size = rect.size.to_physical::<f64>(1.0);
+        crate::quick_panel::macos_monitor_index(
+            &sizes,
+            [anchor.x, anchor.y, anchor_size.width, anchor_size.height],
+        )
+        .map(|index| monitors[index].clone())
+        .or(app.primary_monitor()?)
+    };
+    #[cfg(not(target_os = "macos"))]
+    let monitor = app
+        .monitor_from_point(anchor.x, anchor.y)?
+        .or(app.primary_monitor()?);
+    if let Some(monitor) = monitor {
+        let scale = monitor.scale_factor();
+        let anchor = rect.position.to_physical::<f64>(scale);
+        let size = rect.size.to_physical::<f64>(scale);
+        let work = monitor.work_area();
+        let [x, y, width, height] = crate::quick_panel::placement(
+            [
+                work.position.x as f64,
+                work.position.y as f64,
+                work.size.width as f64,
+                work.size.height as f64,
+            ],
+            [anchor.x, anchor.y, size.width, size.height],
+            scale,
+        );
+        #[cfg(target_os = "macos")]
+        {
+            quick.set_position(tauri::LogicalPosition::new(x / scale, y / scale))?;
+            quick.set_size(LogicalSize::new(width / scale, height / scale))?;
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            quick.set_position(tauri::PhysicalPosition::new(x as i32, y as i32))?;
+            quick.set_size(tauri::PhysicalSize::new(width as u32, height as u32))?;
+        }
+    }
+    quick.show()?;
+    quick.set_focus()?;
+    app.emit_to("quick", "state-changed", ())?;
+    Ok(())
 }
 
 fn install_tray(app: &tauri::App) -> Result<()> {
-    let open = MenuItem::with_id(app, "tray-open", "OPEN OpenKeylet", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "tray-open", "OPEN KeyHub", true, None::<&str>)?;
     let lock = MenuItem::with_id(app, "tray-lock", "LOCK", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "tray-quit", "QUIT", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&open, &lock, &separator, &quit])?;
     let icon = app
         .default_window_icon()
-        .context("OpenKeylet tray icon not found")?
+        .context("KeyHub tray icon not found")?
         .clone();
 
     TrayIconBuilder::with_id("openkeylet-tray")
         .icon(icon)
-        .tooltip("OpenKeylet — LOCAL VAULT")
+        .tooltip("KeyHub — LOCAL VAULT")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
@@ -998,33 +1371,78 @@ fn install_tray(app: &tauri::App) -> Result<()> {
                         .lock()
                         .await
                         .unlocked = false;
+                    emit_changed(&handle);
                     show_main_window(&handle);
                     if matches!(pin_configured, Ok(false)) {
                         let _ = handle.emit("pin-setup-requested", ());
                     }
                 });
             } else if event.id() == "tray-quit" {
-                if let Err(error) =
-                    crate::runtime_epoch::invalidate(app.state::<AppRuntime>().vault.data_dir())
-                {
-                    eprintln!("OpenKeylet: failed to stop MCP sessions: {error:#}");
-                }
-                app.exit(0);
+                quit_application(app);
             }
         })
         .on_tray_icon_event(|tray, event| match event {
             TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,
+                rect,
                 ..
             }
             | TrayIconEvent::DoubleClick {
                 button: MouseButton::Left,
+                rect,
                 ..
-            } => show_main_window(tray.app_handle()),
+            } => {
+                if let Err(error) = toggle_quick_panel(tray.app_handle(), rect) {
+                    eprintln!("KeyHub: could not open quick panel: {error:#}");
+                    show_main_window(tray.app_handle());
+                }
+            }
             _ => {}
         })
         .build(app)?;
+    Ok(())
+}
+
+fn configure_workspace_window(window: &WebviewWindow) -> Result<()> {
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten())
+        .filter(|monitor| {
+            let scale_factor = monitor.scale_factor();
+            let work_area = monitor.work_area();
+            scale_factor.is_finite()
+                && scale_factor > 0.0
+                && work_area.size.width > 0
+                && work_area.size.height > 0
+        });
+    let mut size = LogicalSize::new(WINDOW_LOGICAL_WIDTH, WINDOW_LOGICAL_HEIGHT);
+    if let Some(monitor) = &monitor {
+        let work_area = monitor.work_area();
+        let available = work_area.size.to_logical::<f64>(monitor.scale_factor());
+        size.width = size.width.min(available.width);
+        size.height = size.height.min(available.height);
+    }
+    // Relax the minimum only when the work area is smaller than the workspace floor.
+    window.set_min_size(Some(LogicalSize::new(
+        WINDOW_MIN_LOGICAL_WIDTH.min(size.width),
+        WINDOW_MIN_LOGICAL_HEIGHT.min(size.height),
+    )))?;
+    window.set_max_size(None::<LogicalSize<f64>>)?;
+    window.set_size(size)?;
+    window.set_resizable(true)?;
+    window.set_maximizable(true)?;
+    if let Some(monitor) = &monitor {
+        let work_area = monitor.work_area();
+        let physical = size.to_physical::<u32>(monitor.scale_factor());
+        window.set_position(tauri::PhysicalPosition::new(
+            work_area.position.x + (work_area.size.width.saturating_sub(physical.width) / 2) as i32,
+            work_area.position.y
+                + (work_area.size.height.saturating_sub(physical.height) / 2) as i32,
+        ))?;
+    }
     Ok(())
 }
 
@@ -1066,8 +1484,10 @@ pub fn run_gui() -> Result<()> {
             gui_instance.listen_for_takeover(move || exit_handle.exit(0))?;
             let vault = Vault::open(data_dir.clone())?;
             let executable = mcp::launcher_executable()?.to_string_lossy().into_owned();
-            if let Err(error) = crate::system_integration::migrate_legacy_entries(Path::new(&executable)) {
-                eprintln!("OpenKeylet: failed to migrate legacy system shortcuts: {error:#}");
+            if let Err(error) =
+                crate::system_integration::migrate_legacy_entries(Path::new(&executable))
+            {
+                eprintln!("KeyHub: failed to migrate legacy system shortcuts: {error:#}");
             }
             let browser = BrowserBridge::new(vault.clone());
             let agent_registry = AgentRegistry::new(PathBuf::from(&executable))?;
@@ -1083,17 +1503,16 @@ pub fn run_gui() -> Result<()> {
                 owner_session: Mutex::new(OwnerSession::default()),
                 agent_registry,
                 tray_available: AtomicBool::new(false),
+                quick_dismissed_at: std::sync::Mutex::new(None),
+                window_zoom: Mutex::new(Default::default()),
             });
 
-            let window = app.get_webview_window("main").context("Main window not found")?;
+            let window = app
+                .get_webview_window("main")
+                .context("Main window not found")?;
             #[cfg(debug_assertions)]
-            window.set_title("OpenKeylet · DEV")?;
-            let fixed_size = LogicalSize::new(WINDOW_LOGICAL_WIDTH, WINDOW_LOGICAL_HEIGHT);
-            window.set_min_size(Some(fixed_size))?;
-            window.set_max_size(Some(fixed_size))?;
-            window.set_size(fixed_size)?;
-            window.set_resizable(false)?;
-            window.set_maximizable(false)?;
+            window.set_title("KeyHub · DEV")?;
+            configure_workspace_window(&window)?;
             request_rounded_corners(&window)?;
             match install_tray(app) {
                 Ok(()) => app
@@ -1102,9 +1521,29 @@ pub fn run_gui() -> Result<()> {
                     .store(true, Ordering::Release),
                 Err(error) => {
                     eprintln!(
-                        "OpenKeylet: system tray unavailable; closing the window will exit: {error:#}"
+                        "KeyHub: system tray unavailable; closing the window will exit: {error:#}"
                     )
                 }
+            }
+            let runtime = app.state::<AppRuntime>();
+            let tray_available = runtime.tray_available.load(Ordering::Acquire);
+            let resident = runtime.vault.settings()?.menu_bar_only;
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(
+                if crate::quick_panel::resident_mode(resident, tray_available, true) {
+                    tauri::ActivationPolicy::Accessory
+                } else {
+                    tauri::ActivationPolicy::Regular
+                },
+            );
+            if crate::quick_panel::resident_mode(
+                resident,
+                tray_available,
+                cfg!(target_os = "macos"),
+            ) {
+                window.hide()?;
+            } else {
+                window.show()?;
             }
             {
                 let handle = app.handle().clone();
@@ -1116,11 +1555,34 @@ pub fn run_gui() -> Result<()> {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
-                let _ = window.set_size(LogicalSize::new(
-                    WINDOW_LOGICAL_WIDTH,
-                    WINDOW_LOGICAL_HEIGHT,
-                ));
+            if window.label() == "quick" {
+                match event {
+                    tauri::WindowEvent::Focused(false) => {
+                        *window
+                            .state::<AppRuntime>()
+                            .quick_dismissed_at
+                            .lock()
+                            .unwrap_or_else(|error| error.into_inner()) = Some(Instant::now());
+                        let _ = window.hide();
+                    }
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                    _ => {}
+                }
+                return;
+            }
+            #[cfg(target_os = "macos")]
+            if matches!(event, tauri::WindowEvent::Focused(true)) {
+                let runtime = window.state::<AppRuntime>();
+                if let Ok(settings) = runtime.vault.settings() {
+                    let _ = apply_dock_mode(
+                        window.app_handle(),
+                        settings.menu_bar_only,
+                        runtime.tray_available.load(Ordering::Acquire),
+                    );
+                }
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let runtime = window.state::<AppRuntime>();
@@ -1138,73 +1600,96 @@ pub fn run_gui() -> Result<()> {
                 } else if let Err(error) =
                     crate::runtime_epoch::invalidate(runtime.vault.data_dir())
                 {
-                    eprintln!("OpenKeylet: failed to stop MCP sessions: {error:#}");
+                    eprintln!("KeyHub: failed to stop MCP sessions: {error:#}");
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![
-            get_state,
-            owner_status,
-            owner_set_pin,
-            owner_disable_pin,
-            owner_unlock,
-            owner_lock,
-            owner_secret_view,
-            owner_editor_drafts,
-            save_editor_draft,
-            delete_editor_draft,
-            copy_owner_value,
-            save_connection,
-            reorder_connections,
-            set_connection_enabled,
-            delete_connection,
-            owner_trash,
-            owner_restore_item,
-            owner_purge_item,
-            owner_password_history,
-            owner_clear_password_history,
-            test_connection,
-            update_settings,
-            system_integration_status,
-            set_desktop_shortcut,
-            set_launch_at_login,
-            clear_activities,
-            copy_mcp_config,
-            agent_mcp_status,
-            agent_mcp_register,
-            agent_mcp_repair,
-            agent_mcp_remove,
-            choose_private_key,
-            quick_pair_browser,
-            reset_browser_pairing,
-            open_browser_extension_folder,
-            drag_browser_extension,
-            export_backup,
-            generate_password,
-            import_backup,
-            prepare_import,
-            commit_import,
-            cancel_import,
-            github_backup_status,
-            github_backup_account,
-            github_backup_generate_key,
-            github_backup_recovery_key,
-            github_backup_connect,
-            github_backup_upload,
-            github_backup_restore,
-            github_backup_disconnect,
-            github_backup_help,
-            open_data_folder,
-            window_action,
-        ])
+        .invoke_handler(|invoke| {
+            if invoke.message.webview_ref().label() == "quick"
+                && !crate::quick_panel::allowed_command(invoke.message.command())
+            {
+                invoke
+                    .resolver
+                    .reject("Command is not available in the quick panel");
+                return true;
+            }
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
+                get_state,
+                owner_status,
+                owner_set_pin,
+                owner_disable_pin,
+                owner_unlock,
+                owner_lock,
+                owner_secret_view,
+                owner_editor_drafts,
+                save_editor_draft,
+                delete_editor_draft,
+                copy_owner_value,
+                save_connection,
+                reorder_connections,
+                set_connection_enabled,
+                delete_connection,
+                owner_trash,
+                owner_restore_item,
+                owner_purge_item,
+                owner_password_history,
+                owner_clear_password_history,
+                test_connection,
+                update_settings,
+                system_integration_status,
+                set_desktop_shortcut,
+                set_launch_at_login,
+                clear_activities,
+                copy_mcp_config,
+                agent_mcp_status,
+                agent_mcp_register,
+                agent_mcp_repair,
+                agent_mcp_remove,
+                choose_private_key,
+                quick_pair_browser,
+                reset_browser_pairing,
+                open_browser_extension_folder,
+                drag_browser_extension,
+                export_backup,
+                generate_password,
+                import_backup,
+                prepare_import,
+                commit_import,
+                cancel_import,
+                github_backup_status,
+                github_backup_account,
+                github_backup_generate_key,
+                github_backup_recovery_key,
+                github_backup_connect,
+                github_backup_upload,
+                github_backup_restore,
+                github_backup_disconnect,
+                github_backup_help,
+                open_data_folder,
+                window_action,
+                quick_state,
+                quick_open_main,
+                quick_action,
+            ];
+            handler(invoke)
+        })
         .build(tauri::generate_context!())
-        .context("OpenKeylet GUI startup failed")?;
+        .context("KeyHub GUI startup failed")?;
 
     #[cfg(target_os = "macos")]
-    app.run(|app, event| {
-        if let tauri::RunEvent::Reopen { .. } = event {
-            show_main_window(app);
+    app.run(|app, event| match event {
+        tauri::RunEvent::Ready => {
+            let runtime = app.state::<AppRuntime>();
+            if let Ok(settings) = runtime.vault.settings() {
+                let _ = apply_dock_mode(
+                    app,
+                    settings.menu_bar_only,
+                    runtime.tray_available.load(Ordering::Acquire),
+                );
+            }
         }
+        tauri::RunEvent::Reopen { .. } => show_main_window(app),
+        _ => {}
     });
 
     #[cfg(not(target_os = "macos"))]

@@ -176,6 +176,17 @@ html[data-theme="light"] .module-strip::after { border-color: var(--line); box-s
   content: "ON"; left: var(--control-inset); right: auto;
   color: var(--state-active-ink); text-shadow: var(--state-active-glow);
 }
+/* Field visibility uses explicit words; ON/OFF is reserved for item enablement. */
+.module-agent-toggle::after {
+  width: calc(var(--module-switch-width) - var(--switch-cap-size) - 2 * var(--control-inset) - 4px);
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+html[lang^="zh"] .module-agent-toggle::after { content: "隐藏"; }
+html[lang^="zh"] .module-agent-toggle[aria-pressed="true"]::after { content: "可见"; }
+html[lang="en"] .module-agent-toggle::after { content: "HIDE"; }
+html[lang="en"] .module-agent-toggle[aria-pressed="true"]::after { content: "SHOW"; }
 .switch span::after, .module-agent-toggle > i {
   display: grid; place-items: center;
   color: var(--state-inactive-ink); font: 700 11px/1 Arial, sans-serif; text-shadow: none;

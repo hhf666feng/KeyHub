@@ -194,7 +194,7 @@ pub fn create(
     let rp = rp_id(origin_text, options, true)?;
     ensure!(
         verified || !requires_verification(options, true),
-        "Set a PIN in OpenKeylet to verify this passkey request"
+        "Set a PIN in KeyHub to verify this passkey request"
     );
     let key = loop {
         let mut bytes = Zeroizing::new([0u8; 32]);
@@ -283,7 +283,7 @@ pub fn get(
         "This passkey does not match the website request"
     );
     if requires_verification(options, false) && !verified {
-        bail!("Set a PIN in OpenKeylet to verify this passkey request");
+        bail!("Set a PIN in KeyHub to verify this passkey request");
     }
     let private = Zeroizing::new(decode(&key.private_key)?);
     let signing = SigningKey::from_slice(&private).context("Invalid stored passkey")?;

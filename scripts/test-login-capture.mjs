@@ -12,7 +12,7 @@ import { chromium } from "playwright";
 const repo = path.resolve(import.meta.dirname, "..");
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "openkeylet-browser-test-capture-"));
 const extension = path.join(root, "extension");
-const fixture = process.argv[2] || path.join(process.env.CARGO_TARGET_DIR, "debug/examples",
+const fixture = process.argv[2] || path.join(process.env.CARGO_TARGET_DIR || path.join(repo, "src-tauri/target"), "debug/examples",
   process.platform === "win32" ? "browser_fixture.exe" : "browser_fixture");
 const readerSource = await fs.readFile(path.join(repo, "browser-extension/form-reader.js"), "utf8");
 const login = '<form action="/done" method="post"><label>账号<input id="account" autocomplete="username"></label><label>密码<input id="secret" type="password" autocomplete="current-password"></label><button>登录</button></form>';
@@ -43,7 +43,7 @@ async function until(check, label, timeout = 20000) {
 try {
   await until(() => output.includes("READY"), "fixture startup");
   console.log("Synthetic vault ready");
-  context = await chromium.launchPersistentContext(path.join(root, "profile"), { channel: "chromium", headless: true,
+  context = await chromium.launchPersistentContext(path.join(root, "profile"), { channel: "chromium", ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}), headless: true,
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
   const errors = [];

@@ -51,7 +51,7 @@ const port = probe.address().port; await new Promise(resolve => probe.close(reso
 await fs.cp(path.join(repo, "browser-extension"), extension, { recursive: true });
 const sw = path.join(extension, "service-worker.js");
 await fs.writeFile(sw, (await fs.readFile(sw, "utf8")).replaceAll("39272", String(port)));
-const executable = path.join(process.env.CARGO_TARGET_DIR, "debug/examples", process.platform === "win32" ? "browser_fixture.exe" : "browser_fixture");
+const executable = path.join(process.env.CARGO_TARGET_DIR || path.join(repo, "src-tauri/target"), "debug/examples", process.platform === "win32" ? "browser_fixture.exe" : "browser_fixture");
 const child = spawn(executable, [root, String(port), origin], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
 let output = "", context, worker, page;
 child.stdout.on("data", data => { output += data; }); child.stderr.on("data", data => { output += data; });
@@ -89,7 +89,7 @@ async function draft() {
 }
 try {
   await until(() => output.includes("READY"), "fixture");
-  context = await chromium.launchPersistentContext(path.join(root, "profile"), { channel: "chromium", headless: true,
+  context = await chromium.launchPersistentContext(path.join(root, "profile"), { channel: "chromium", ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}), headless: true,
     args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
   context.setDefaultTimeout(8000);
   context.on("page", target => target.on("pageerror", error => pageErrors.push(error.message)));

@@ -77,7 +77,7 @@ pub struct ApiRequestInput {
 pub struct ApiUploadFile {
     pub field: String,
     #[schemars(
-        description = "Local file path. Absolute and ~/ paths are accepted; relative paths resolve from the OpenKeylet MCP process working directory."
+        description = "Local file path. Absolute and ~/ paths are accepted; relative paths resolve from the KeyHub MCP process working directory."
     )]
     pub path: String,
     #[serde(default)]

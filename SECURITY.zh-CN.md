@@ -1,26 +1,28 @@
-# 安全说明
+# KeyHub 安全说明
 
 [English](SECURITY.md) · **简体中文**
 
-OpenKeylet 是通过 stdio MCP 提供的本地凭据执行工具。它的主要目标是让 Agent 完成认证，同时避免把隐藏凭据明文放入普通 MCP 参数或响应。
+KeyHub 是通过 stdio MCP 提供的本地凭据执行工具。它的主要目标是让 Agent 完成认证，同时避免把隐藏凭据明文放入普通 MCP 参数或响应。
+
+OpenKeylet → KeyHub 改名调整显示名称及规范可执行文件／MCP ID（`keyhub`），不改变威胁模型或权限。规范模板为 `{{keyhub:module}}`，原有 `{{openkeylet:module}}` 与 `{{kru:module}}` 继续接受；环境变量优先使用 `KEYHUB_*`，受支持的 `OPENKEYLET_*` 和 `KRU_*` 保持兼容。客户端迁移需要明确修复识别出的托管条目，不会一并改写所有真实配置，详见[迁移说明](README.zh-CN.md#迁移与能力保持)。
 
 ## 安全目标
 
 - Vault 秘密使用经过认证的加密方式静态存储。
 - 未标记 `agentVisible` 的模块不会通过 `items_search` 返回明文。
 - `credential_fill`、`ssh_run`、`ssh_upload`、`ssh_download` 和 `http_send` 可在本地使用隐藏值。
-- 对 OpenKeylet 能识别的已存凭据，在活动错误、终端输出、SSH 输出和 API 响应中进行脱敏。
-- 调用方不能替换 OpenKeylet 控制的认证头；保存的服务 URL 是默认值，不是授权边界。
+- 对 KeyHub 能识别的已存凭据，在活动错误、终端输出、SSH 输出和 API 响应中进行脱敏。
+- 调用方不能替换 KeyHub 控制的认证头；保存的服务 URL 是默认值，不是授权边界。
 
 ## 明确对 Agent 可见的值
 
-每个模块的 **Agent visible** 开关是一项披露决定。启用后，`items_search` 包含该模块的 `value`，此值可能进入 Agent 上下文及模型提供方日志。TOTP 模块可见时，OpenKeylet 只返回当前六位验证码，绝不返回永久 TOTP 种子。
+每个模块的 **Agent visible** 开关是一项披露决定。启用后，`items_search` 包含该模块的 `value`，此值可能进入 Agent 上下文及模型提供方日志。TOTP 模块可见时，KeyHub 只返回当前六位验证码，绝不返回永久 TOTP 种子。
 
-需要留在 Agent 上下文之外的值，不应启用 Agent 可见性。该开关与模块能否被 OpenKeylet 用于填写、SSH 或 API 操作是独立的。
+需要留在 Agent 上下文之外的值，不应启用 Agent 可见性。该开关与模块能否被 KeyHub 用于填写、SSH 或 API 操作是独立的。
 
-## OpenKeylet 不防御的情况
+## KeyHub 不防御的情况
 
-OpenKeylet 不是沙箱、策略引擎、DLP 系统或授权服务器，不能防御：
+KeyHub 不是沙箱、策略引擎、DLP 系统或授权服务器，不能防御：
 
 - 恶意或已被攻破的 Agent；
 - 以同一操作系统用户身份运行的其他进程；
@@ -29,43 +31,63 @@ OpenKeylet 不是沙箱、策略引擎、DLP 系统或授权服务器，不能�
 - 命令或远端服务新产生的敏感数据；
 - 所请求目标或操作本身不安全的任务。
 
-MCP 工具注解只是描述性提示。OpenKeylet 在 Rust 后端执行实际限制，绝不把注解或提示词指令当作授权。
+MCP 工具注解只是描述性提示。KeyHub 在 Rust 后端执行实际限制，绝不把注解或提示词指令当作授权。
 
 ## 操作边界
 
 ### 浏览器与桌面填写
 
-`credential_fill` 向当前聚焦控件写入一个值。调用方设置 `submit=true` 时，OpenKeylet 还会提交聚焦浏览器表单，或在桌面/托管终端目标按 Enter。桌面填写依赖真实操作系统前台焦点，仅有后台 DOM 焦点不够。OpenKeylet 无法证明当前聚焦目标可信。
+`credential_fill` 向当前聚焦控件写入一个值。调用方设置 `submit=true` 时，KeyHub 还会提交聚焦浏览器表单，或在桌面/托管终端目标按 Enter。桌面填写依赖真实操作系统前台焦点，仅有后台 DOM 焦点不够。KeyHub 无法证明当前聚焦目标可信。
 
 ### 托管终端
 
-每个 stdio MCP 会话中，OpenKeylet 记住最近选择的兼容项目和当前托管终端。唯一的 `items_search` 结果或明确指定的 item 会选中项目，后续填写、SSH、传输、HTTP 和终端操作可省略重复名称。`terminal_start` 或明确使用另一终端 ID 会选中当前终端，后续 write、read、fill、stop 可省略重复 UUID。PTY 也保留自己的项目绑定直到结束。这是对话便利状态，不是授权边界；已结束终端及被禁用、删除或不兼容项目会自动忽略。
+每个 stdio MCP 会话中，KeyHub 记住最近选择的兼容项目和当前托管终端。唯一的 `items_search` 结果或明确指定的 item 会选中项目，后续填写、SSH、传输、HTTP 和终端操作可省略重复名称。`terminal_start` 或明确使用另一终端 ID 会选中当前终端，后续 write、read、fill、stop 可省略重复 UUID。PTY 也保留自己的项目绑定直到结束。这是对话便利状态，不是授权边界；已结束终端及被禁用、删除或不兼容项目会自动忽略。
 
-OpenKeylet 不添加策略 shell。`terminal_run` 执行普通单次本地 shell 命令；需要交互进程时，`terminal_start` 打开所请求程序或原生 Windows 脚本。子进程继承 OpenKeylet 的普通用户环境，使已安装工具保持用户原有行为。`terminal_run` 可把调用方文本直接写入标准输入，避免 shell 插值和临时文件。它和 `terminal_start` 可在命令或工作目录中替换 `{{openkeylet:module}}`；单次 stdin、PTY 参数及后续 `terminal_write` 也支持相同的本地替换，`secretEnv` 可把选定模块注入子进程环境。`terminal_write` 可按 Enter；除非调用方指定截止时间，`terminal_read` 可等待目标标记而不受 OpenKeylet 截止时间限制。这些值及常见编码会从返回输出中脱敏。本地命令和普通终端输入可能影响本地或外部系统。脱敏覆盖 OpenKeylet 填写或注入的值，不覆盖无关环境变量或进程可能打印的每一种秘密。
+KeyHub 不添加策略 shell。`terminal_run` 执行普通单次本地 shell 命令；需要交互进程时，`terminal_start` 打开所请求程序或原生 Windows 脚本。子进程继承 KeyHub 的普通用户环境，使已安装工具保持用户原有行为。`terminal_run` 可把调用方文本直接写入标准输入，避免 shell 插值和临时文件。它和 `terminal_start` 可在命令或工作目录中替换 `{{keyhub:module}}`；单次 stdin、PTY 参数及后续 `terminal_write` 也支持相同的本地替换，`secretEnv` 可把选定模块注入子进程环境。`terminal_write` 可按 Enter；除非调用方指定截止时间，`terminal_read` 可等待目标标记而不受 KeyHub 截止时间限制。这些值及常见编码会从返回输出中脱敏。本地命令和普通终端输入可能影响本地或外部系统。脱敏覆盖 KeyHub 填写或注入的值，不覆盖无关环境变量或进程可能打印的每一种秘密。
 
 ### SSH
 
-保存了密码或私钥的 item 可授予 Agent 完整 SSH 命令执行和递归 SFTP 文件/目录传输能力。主机、端口和用户名可保存为默认值，也可由 Agent 在当前调用指定；两种来源均无端口时使用 22。`ssh_run` 可将调用方文本直接写入远端进程标准输入，并在 stdin、命令或工作目录中替换 `{{openkeylet:module}}`。`secretEnv` 可向远端环境注入其他已存模块。OpenKeylet 会从返回输出中脱敏这些值。Agent 按用户任务选择上传/下载路径；默认在准备好完整临时副本后替换现有目标，包括文件转目录或目录转文件。OpenKeylet 没有 observation、diagnostic、restricted 或 execution 模式，也不固定或比较 SSH 主机指纹；使用 SSH 凭据即把本次运行目标的选择交给 Agent。
+保存了密码或私钥的 item 可授予 Agent 完整 SSH 命令执行和递归 SFTP 文件/目录传输能力。主机、端口和用户名可保存为默认值，也可由 Agent 在当前调用指定；两种来源均无端口时使用 22。`ssh_run` 可将调用方文本直接写入远端进程标准输入，并在 stdin、命令或工作目录中替换 `{{keyhub:module}}`。`secretEnv` 可向远端环境注入其他已存模块。KeyHub 会从返回输出中脱敏这些值。Agent 按用户任务选择上传/下载路径；默认在准备好完整临时副本后替换现有目标，包括文件转目录或目录转文件。KeyHub 没有 observation、diagnostic、restricted 或 execution 模式，也不固定或比较 SSH 主机指纹；使用 SSH 凭据即把本次运行目标的选择交给 Agent。
 
 ### API 请求
 
 任何启用且配置了秘密的 item 都可用作 HTTP 请求上下文。保存服务 URL 时，调用方可省略请求 URL 使用该值，提供相对路径，或指定其他绝对 HTTP/HTTPS URL。没有保存 URL 时，由 Agent 提供绝对 HTTP/HTTPS URL。保存 URL 是便利设置，不是 Origin 允许列表；使用 item 发起 HTTP 即把请求目标选择交给 Agent。
 
-对于内置 API 凭据或 Basic 组合未覆盖的认证方式，`{{openkeylet:password}}` 或 `{{openkeylet:service token}}` 等占位符直接解析所指模块，在 URL、header、query、JSON/文本 body 或 form 值中本地替换。`http_send.secretBindings` 仅在占位符名与模块名不同时作为可选别名映射。解析值加入响应和活动脱敏，不返回给调用方；TOTP 绑定使用当前验证码，而非保存的种子。
+对于内置 API 凭据或 Basic 组合未覆盖的认证方式，`{{keyhub:password}}` 或 `{{keyhub:service token}}` 等占位符直接解析所指模块，在 URL、header、query、JSON/文本 body 或 form 值中本地替换。`http_send.secretBindings` 仅在占位符名与模块名不同时作为可选别名映射。解析值加入响应和活动脱敏，不返回给调用方；TOTP 绑定使用当前验证码，而非保存的种子。
 
-OpenKeylet 跟随 HTTP/HTTPS 重定向，包括跨 Origin 重定向，直到服务停止重定向或达到调用方可选超时。调用方可发送普通 header、cookie、`Host` 或自己的认证值；只有 OpenKeylet 为已存凭据注入的 header 受 OpenKeylet 控制。响应头和响应体不按字段名分类，仅脱敏 OpenKeylet 已知秘密值，因此服务新返回的 cookie、凭据或其他敏感数据可能进入 Agent 上下文。活动记录包含 HTTP 方法、Origin 和不含 query 的路径，已知已存秘密在保存活动前脱敏。
+KeyHub 跟随 HTTP/HTTPS 重定向，包括跨 Origin 重定向，直到服务停止重定向或达到调用方可选超时。调用方可发送普通 header、cookie、`Host` 或自己的认证值；只有 KeyHub 为已存凭据注入的 header 受 KeyHub 控制。响应头和响应体不按字段名分类，仅脱敏 KeyHub 已知秘密值，因此服务新返回的 cookie、凭据或其他敏感数据可能进入 Agent 上下文。活动记录包含 HTTP 方法、Origin 和不含 query 的路径，已知已存秘密在保存活动前脱敏。
 
-调用方提供路径时，`http_send` 可上传本地文件或把响应保存到本地。OpenKeylet 不独立判断用户请求的本地文件是否适合发送、应发送给哪个 HTTP/HTTPS 目标，或明确请求的响应应存在哪里。默认替换现有响应文件，调用方可明确关闭替换。
+调用方提供路径时，`http_send` 可上传本地文件或把响应保存到本地。KeyHub 不独立判断用户请求的本地文件是否适合发送、应发送给哪个 HTTP/HTTPS 目标，或明确请求的响应应存在哪里。默认替换现有响应文件，调用方可明确关闭替换。
 
 ## 本地数据与备份
 
-Vault 和主密钥文件保存在当前用户的应用数据目录。PIN 用于保护 GUI 明文查看和扩展密码库访问，并为 Passkey 请求提供逐次身份验证；它不是独立加密密钥，也不能阻止以同一用户身份运行的其他进程。
+Vault 和主密钥文件仍保存在当前用户的 `mcp-vault/v2` 应用数据目录。应用标识 `dev.kru.desktop` 及 OS keyring 服务／账号 `mcp-vault` / `master-key-v2` 不变。PIN 用于保护 GUI 明文查看和扩展密码库访问，并为 Passkey 请求提供逐次身份验证；它不是独立加密密钥，不会关闭 MCP 动作，也不能阻止以同一用户身份运行的其他进程。
+
+macOS 当前实现使用应用私有目录中的 `master.key` 文件，不依赖钥匙串访问控制。
+可迁移已有钥匙串密钥且不改变密钥内容；需要授权时可通过 `keyhub key migrate`
+明确执行迁移。Windows 和 Linux 优先尝试原有系统 keyring 条目，不可用时退回
+受文件权限保护的密钥文件。请保护整个数据目录：同时取得密码库与密钥的人可能解密内容。
+
+浏览器扩展保留固定 ID、配对令牌、桥接协议及存储键。显示名称变化不会轮换配对凭据，也不会扩大允许的扩展 Origin。
 
 扩展弹窗在未设置专门规则时按协议、主机和端口匹配账号；多网址规则支持主域名、主机、完整网址、前缀、正则及“不匹配”。常规规则保留协议和端口限制，前缀还要求同源，正则规则拒绝远程 HTTP。匹配使用聚焦 frame 的完整地址，写入时再次校验，并拒绝跨域 frame。保存操作由用户确认；密码不缓存到扩展存储。配对校验固定扩展 Origin，WebSocket 必须持有配对令牌。网页消息不能选择密码库 RPC 方法。Passkey 通过独立扩展窗口确认，校验请求页面 Origin、RP ID 和公共后缀，仅在 PIN 验证成功后设置 UV 标志。私钥只在本地后端使用，不进入网页脚本、扩展存储或 Agent 可读字段。
 
 可关闭的保存提示只在真实用户交互后、浏览器产生表单提交事件时读取可见登录字段，不逐键采集内容。这是便捷识别规则，不能证明网站可信或认证成功。仅接受与顶层标签页同源的 HTTPS／本机页面，来源网址取自 Chrome 提供的消息发送者信息。待保存信息仅在插件后台内存中保留，最多十个标签页、五分钟，不写入扩展存储，也不发送到外部服务。跨来源跳转、关闭标签页、连接断开、关闭提示、忽略或在插件中主动锁定时清除。只有可信扩展页面完成已配置的 PIN 解锁后才能读取和确认保存，更新时检查条目版本；网页消息不能读取或保存凭据。网页提示不含采集的字段内容。密码库解锁时，已有账号比较仅在本机完成；浏览器或后台重启可能丢弃尚未保存的建议。
 
 桌面端新导出的 `.mvault` 使用用户提供的独立备份密码、随机 128 位盐、Argon2id（64 MiB、3 次、1 并行）和 XChaCha20-Poly1305，附加认证数据绑定容器版本。文件不携带密码或解锁密钥；错误密码不会修改本地密码库。旧版及现有 CLI 自动解锁包仍包含解锁材料，不具备访问控制，应按包含明文秘密的文件保护。两种容器均可导入。
+
+格式名和附加认证数据（AAD）是兼容标识，不是显示品牌，以下值逐字节保持不变：
+
+| 用途 | 保留的格式／AAD |
+| --- | --- |
+| 本地秘密加密包 | AAD `mcp-vault/secret/v2` |
+| 密码保护 `.mvault` | 格式 `openkeylet-password-backup`；AAD `openkeylet/password-backup/v1` |
+| CLI 自解锁 `.mvault` | 格式 `mcp-vault-backup`；现有版本化 AAD `kru/backup/v3` 至 `kru/backup/v8` |
+| 便携数据 | 格式 `mcp-vault-portable` |
+| GitHub 快照 | 文件名 `openkeylet.vault.json`；格式 `openkeylet-cloud-backup`；AAD `openkeylet/cloud-backup/v1` |
+| 本机 GitHub 设备状态 | 格式 `openkeylet-github-device` |
+
+不要把这些标识替换为 `keyhub`，也不要将 CLI 自解锁包当作密码保护备份或适合上传云端的安全备份。
 
 信用卡、身份和安全笔记字段存入原有加密秘密包，默认不向 Agent 显示，且不会独自启用通用 SSH/HTTP/Agent 填写能力。浏览器只有在已解锁且用户选择操作后才能读取这些字段。自动填写检查当前来源，只支持 HTTPS 与本机开发地址，忽略隐藏字段，不提交表单。
 
@@ -75,11 +97,11 @@ Vault 和主密钥文件保存在当前用户的应用数据目录。PIN 用于�
 
 账号检查与可选的私有仓库创建仅限解锁后的所有者命令。用户明确选择后，通过隐藏、有输出限制与超时的子进程读取本机 GitHub CLI 授权，令牌不会返回渲染界面。只允许在已验证的当前账号下创建私有仓库，不会重命名已有仓库或修改其可见性。首份上传是设置流程中的显式选项，沿用加密快照和并发冲突检查。
 
-GitHub 备份使用独立的认证加密格式，不使用自解锁的 `.mvault` 容器。随机生成的 256 位恢复密钥通过 XChaCha20-Poly1305 和绑定版本的附加认证数据加密完整便携数据。恢复密钥与仓库访问令牌不会上传；它们由当前设备的保险库主密钥加密保存，不包含在任何备份导出里，相关 GUI 命令会先检查所有者解锁状态。本机秘密的序列化缓冲区在使用后清零。
+GitHub 备份在 `openkeylet.vault.json` 中使用独立的认证加密格式，不使用自解锁的 `.mvault` 容器。随机生成的 256 位恢复密钥通过 XChaCha20-Poly1305 和绑定版本的附加认证数据加密完整便携数据。改名后原恢复密钥继续有效，不会自动轮换。恢复密钥与仓库访问令牌不会上传；它们由当前设备的保险库主密钥加密保存，不包含在任何备份导出里，相关 GUI 命令会先检查所有者解锁状态。本机秘密的序列化缓冲区在使用后清零。
 
 客户端只连接 GitHub.com API，不跟随重定向，限制响应和快照大小，不回显远端错误正文。上传和恢复前检查仓库身份、默认分支及私有可见性；写入使用此前确认的文件 SHA，冲突或结果不确定时不强制重试。这些检查不能阻止仓库所有者之后公开、删除仓库，或在两次 API 调用之间修改仓库。认证加密保护内容完整性和机密性，不保证远端可用性；当前手动备份格式也不对恶意仓库操作者提供密码学层面的防回滚保证。
 
-恢复采用事务式合并，不删除或覆盖本机项目。Git 历史会保留过去的密文。断开不会清除远端备份、其他克隆、撤销令牌或轮换恢复密钥。取得恢复密钥及任意快照的人可以解密该快照。同一系统用户被攻陷仍不在保护范围内。请单独保管恢复密钥；丢失所有副本和已连接设备后，OpenKeylet 无法重置密钥来恢复备份。
+恢复采用事务式合并，不删除或覆盖本机项目。Git 历史会保留过去的密文。断开不会清除远端备份、其他克隆、撤销令牌或轮换恢复密钥。取得恢复密钥及任意快照的人可以解密该快照。同一系统用户被攻陷仍不在保护范围内。请单独保管恢复密钥；丢失所有副本和已连接设备后，KeyHub 无法重置密钥来恢复备份。
 
 ## 漏洞报告
 

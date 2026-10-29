@@ -1,4 +1,4 @@
-name: Portable release
+name: KeyHub portable release
 
 on:
   workflow_dispatch:
@@ -24,6 +24,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/check-version.mjs
+      - run: node --test scripts/test-keyhub-packaging.mjs
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: npm run build
       - run: npm run portable
@@ -51,10 +52,10 @@ jobs:
           $archives = @(Get-ChildItem dist -Filter '*-portable.zip')
           if ($archives.Count -ne 1) { throw "Expected exactly one Windows portable archive." }
           & scripts/verify-portable-windows.ps1 -Archive $archives[0].FullName
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/openkeylet.exe
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/keyhub.exe
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-portable
+          name: keyhub-windows-portable
           if-no-files-found: error
           path: dist/*.zip
 
@@ -72,6 +73,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/check-version.mjs
+      - run: node --test scripts/test-keyhub-packaging.mjs
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Validate Apple signing secrets
         env:
@@ -103,7 +105,7 @@ jobs:
         run: |
           umask 077
           certificate_path="$RUNNER_TEMP/developer-id-application.p12"
-          keychain_path="$RUNNER_TEMP/openkeylet-signing.keychain-db"
+          keychain_path="$RUNNER_TEMP/keyhub-signing.keychain-db"
           printf '%s' "$APPLE_CERTIFICATE" | \
             openssl base64 -d -A -out "$certificate_path"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
@@ -142,10 +144,10 @@ jobs:
         env:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-        run: bash scripts/notarize-macos.sh src-tauri/target/release/bundle/macos/OpenKeylet.app
+        run: bash scripts/notarize-macos.sh src-tauri/target/release/bundle/macos/KeyHub.app
       - name: Verify signed and notarized macOS application
         run: |
-          app_path="src-tauri/target/release/bundle/macos/OpenKeylet.app"
+          app_path="src-tauri/target/release/bundle/macos/KeyHub.app"
           signature_details="$(codesign --display --verbose=4 "$app_path" 2>&1)"
           grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
           grep -Fq "runtime" <<<"$signature_details"
@@ -153,29 +155,29 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app_path"
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose=4 "$app_path"
-      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/OpenKeylet.app/Contents/MacOS/openkeylet
+      - run: node scripts/smoke-gui.mjs src-tauri/target/release/bundle/macos/KeyHub.app/Contents/MacOS/keyhub
       - name: Package notarized macOS application
         env:
-          OPENKEYLET_REQUIRE_DEVELOPER_ID: '1'
+          KEYHUB_REQUIRE_DEVELOPER_ID: '1'
         run: npm run portable:mac
       - name: Verify archive checksum
         run: (cd dist && shasum -a 256 -c *.sha256)
       - name: Verify packaged macOS application
         env:
-          OPENKEYLET_REQUIRE_NOTARIZED: '1'
+          KEYHUB_REQUIRE_NOTARIZED: '1'
         run: |
           archives=(dist/*-portable.zip)
           test ${#archives[@]} -eq 1
           bash scripts/verify-portable-unix.sh "${archives[0]}" macos
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64-portable
+          name: keyhub-macos-arm64-portable
           if-no-files-found: error
           path: dist/*.zip
       - name: Remove Apple signing material
         if: always()
         run: |
-          security delete-keychain "$RUNNER_TEMP/openkeylet-signing.keychain-db" 2>/dev/null || true
+          security delete-keychain "$RUNNER_TEMP/keyhub-signing.keychain-db" 2>/dev/null || true
           rm -f \
             "$RUNNER_TEMP/developer-id-application.p12" \
             "$RUNNER_TEMP"/AuthKey_*.p8
@@ -200,6 +202,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/check-version.mjs
+      - run: node --test scripts/test-keyhub-packaging.mjs
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - run: rm -rf src-tauri/target/release/bundle/appimage
       - run: npm run build:linux
@@ -219,7 +222,7 @@ jobs:
           bash scripts/verify-portable-unix.sh "${archives[0]}" linux-gui
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-gui-portable
+          name: keyhub-linux-gui-portable
           if-no-files-found: error
           path: dist/*.tar.gz
 
@@ -237,9 +240,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/check-version.mjs
+      - run: node --test scripts/test-keyhub-packaging.mjs
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --no-default-features
       - run: npm run build:headless
-      - run: node scripts/smoke-cli.mjs src-tauri/target/release/openkeylet
+      - run: node scripts/smoke-cli.mjs src-tauri/target/release/keyhub
       - run: npm run portable:headless
       - name: Verify archive checksum
         run: (cd dist && sha256sum -c *.sha256)
@@ -250,7 +254,7 @@ jobs:
           bash scripts/verify-portable-unix.sh "${archives[0]}" linux-headless
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-headless
+          name: keyhub-linux-headless
           if-no-files-found: error
           path: dist/*.tar.gz
 
@@ -268,7 +272,7 @@ jobs:
         run: |
           cd release-assets
           shopt -s nullglob
-          archives=(OpenKeylet_*)
+          archives=(KeyHub_*)
           if [[ ${#archives[@]} -ne 4 ]]; then
             printf 'Expected exactly four release archives, found %s:\n' "${#archives[@]}" >&2
             printf '  %s\n' "${archives[@]}" >&2
@@ -284,4 +288,4 @@ jobs:
           --repo "$GITHUB_REPOSITORY"
           --verify-tag
           --generate-notes
-          --title "OpenKeylet $GITHUB_REF_NAME"
+          --title "KeyHub $GITHUB_REF_NAME"

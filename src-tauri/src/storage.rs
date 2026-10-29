@@ -1,14 +1,27 @@
 use anyhow::{Context, Result, bail};
 use std::{env, ffi::OsString, path::PathBuf};
 
-pub const DATA_DIR_OVERRIDE_ENV: &str = "OPENKEYLET_DATA_DIR";
+pub const DATA_DIR_OVERRIDE_ENV: &str = "KEYHUB_DATA_DIR";
+const OPENKEYLET_DATA_DIR_OVERRIDE_ENV: &str = "OPENKEYLET_DATA_DIR";
 const LEGACY_DATA_DIR_OVERRIDE_ENV: &str = "KRU_DATA_DIR";
 
 pub fn app_data_dir() -> Result<PathBuf> {
     resolve_data_dir(
-        env::var_os(DATA_DIR_OVERRIDE_ENV).or_else(|| env::var_os(LEGACY_DATA_DIR_OVERRIDE_ENV)),
+        select_data_dir_override(
+            env::var_os(DATA_DIR_OVERRIDE_ENV),
+            env::var_os(OPENKEYLET_DATA_DIR_OVERRIDE_ENV),
+            env::var_os(LEGACY_DATA_DIR_OVERRIDE_ENV),
+        ),
         dirs::data_dir().map(|path| path.join("mcp-vault").join("v2")),
     )
+}
+
+fn select_data_dir_override(
+    keyhub: Option<OsString>,
+    openkeylet: Option<OsString>,
+    kru: Option<OsString>,
+) -> Option<OsString> {
+    keyhub.or(openkeylet).or(kru)
 }
 
 pub fn resolve_user_path(value: &str) -> Result<PathBuf> {
@@ -65,6 +78,24 @@ fn resolve_data_dir(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keyhub_environment_keeps_both_legacy_overrides_in_priority_order() {
+        let value = |text: &str| Some(OsString::from(text));
+        assert_eq!(
+            select_data_dir_override(value("new"), value("old"), value("legacy")),
+            value("new")
+        );
+        assert_eq!(
+            select_data_dir_override(None, value("old"), value("legacy")),
+            value("old")
+        );
+        assert_eq!(
+            select_data_dir_override(None, None, value("legacy")),
+            value("legacy")
+        );
+        assert_eq!(select_data_dir_override(None, None, None), None);
+    }
 
     #[test]
     fn explicit_data_directory_must_be_absolute_and_wins_over_the_default() {

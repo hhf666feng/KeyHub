@@ -166,7 +166,7 @@ pub struct GithubBackup {
 impl GithubBackup {
     pub fn new(vault: Vault) -> Result<Self> {
         let client = Client::builder()
-            .user_agent(concat!("OpenKeylet/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("KeyHub/", env!("CARGO_PKG_VERSION")))
             // Never follow a repository rename or an attacker-controlled redirect
             // while holding a GitHub token. The user can reconnect explicitly.
             .redirect(reqwest::redirect::Policy::none())
@@ -251,7 +251,7 @@ impl GithubBackup {
                 check_response(&existing)?;
             }
             let response = self.api_request(Method::POST, &["user", "repos"], &token)?
-                .json(&serde_json::json!({"name":repo,"private":true,"auto_init":true,"description":"Encrypted OpenKeylet vault backups"}))
+                .json(&serde_json::json!({"name":repo,"private":true,"auto_init":true,"description":"Encrypted KeyHub vault backups"}))
                 .send().await.context("GITHUB_CREATE_UNCONFIRMED")?;
             if response.status() == StatusCode::UNPROCESSABLE_ENTITY {
                 bail!("GITHUB_REPOSITORY_EXISTS");
@@ -325,7 +325,7 @@ impl GithubBackup {
         let encrypted = encrypt_snapshot(&plain, &config.recovery_key)?;
         let expected_sha = blob_sha(&encrypted);
         let mut payload = serde_json::json!({
-            "message": "Update encrypted OpenKeylet backup",
+            "message": "Update encrypted KeyHub backup",
             "content": STANDARD.encode(&encrypted),
             "branch": config.branch,
         });

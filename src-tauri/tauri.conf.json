@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenKeylet",
+  "productName": "KeyHub",
   "version": "0.16.0",
   "identifier": "dev.kru.desktop",
   "build": {
@@ -9,24 +9,24 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
-        "title": "OpenKeylet",
-        "width": 460,
-        "height": 690,
-        "minWidth": 460,
-        "minHeight": 690,
-        "maxWidth": 460,
-        "maxHeight": 690,
+        "visible": false,
+        "title": "KeyHub",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 760,
+        "minHeight": 600,
         "center": true,
         "decorations": false,
         "transparent": false,
         "shadow": true,
-        "resizable": false,
-        "maximizable": false,
+        "resizable": true,
+        "maximizable": true,
         "fullscreen": false,
-        "backgroundColor": "#303336"
+        "backgroundColor": "#f5f5f7"
       }
     ],
     "security": {

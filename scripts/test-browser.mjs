@@ -45,10 +45,11 @@ async function until(fn,description,timeout=20000){const end=Date.now()+timeout;
 try {
   await until(()=>output.includes("READY"),"fixture startup");
   console.log("Browser fixture ready");
-  context=await chromium.launchPersistentContext(path.join(root,"profile"),{channel:"chromium",headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+  context=await chromium.launchPersistentContext(path.join(root,"profile"),{channel:"chromium",...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? {executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH} : {}),headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
   const worker=context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
   const extensionId=new URL(worker.url()).host;
   assert.equal(extensionId,"knkjojeijgalhpdkfapohofobfomenmi");
+  await worker.evaluate(async()=>chrome.storage.local.set({uiLanguage:"en",uiTheme:"light"}));
   await until(async()=>await worker.evaluate(async()=> (await chrome.storage.local.get("bridgeStatus")).bridgeStatus === "connected"),"automatic pairing");
   console.log("Extension paired");
   const site=await context.newPage();await site.goto("chrome://extensions");await site.bringToFront();
@@ -177,11 +178,11 @@ try {
   await cardRow.waitFor();
   assert.equal((await cardRow.textContent()).includes("4111111111111111"),false);
   assert.match(await cardRow.textContent(),/1111/);
-  await site.bringToFront();await cardRow.getByRole("button",{name:"填写 / Fill"}).click();
+  await site.bringToFront();await cardRow.getByRole("button",{name:"Fill"}).click();
   await until(async()=>await site.locator("#cardnumber").inputValue()==="4111111111111111","card autofill");
   assert.equal(await site.locator("#cardmonth").inputValue(),"7");
   assert.equal(await site.locator("#hidden-card").inputValue(),"");
-  await cardRow.getByRole("button",{name:"编辑 / Edit"}).click();
+  await cardRow.getByRole("button",{name:"Edit"}).click();
   await popup.locator("#personal-cardholderName").fill("Updated Cardholder");
   await popup.locator('#personal-form button[type="submit"]').click();
   await until(async()=>await popup.locator("#personal-form").isHidden(),"card edited");
@@ -198,7 +199,7 @@ try {
   await until(async()=>await popup.locator("#personal-form").isHidden(),"identity saved");
   const identityRow=popup.locator(".personal-entry").filter({hasText:"Synthetic identity"});
   await identityRow.waitFor();await site.bringToFront();
-  await identityRow.getByRole("button",{name:"填写 / Fill"}).click();
+  await identityRow.getByRole("button",{name:"Fill"}).click();
   await until(async()=>await site.locator("#full-name").inputValue()==="Alice Example","identity autofill");
   assert.equal(await site.locator("#identity-email").inputValue(),"alice@example.invalid");
   assert.equal(await site.locator("#address").inputValue(),"123 Example Street");
@@ -209,9 +210,9 @@ try {
   await until(async()=>await popup.locator("#personal-form").isHidden(),"note saved");
   const noteRow = popup.locator(".personal-entry").filter({hasText:"Synthetic note"});
   await noteRow.waitFor();
-  assert.equal(await noteRow.getByRole("button",{name:"填写 / Fill"}).count(),0);
+  assert.equal(await noteRow.getByRole("button",{name:"Fill"}).count(),0);
   assert.equal((await noteRow.textContent()).includes("Secret line one"),false);
-  await noteRow.getByRole("button",{name:"编辑 / Edit"}).click();
+  await noteRow.getByRole("button",{name:"Edit"}).click();
   assert.equal(await popup.locator("#personal-secureNote").inputValue(),"Secret line one\nSecret line two");
   await worker.evaluate(()=>bridgeCall("lock"));
   await popup.evaluate(()=>refresh());

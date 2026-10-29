@@ -4,81 +4,23 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>OpenKeylet</title>
+    <title>KeyHub</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="bricktone.css" />
     <link rel="stylesheet" href="github-backup.css" />
     <link rel="stylesheet" href="bricktone-editor.css" />
     <link rel="stylesheet" href="bricktone-light.css" />
     <link rel="stylesheet" href="bricktone-appearance.css" />
+    <link rel="stylesheet" href="workspace.css" />
     <script src="appearance.js"></script>
   </head>
   <body>
     <div class="title-drag-region" data-tauri-drag-region="deep">
       <div class="app-mark" data-tauri-drag-region>
         <span class="app-mark-symbol" aria-hidden="true">
-        <svg class="app-mark-logo" viewBox="-24 -24 448 448" aria-hidden="true">
-          <!-- Construction: 100-unit cells, 8-unit inset, 16-unit corner radius.
-               The ring occupies the upper-left 3 x 3 cells with its center cut out.
-               The key bit occupies (4,3), (3,4), (4,4); a 16-unit seam separates it.
-               Bricktone finish at 26px: 0.65px upper inner shade, 0.5px softness,
-               0.4px lower inner lip; the completed engraving is skewed -7.125deg. -->
-          <defs>
-            <filter id="openkeylet-mark-engraving" x="-32" y="-32" width="464" height="464" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-              <feFlood class="logo-emission-ink" flood-color="#39d5f5" result="signal-ink"/>
-              <feGaussianBlur in="SourceAlpha" stdDeviation="18" result="far-light"/>
-              <feComposite in="signal-ink" in2="far-light" operator="in" result="far-color"/>
-              <feComponentTransfer in="far-color" result="far-emission"><feFuncA type="linear" slope=".2"/></feComponentTransfer>
-              <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="near-light"/>
-              <feComposite in="signal-ink" in2="near-light" operator="in" result="near-color"/>
-              <feComponentTransfer in="near-color" result="near-emission"><feFuncA type="linear" slope=".52"/></feComponentTransfer>
-              <feGaussianBlur in="SourceAlpha" stdDeviation="7.6923" result="cut-softness"/>
-              <feOffset in="cut-softness" dy="10" result="cut-down"/>
-              <feComposite in="SourceAlpha" in2="cut-down" operator="out" result="upper-cut"/>
-              <feFlood flood-color="#000000" flood-opacity=".28" result="cut-ink"/>
-              <feComposite in="cut-ink" in2="upper-cut" operator="in" result="inner-shade"/>
-              <feOffset in="SourceAlpha" dy="-6.1538" result="lip-up"/>
-              <feComposite in="SourceAlpha" in2="lip-up" operator="out" result="lower-lip"/>
-              <feFlood flood-color="#ffffff" flood-opacity=".07" result="lip-light"/>
-              <feComposite in="lip-light" in2="lower-lip" operator="in" result="inner-light"/>
-              <feMerge>
-                <feMergeNode in="far-emission"/>
-                <feMergeNode in="near-emission"/>
-                <feMergeNode in="SourceGraphic"/>
-                <feMergeNode in="inner-shade"/>
-                <feMergeNode in="inner-light"/>
-              </feMerge>
-            </filter>
-            <filter id="openkeylet-bit-engraving" x="-32" y="-32" width="464" height="464" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="far-light"/>
-              <feComponentTransfer in="far-light" result="far-emission"><feFuncA type="linear" slope=".2"/></feComponentTransfer>
-              <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="near-light"/>
-              <feComponentTransfer in="near-light" result="near-emission"><feFuncA type="linear" slope=".52"/></feComponentTransfer>
-              <feGaussianBlur in="SourceAlpha" stdDeviation="7.6923" result="cut-softness"/>
-              <feOffset in="cut-softness" dy="10" result="cut-down"/>
-              <feComposite in="SourceAlpha" in2="cut-down" operator="out" result="upper-cut"/>
-              <feFlood flood-color="#000000" flood-opacity=".28" result="cut-ink"/>
-              <feComposite in="cut-ink" in2="upper-cut" operator="in" result="inner-shade"/>
-              <feOffset in="SourceAlpha" dy="-6.1538" result="lip-up"/>
-              <feComposite in="SourceAlpha" in2="lip-up" operator="out" result="lower-lip"/>
-              <feFlood flood-color="#ffffff" flood-opacity=".07" result="lip-light"/>
-              <feComposite in="lip-light" in2="lower-lip" operator="in" result="inner-light"/>
-              <feMerge>
-                <feMergeNode in="far-emission"/>
-                <feMergeNode in="near-emission"/>
-                <feMergeNode in="SourceGraphic"/>
-                <feMergeNode in="inner-shade"/>
-                <feMergeNode in="inner-light"/>
-              </feMerge>
-            </filter>
-          </defs>
-          <g class="logo-tilt" transform="translate(200 200) skewX(-7.125) translate(-200 -200)">
-            <path class="logo-ring" fill="#8ce7f9" fill-rule="evenodd" filter="url(#openkeylet-mark-engraving)" d="M24 8H276A16 16 0 0 1 292 24V276A16 16 0 0 1 276 292H24A16 16 0 0 1 8 276V24A16 16 0 0 1 24 8ZM124 108H176A16 16 0 0 1 192 124V176A16 16 0 0 1 176 192H124A16 16 0 0 1 108 176V124A16 16 0 0 1 124 108Z"/>
-            <path class="logo-bit" fill="#f2f4f4" filter="url(#openkeylet-bit-engraving)" d="M324 208H376A16 16 0 0 1 392 224V376A16 16 0 0 1 376 392H224A16 16 0 0 1 208 376V324A16 16 0 0 1 224 308H292A16 16 0 0 0 308 292V224A16 16 0 0 1 324 208Z"/>
-          </g>
-        </svg>
+        <img class="app-mark-logo" src="app-mark.svg" alt="" aria-hidden="true" />
         </span>
-        <strong>OpenKeylet</strong>
+        <strong>KeyHub</strong>
       </div>
       <div class="title-search" id="title-search">
         <button id="title-search-toggle" type="button" aria-expanded="false" aria-controls="title-search-input" aria-label="Search vault items" title="Search vault items">
@@ -103,22 +45,36 @@
       <button class="owner-lock-button hidden" id="owner-lock-button" type="button">LOCK</button>
       <div class="window-controls">
         <div class="window-control-well"><button class="window-control" data-window-action="minimize" aria-label="Minimize"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg></button></div>
+        <div class="window-control-well"><button class="window-control" data-window-action="maximize" aria-label="Maximize or restore"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button></div>
         <div class="window-control-well"><button class="window-control close" data-window-action="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12m0-12L6 18" /></svg></button></div>
       </div>
       </div>
     </div>
 
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar workspace-sidebar">
         <nav class="nav" data-active="connections" aria-label="Main navigation">
-          <button class="nav-item active" data-page="connections" aria-current="page"><b>A</b><i aria-hidden="true"></i><span>ITEMS</span></button>
-          <button class="nav-item" data-page="activity"><b>B</b><i aria-hidden="true"></i><span>LOG</span></button>
-          <button class="nav-item" data-page="settings"><b>C</b><i aria-hidden="true"></i><span>SYSTEM</span></button>
+          <button class="nav-item active" data-page="connections" aria-current="page"><b aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M12 13v4"/></svg></b><i aria-hidden="true"></i><span>Vault</span></button>
+          <button class="nav-item" data-page="activity"><b aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8m-8 3h5m-5 3h8"/></svg></b><i aria-hidden="true"></i><span>Activity</span></button>
+          <button class="nav-item" data-page="settings"><b aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 3-1 3-3 1 1 4-1 4 3 1 1 3h6l1-3 3-1-1-4 1-4-3-1-1-3Z"/><circle cx="12" cy="11" r="3"/></svg></b><i aria-hidden="true"></i><span>Settings</span></button>
         </nav>
+        <div class="workspace-vault-nav">
+          <div class="workspace-caption" data-workspace-copy="library">LIBRARY</div>
+          <button class="workspace-scope active" type="button" data-workspace-filter="all" aria-pressed="true"><span data-workspace-copy="all">All credentials</span><small id="workspace-all-count">0</small></button>
+          <button class="workspace-scope" type="button" data-workspace-filter="favorites" aria-pressed="false"><span data-workspace-copy="favorites">Favorites</span><small id="workspace-favorite-count">0</small></button>
+          <div class="workspace-caption" data-workspace-copy="folders">FOLDERS</div>
+          <div id="workspace-folders"></div>
+        </div>
+        <div class="workspace-sidebar-bottom">
+          <button class="workspace-agent-link" type="button" data-workspace-settings="MCP"><span class="workspace-agent-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3v4m6-4v4M6 7h12v4a6 6 0 0 1-12 0Zm6 10v4"/></svg></span><strong data-workspace-copy="connect">Agent connections</strong><small data-workspace-copy="connectHelp">Local stdio MCP</small></button>
+        </div>
       </aside>
 
       <main class="main-content">
+        <div class="workspace-breadcrumb" aria-label="Current location"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 4v16"/></svg><span id="workspace-breadcrumb-section">Vault</span><span aria-hidden="true">/</span><strong id="workspace-breadcrumb-page">Credentials</strong></div>
+        <header class="workspace-heading-row"><div><h1 id="workspace-heading">Credentials</h1><p id="workspace-description">Manage local credentials and inspect agent visibility.</p></div></header>
         <div class="metric-grid" id="metrics"></div>
+        <div class="workspace-toolbar" id="workspace-toolbar"></div>
 
         <section class="page active" id="page-connections">
           <header class="page-header connections-header">
@@ -131,7 +87,7 @@
               <button class="draft-delete-button hidden" id="delete-draft-button" type="button" aria-label="Delete draft" title="Delete draft">×</button>
             </div>
           </header>
-          <div class="list-well"><div class="connections-grid" id="connections-list" tabindex="0" aria-label="Vault items"></div></div>
+          <div class="workspace-vault-layout"><div class="workspace-list-panel"><div class="workspace-list-heading"><span data-workspace-copy="credentials">CREDENTIALS</span><span id="workspace-result-count"></span></div><div class="list-well"><div class="connections-grid" id="connections-list" tabindex="0" aria-label="Vault items"></div></div><div class="workspace-list-footer"><span data-workspace-copy="listHelp">Select to inspect · Edit to access values</span><span id="workspace-scope-label"></span></div></div><aside class="workspace-detail" id="workspace-detail" aria-label="Credential details"></aside></div>
           <span id="item-reorder-status" class="module-reorder-status" aria-live="polite" aria-atomic="true"></span>
         </section>
 
@@ -149,26 +105,28 @@
           <header class="page-header"><div class="filter-strip" id="settings-filter-switch" role="group" aria-label="Settings section filter"></div><div class="page-header-actions"><div class="command-well"><button class="button primary" id="header-export-backup-button" type="button">One-click export package</button></div><div class="command-well"><button class="button quiet" id="header-import-backup-button" type="button">One-click import package</button></div></div></header>
           <div class="list-well"><div class="settings-layout" tabindex="0" aria-label="Settings">
             <section class="content-panel settings-card" data-module="SYSTEM / 01">
-              <div class="settings-heading"><div><h2>System shortcuts</h2><p>Control OpenKeylet desktop shortcuts and startup behavior.</p></div></div>
+              <div class="settings-heading"><div><h2>System shortcuts</h2><p>Control KeyHub desktop shortcuts and startup behavior.</p></div></div>
               <div class="desktop-options">
-                <div class="desktop-option" id="desktop-shortcut-option"><span><strong>Create desktop shortcut</strong><small>Create an OpenKeylet shortcut on the current user’s desktop</small></span><label class="switch"><input type="checkbox" id="desktop-shortcut-enabled" /><span></span></label></div>
-                <div class="desktop-option" id="launch-at-login-option"><span><strong>Start on system startup</strong><small>Automatically start OpenKeylet after system login and keep a single instance</small></span><label class="switch"><input type="checkbox" id="launch-at-login-enabled" /><span></span></label></div>
+                <div class="desktop-option" id="desktop-shortcut-option"><span><strong>Create desktop shortcut</strong><small>Create a KeyHub shortcut on the current user’s desktop</small></span><label class="switch"><input type="checkbox" id="desktop-shortcut-enabled" /><span></span></label></div>
+                <div class="desktop-option" id="launch-at-login-option"><span><strong>Start on system startup</strong><small>Automatically start KeyHub after system login and keep a single instance</small></span><label class="switch"><input type="checkbox" id="launch-at-login-enabled" /><span></span></label></div>
               </div>
             </section>
 
             <section class="content-panel settings-card" data-module="MCP / 02">
-              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register local stdio MCP; supported Agents also install the rule “Use OpenKeylet first for authentication tasks”.</p></div></div>
+              <div class="settings-heading"><div class="square-icon purple">IO</div><div><h2>Connect Agent</h2><p>Register local stdio MCP; supported Agents also install the rule “Use KeyHub first for authentication tasks”.</p></div></div>
               <div class="status-strip" id="mcp-status-strip"></div>
               <div class="agent-restart-notice hidden" id="agent-restart-notice"><strong>NEW SESSION REQUIRED</strong><span>After registering or repairing, fully quit and reopen the Agent.</span></div>
               <div class="agent-client-list" id="agent-client-list"><div class="agent-scan-placeholder">Scanning for Agents on this computer</div></div>
               <div class="button-row agent-connect-actions"><div class="command-well"><button class="button quiet" id="rescan-agents">RESCAN</button></div></div>
-              <details class="manual-mcp-config"><summary>OTHER AGENT / MANUAL SETUP</summary><div class="manual-config-steps"><div><b>1</b><span>Open the target Agent’s MCP configuration</span></div><div><b>2</b><span>Copy JSON or TOML in the configured format</span></div><div><b>3</b><span>Paste, save, and restart the Agent</span></div></div><div class="endpoint-box"><span>STDIO / LOCAL</span><code id="mcp-endpoint">openkeylet mcp stdio</code></div><div class="button-row manual-copy-actions"><div class="command-well"><button class="button secondary" data-copy-format="stdio-json">COPY JSON</button></div><div class="command-well"><button class="button quiet" data-copy-format="stdio-toml">COPY TOML</button></div></div></details>
+              <details class="manual-mcp-config"><summary>OTHER AGENT / MANUAL SETUP</summary><div class="manual-config-steps"><div><b>1</b><span>Open the target Agent’s MCP configuration</span></div><div><b>2</b><span>Copy JSON or TOML in the configured format</span></div><div><b>3</b><span>Paste, save, and restart the Agent</span></div></div><div class="endpoint-box"><span>STDIO / LOCAL</span><code id="mcp-endpoint">keyhub mcp stdio</code></div><div class="button-row manual-copy-actions"><div class="command-well"><button class="button secondary" data-copy-format="stdio-json">COPY JSON</button></div><div class="command-well"><button class="button quiet" data-copy-format="stdio-toml">COPY TOML</button></div></div></details>
             </section>
 
             <section class="content-panel settings-card" data-module="APP / 03">
               <div class="settings-heading"><div><h2>Window and lock</h2><p>Control the close button and local PIN lock.</p></div></div>
               <div class="desktop-options">
-                <label class="desktop-option" for="close-behavior"><span><strong>Close button</strong><small>Minimize to keep the tray menu available</small></span><select class="input" id="close-behavior"><option value="tray">Minimize to tray</option><option value="exit">Quit OpenKeylet</option></select></label>
+                <label class="desktop-option" for="close-behavior"><span><strong>Close button</strong><small>Minimize to keep the tray menu available</small></span><select class="input" id="close-behavior"><option value="tray">Minimize to tray</option><option value="exit">Quit KeyHub</option></select></label>
+                <div class="desktop-option" id="menu-bar-only-option" hidden><span><strong>Menu bar only</strong><small>Hide the Dock icon. Click the menu bar icon for quick access.</small></span><label class="switch"><input type="checkbox" id="menu-bar-only-enabled" /><span></span></label></div>
+                <div class="desktop-option"><span><strong id="quick-panel-label">Quick panel</strong><small id="quick-panel-help">Open the compact panel from the menu bar icon.</small></span><button class="button secondary" type="button" id="open-quick-panel">Preview panel</button></div>
                 <div class="desktop-option pin-option"><span><strong>PIN lock</strong><small>Turning this off removes the current PIN; set a new PIN when you turn it on again</small></span><label class="switch"><input type="checkbox" id="pin-enabled" /><span></span></label></div>
               </div>
             </section>
@@ -189,7 +147,7 @@
                   <h3 id="browser-step-drag-title">Drag in the extension</h3>
                   <p id="browser-step-drag-description">Hold the icon below, drag it onto an empty area of the extensions page, and release to install.</p>
                   <button type="button" class="extension-drag-card" id="drag-extension-button" aria-describedby="browser-step-drag-description" aria-label="Drag extension folder to Chrome extensions page"><img src="app-mark.svg" draggable="false" alt=""><span id="drag-extension-label">Hold and drag to the extensions page</span></button>
-                  <p id="browser-install-complete">Once installed, the extension connects automatically. Keep OpenKeylet running.</p>
+                  <p id="browser-install-complete">Once installed, the extension connects automatically. Keep KeyHub running.</p>
                 </div></li>
               </ol>
               <details class="browser-install-fallback"><summary id="browser-fallback-title">Can't install by dragging?</summary><p id="browser-fallback-description">Open the extension folder below. On the extensions page, click Load unpacked and select that folder.</p><div class="command-well"><button type="button" class="button quiet" id="open-extension-button">Extension folder</button></div></details>
@@ -242,12 +200,20 @@
 
             <section class="template-picker hidden" id="template-picker">
               <div class="template-copy"><strong>Start with a combination</strong><small>Templates only add modules; they do not limit later changes.</small></div>
+              <p class="template-passkey-note" id="template-passkey-note">Passkeys are not created manually here. Use the KeyHub browser extension while registering or signing in on a supporting website; Bitwarden imports are also supported.</p>
               <div class="template-grid"><button type="button" data-item-template="login"><b>A</b><span>Login<small>Account + password</small></span></button><button type="button" data-item-template="ssh"><b>B</b><span>SSH<small>Host + port + account + password</small></span></button><button type="button" data-item-template="api"><b>C</b><span>API<small>API credentials</small></span></button><button type="button" data-item-template="blank"><b>D</b><span>Blank<small>Add modules from scratch</small></span></button></div>
-              <div class="template-grid"><button type="button" data-item-template="card"><b>E</b><span>Card<small>Number + expiry + code</small></span></button><button type="button" data-item-template="identity"><b>F</b><span>Identity<small>Contact + address</small></span></button><button type="button" data-item-template="secureNote"><b>G</b><span>Secure note<small>Encrypted text</small></span></button></div>
+              <div class="template-grid"><button type="button" data-item-template="card"><b>E</b><span>Card<small>Number + expiry + code</small></span></button><button type="button" data-item-template="identity"><b>F</b><span>Identity<small>Contact + address</small></span></button><button type="button" data-item-template="secureNote"><b>G</b><span>Secure note<small>Encrypted text</small></span></button><button type="button" data-item-template="env"><b>H</b><span>Environment variables<small>Paste multiple KEY=VALUE entries</small></span></button></div>
             </section>
 
             <section class="module-editor">
-              <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>The switch on the left controls whether plaintext is visible to the Agent</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Account</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button></div></div></div>
+              <div class="editor-heading module-editor-heading"><div><strong>Project modules</strong><small>Drag to reorder · the visibility switch controls what agents can read · custom names can be used as ENV keys</small></div><div class="module-add-wrap"><button type="button" class="small-button" id="add-module-button" aria-expanded="false">＋ ADD MODULE</button><div class="module-menu hidden" id="module-menu"><button type="button" data-add-module="username">Account</button><button type="button" data-add-module="password">Password</button><button type="button" data-add-module="host">Host / IP</button><button type="button" data-add-module="port">Port</button><button type="button" data-add-module="url">Service URL</button><button type="button" data-add-module="apiCredential">API credentials</button><button type="button" data-add-module="privateKey">Private key</button><button type="button" data-add-module="passphrase">Private key passphrase</button><button type="button" data-add-module="totp">TOTP</button><button type="button" data-add-module="customSecret">Custom fields</button><button type="button" class="env-group-option" data-add-env-group>Environment variable group…</button></div></div></div>
+              <section class="env-group-composer hidden" id="env-group-composer" aria-labelledby="env-group-title">
+                <div class="env-group-heading"><div><strong id="env-group-title">Add environment variables</strong><small>One KEY=VALUE per line. Supports # comments and export. Values remain local and are not saved until you add them here and save the credential.</small></div><button class="icon-button" id="env-group-close" type="button" aria-label="Close environment variable group">×</button></div>
+                <textarea class="input textarea" id="env-group-input" maxlength="65536" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="env-group-help env-group-status" placeholder="DATABASE_URL=postgres://…&#10;API_TOKEN=…"></textarea>
+                <p class="env-group-help" id="env-group-help">Field names use letters, numbers and underscores, and cannot start with a number. Inline # is kept as part of the value.</p>
+                <p class="env-group-status" id="env-group-status" role="status" aria-live="polite"></p>
+                <div class="env-group-actions"><button class="button quiet" id="env-group-cancel" type="button">Cancel</button><button class="button primary" id="env-group-add" type="button" disabled>Add variables</button></div>
+              </section>
               <div class="module-list" id="module-list"></div>
               <div id="passkey-list" class="passkey-list"></div>
               <details class="login-websites"><summary>WEBSITE MATCHING</summary><p>Configure websites and matching rules.</p><div id="login-uri-list"></div><button class="small-button" id="login-uri-add" type="button">+ ADD WEBSITE</button></details>
@@ -275,7 +241,7 @@
             <p class="github-note" id="github-account-status" role="status"></p>
             <h3 class="github-step" id="github-step-repository">2 · Private repository</h3>
             <label class="field" for="github-mode"><span id="github-mode-label">Connection method</span><select class="input" id="github-mode"><option value="new" id="github-mode-new">Create a new backup</option><option value="existing" id="github-mode-existing">Connect an existing backup</option></select></label>
-            <label class="field" for="github-repository"><span id="github-repository-input-label">Private repository</span><input class="input" id="github-repository" placeholder="owner/openkeylet-vault" maxlength="240" required spellcheck="false" autocapitalize="off" /></label>
+            <label class="field" for="github-repository"><span id="github-repository-input-label">Private repository</span><input class="input" id="github-repository" placeholder="owner/keyhub-vault" maxlength="240" required spellcheck="false" autocapitalize="off" /></label>
             <label class="github-key-confirm" id="github-create-repository-field"><input type="checkbox" id="github-create-repository" /><span id="github-create-repository-label">Create this private repository in my account</span></label>
             <div class="github-help-row"><button class="button quiet" type="button" data-github-help="repository" id="github-create-repo">Create private repository ↗</button><button class="button quiet" type="button" data-github-help="token" id="github-create-token">Create access token ↗</button></div>
             <h3 class="github-step" id="github-step-key">3 · Recovery key</h3>
@@ -345,9 +311,15 @@
         </div>
       </div>
     </div>
+    <div class="modal-backdrop hidden" id="workspace-use-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-use-title">
+      <div class="modal-card generator-card">
+        <div class="modal-header"><h2 id="workspace-use-title"></h2><button class="icon-button" id="workspace-use-close" type="button" aria-label="Close">×</button></div>
+        <div class="generator-body"><p id="workspace-use-help"></p><textarea class="input textarea" id="workspace-use-prompt" readonly rows="3"></textarea><button class="button primary" id="workspace-use-copy" type="button"></button></div>
+      </div>
+    </div>
     <div class="toast-region" id="toast-region" aria-live="polite"></div>
-    <script src="lettering.js"></script>
     <script src="github-backup.js"></script>
+    <script src="titlebar.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -18,7 +18,7 @@ pub fn fill_focused(value: &str, submit: bool) -> Result<()> {
             .is_ok_and(|value| value.eq_ignore_ascii_case("wayland"))
     {
         bail!(
-            "Wayland does not allow OpenKeylet to reliably type into an arbitrary focused window; use a browser or managed terminal instead"
+            "Wayland does not allow KeyHub to reliably type into an arbitrary focused window; use a browser or managed terminal instead"
         );
     }
 

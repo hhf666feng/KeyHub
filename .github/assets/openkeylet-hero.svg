@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
-  <title id="title">OpenKeylet — Local password manager for AI agents</title>
-  <desc id="desc">Passwords, API keys, and SSH credentials stay in a local encrypted vault. OpenKeylet performs credential actions for agents through MCP without returning hidden plaintext by default.</desc>
+  <title id="title">keyHub — Local password manager for AI agents</title>
+  <desc id="desc">Passwords, API keys, and SSH credentials stay in a local encrypted vault. keyHub performs credential actions for agents through MCP without returning hidden plaintext by default.</desc>
   <defs>
     <style>
       .sans{font-family:Arial,Helvetica,sans-serif}.mono{font-family:Consolas,"Liberation Mono",monospace}.white{fill:#f4f2ed}.muted{fill:#aaa9a5}.orange{fill:#ed4a1a}.label{font-size:12px;letter-spacing:1.4px}.body{font-size:17px}
@@ -12,7 +12,7 @@
   <g transform="translate(56 53)">
     <path d="M0 4h25v6H6v7h19v15H0v-6h19v-5H0z" fill="#f4f2ed"/>
     <rect x="19" y="17" width="6" height="9" class="orange"/>
-    <text x="43" y="28" class="sans white" font-size="28" font-weight="700">OpenKeylet</text>
+    <text x="43" y="28" class="sans white" font-size="28" font-weight="700">keyHub</text>
     <text x="0" y="86" class="mono muted label">LOCAL CREDENTIALS · MCP</text>
     <g class="sans" font-size="53" font-weight="700" letter-spacing="-1.5">
       <text x="0" y="172" class="white">Your agents work.</text>
@@ -37,7 +37,7 @@
     <text x="28" y="43" class="mono muted label">01 / AGENT REQUEST</text>
     <text x="28" y="82" class="sans white" font-size="25" font-weight="700">“Sign in and keep going.”</text>
     <path d="M28 108h444" stroke="#44494c"/>
-    <text x="28" y="146" class="mono muted label">02 / OPENKEYLET</text>
+    <text x="28" y="146" class="mono muted label">02 / keyHub</text>
     <g transform="translate(28 168)" class="mono" font-size="12">
       <rect width="138" height="42" fill="#ed4a1a"/>
       <text x="69" y="26" text-anchor="middle" class="white">PASSWORDS</text>
@@ -53,5 +53,5 @@
   </g>
   <path d="M56 579h1168" stroke="#303336"/>
   <text x="56" y="611" class="mono muted label">WINDOWS / macOS / LINUX</text>
-  <text x="1224" y="611" text-anchor="end" class="mono muted label">OPENKEYLET · YOUR LOCAL KEYRING</text>
+  <text x="1224" y="611" text-anchor="end" class="mono muted label">keyHub · YOUR LOCAL KEYRING</text>
 </svg>

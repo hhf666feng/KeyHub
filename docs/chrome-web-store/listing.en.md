@@ -1,18 +1,20 @@
-# English store listing
+# KeyHub English store listing (draft)
+
+Draft copy only, not a published listing or release announcement. The display-name update retains v0.16.0 and the extension's fixed ID, pairing token, bridge protocol, storage keys and permissions. The upstream repository and download URLs below are unchanged; verify that the available desktop build is compatible before submission.
 
 ## Name
 
-OpenKeylet — Local Passwords & Passkeys
+KeyHub — Local Passwords & Passkeys
 
 ## Short description
 
-Local passwords, passkeys and autofill with your OpenKeylet desktop vault. Requires the OpenKeylet desktop app.
+Local passwords, passkeys and autofill with your KeyHub desktop vault. Requires the KeyHub desktop app.
 
 ## Detailed description
 
-OpenKeylet brings your local desktop vault to Chrome. Save and fill logins, use passkeys, and manage cards, identities and secure notes from the browser.
+KeyHub brings your local desktop vault to Chrome. Save and fill logins, use passkeys, and manage cards, identities and secure notes from the browser.
 
-Requires the free OpenKeylet desktop application with Browser Bridge running. This extension is a companion to the desktop vault; it does not run a separate cloud vault or require an OpenKeylet account.
+Requires the free KeyHub desktop application with Browser Bridge running. This extension is a companion to the desktop vault; it does not run a separate cloud vault or require a KeyHub account.
 
 PASSWORDS WHERE YOU NEED THEM
 
@@ -28,14 +30,14 @@ Search and filter vault items; organize folders and favorites; manage cards, ide
 
 LOCAL CONNECTION, YOUR CHOICE
 
-The extension communicates with OpenKeylet on your own computer. There are no ads or built-in analytics. Optional GitHub encrypted backup is configured separately in the desktop app. If you connect an AI agent through the desktop MCP service, it can request enabled credential actions, including filling a focused browser field and explicitly requested form submission.
+The extension communicates with KeyHub on your own computer. There are no ads or built-in analytics. Optional GitHub encrypted backup is configured separately in the desktop app. If you connect an AI agent through the desktop MCP service, it can request enabled credential actions, including filling a focused browser field and explicitly requested form submission.
 
 GET STARTED
 
-1. Download and run the compatible OpenKeylet desktop release.
+1. Download and run the compatible KeyHub desktop release.
 2. Enable Browser Bridge and follow its pairing instructions.
 3. Install this extension and pin it to the toolbar.
-4. Open a website, unlock with your OpenKeylet PIN if configured, and choose an action.
+4. Open a website, unlock with your KeyHub PIN if configured, and choose an action.
 5. Enable save suggestions only if you want the extension to detect submitted login information.
 
 Desktop downloads: https://github.com/omaekumiko2-create/OpenKeylet/releases/latest

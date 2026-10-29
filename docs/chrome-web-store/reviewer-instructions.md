@@ -1,11 +1,13 @@
-# Instructions for Chrome Web Store reviewers
+# KeyHub instructions for Chrome Web Store reviewers (draft)
 
-OpenKeylet is a companion to a local desktop vault. It has no OpenKeylet cloud account, subscription or reviewer login. Use synthetic credentials; never use a real password or payment card.
+Prepared for a future submission; no upload, approval or publication is claimed. The KeyHub display-name update keeps v0.16.0 and the fixed extension ID, pairing token, bridge protocol, storage keys and permissions unchanged. Existing paired installations do not need re-pairing solely because of the rename; the setup below is for an isolated review installation.
+
+KeyHub is a companion to a local desktop vault. It has no KeyHub cloud account, subscription or reviewer login. Use synthetic credentials; never use a real password or payment card.
 
 ## Setup
 
 1. Download the compatible desktop release from https://github.com/omaekumiko2-create/OpenKeylet/releases/latest. The publisher must confirm this release includes the features in the submitted extension before submission.
-2. Run OpenKeylet on a supported desktop platform. Enable Browser Bridge in Settings. The default loopback port is 39272.
+2. Run KeyHub on a supported desktop platform. Enable Browser Bridge in Settings. The default loopback port is 39272.
 3. Install the submitted store extension. In the desktop Browser Bridge settings, use “Open extensions page” to start the pairing window, then open the extension. Do not also install the bundled development extension.
 4. Confirm the extension shows CONNECTED. If the port was changed, enter it in the extension's Connection section. If pairing fails, the publisher must check that the desktop's allowed extension Origin matches the submitted store ID.
 5. For PIN tests, configure a six-digit owner PIN in this isolated desktop vault. Otherwise owner vault features are available without a PIN. No special production access is needed.
@@ -32,7 +34,7 @@ Create synthetic items in “Cards, identities & notes” or “All vault items.
 
 ## Passkeys
 
-Use a WebAuthn test website you control on top-level HTTPS (or localhost). Request ES256 registration with a discoverable credential. Confirm the origin/account in OpenKeylet's dedicated window and enter the owner PIN when user verification is requested. Test sign-in, cancellation and “Use device.” Private keys remain in the local desktop backend.
+Use a WebAuthn test website you control on top-level HTTPS (or localhost). Request ES256 registration with a discoverable credential. Confirm the origin/account in KeyHub's dedicated window and enter the owner PIN when user verification is requested. Test sign-in, cancellation and “Use device.” Private keys remain in the local desktop backend.
 
 Conditional autofill, cross-origin frames, hardware attestation and unsupported extensions use the native provider where supported. This extension does not claim to replace all browser WebAuthn behavior.
 
@@ -44,4 +46,4 @@ The desktop's owner-configured MCP interface can send an authenticated, fixed-sh
 
 The source repository contains `scripts/test-browser.mjs`, `scripts/test-login-capture.mjs` and `src-tauri/examples/browser_fixture.rs`. They create an isolated synthetic vault and browser profile. The fixture PIN `123456` is test-only, not a password for any user account.
 
-The attached store screenshots are captured from this isolated extension/backend setup. A synthetic website is clearly identified in the screenshots. No screenshot uses a real user vault or promises a feature absent from the extension.
+Before submission, attach screenshots captured from this isolated extension/backend setup and identify synthetic websites clearly. Do not use a real user vault or promise a feature absent from the submitted build. This draft is not evidence that screenshots have been regenerated for KeyHub.

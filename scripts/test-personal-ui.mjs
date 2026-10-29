@@ -17,7 +17,7 @@ const server = http.createServer(async(req,res) => {
   } catch { res.writeHead(404); res.end(); }
 });
 server.listen(0,"127.0.0.1"); await once(server,"listening");
-const browser = await chromium.launch({headless:true});
+const browser = await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{})});
 try {
   const page = await browser.newPage({viewport:{width:690,height:1000}});
   const errors = []; page.on("pageerror",e=>errors.push(e.message));
@@ -177,6 +177,7 @@ try {
   await page.evaluate(async()=>{
     fixture.state.connections[0].passwordHistoryCount=1;await refresh();
   });
+  await page.locator('.connection-card').filter({has:page.locator('[data-action="history"]')}).locator('.workspace-more').click();
   await page.locator('[data-action="history"]').click();
   const previous=page.locator("#vault-management-list input");
   assert.equal(await previous.inputValue(),"synthetic-previous-password");
@@ -189,6 +190,7 @@ try {
   await page.waitForFunction(()=>fixture.history.length===0);
   await page.locator("#vault-management-close").click();
   assert.equal(await previous.count(),0);
+  await page.locator('.workspace-more').first().click();
   await page.locator('[data-action="delete"]').first().click();await page.locator("#confirmation-accept").click();
   await page.waitForFunction(()=>fixture.trash.length===1);
   await page.locator('[data-page="settings"]').click();
@@ -198,6 +200,7 @@ try {
   await page.waitForFunction(()=>fixture.trash.length===0);
   await page.locator("#vault-management-close").click();
   await page.locator('[data-page="connections"]').click();
+  await page.locator('.workspace-more').first().click();
   await page.locator('[data-action="delete"]').first().click();await page.locator("#confirmation-accept").click();
   await page.waitForFunction(()=>fixture.trash.length===1);
   await page.locator('[data-page="settings"]').click();

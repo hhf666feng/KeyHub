@@ -177,13 +177,13 @@ impl VaultMcp {
             let connection = self
                 .vault
                 .get_connection(item_id)
-                .map_err(|_| "The OpenKeylet project bound to this terminal is no longer available; specify item again".to_owned())?;
+                .map_err(|_| "The KeyHub project bound to this terminal is no longer available; specify item again".to_owned())?;
             if !connection.stored.enabled
                 || !connection
                     .stored
                     .has_capability(&connection.secrets, "fill")
             {
-                return Err("The OpenKeylet project bound to this terminal is no longer available; specify item again".to_owned());
+                return Err("The KeyHub project bound to this terminal is no longer available; specify item again".to_owned());
             }
             return Ok(connection);
         }
@@ -348,11 +348,11 @@ impl VaultMcp {
                 0 => Err(match capability {
                     Some(capability) => {
                         format!(
-                            "No enabled and supported {} action-capable OpenKeylet project",
+                            "No enabled and supported {} action-capable KeyHub project",
                             action_label(capability)
                         )
                     }
-                    None => "No OpenKeylet project is available for Agent use".to_owned(),
+                    None => "No KeyHub project is available for Agent use".to_owned(),
                 }),
                 1 => {
                     let connection = connections.into_iter().next().expect("length checked");
@@ -360,7 +360,7 @@ impl VaultMcp {
                     Ok(connection)
                 }
                 _ => Err(format!(
-                    "Multiple OpenKeylet projects are available:{}; specify item",
+                    "Multiple KeyHub projects are available:{}; specify item",
                     connections
                         .iter()
                         .map(|connection| connection.stored.name.as_str())
@@ -374,7 +374,7 @@ impl VaultMcp {
             self.clear_active_item();
         }
         match matches.len() {
-            0 => Err(format!("No enabled OpenKeylet project found:{query}")),
+            0 => Err(format!("No enabled KeyHub project found:{query}")),
             1 => {
                 let connection = matches.remove(0);
                 self.bind_active_item(connection.stored.id);
@@ -687,9 +687,9 @@ fn resolve_secret_module(
     }
 }
 
-// Keep existing automation templates usable after the KRU -> OpenKeylet rename.
+// Keep existing automation templates usable after the KRU / OpenKeylet -> KeyHub rename.
 fn next_secret_placeholder(input: &str) -> Option<(usize, usize)> {
-    ["{{openkeylet:", "{{kru:"]
+    ["{{keyhub:", "{{openkeylet:", "{{kru:"]
         .into_iter()
         .filter_map(|prefix| input.find(prefix).map(|start| (start, prefix.len())))
         .min_by_key(|(start, _)| *start)
@@ -706,11 +706,11 @@ fn interpolate_http_text(
         output.push_str(&rest[..start]);
         let after_open = &rest[start + prefix_len..];
         let Some(end) = after_open.find("}}") else {
-            return Err("Missing OpenKeylet secret placeholder }}".to_owned());
+            return Err("Missing KeyHub secret placeholder }}".to_owned());
         };
         let alias = after_open[..end].trim();
         let value = replacements.get(alias).ok_or_else(|| {
-            format!("OpenKeylet HTTP secret placeholder has no corresponding binding:{alias}")
+            format!("KeyHub HTTP secret placeholder has no corresponding binding:{alias}")
         })?;
         output.push_str(value);
         used.insert(alias.to_owned());
@@ -728,11 +728,11 @@ fn collect_secret_placeholders_text(
     while let Some((start, prefix_len)) = next_secret_placeholder(rest) {
         let after_open = &rest[start + prefix_len..];
         let Some(end) = after_open.find("}}") else {
-            return Err("Missing OpenKeylet HTTP secret placeholder }}".to_owned());
+            return Err("Missing KeyHub HTTP secret placeholder }}".to_owned());
         };
         let module = after_open[..end].trim();
         if module.is_empty() {
-            return Err("OpenKeylet secret placeholder name cannot be empty".to_owned());
+            return Err("KeyHub secret placeholder name cannot be empty".to_owned());
         }
         placeholders.insert(module.to_owned());
         rest = &after_open[end + 2..];
@@ -830,7 +830,7 @@ fn tool_success<T: Serialize>(value: T) -> CallToolResult {
             result.content = vec![ContentBlock::text(text)];
             result
         }
-        Err(_) => tool_error("OpenKeylet could not serialize the tool result."),
+        Err(_) => tool_error("KeyHub could not serialize the tool result."),
     }
 }
 
@@ -899,12 +899,12 @@ struct OkOutput {
 struct SshRunInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
+        description = "Optional KeyHub project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
     )]
     item: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH host override. Omit it to use the host saved in the OpenKeylet project."
+        description = "Optional SSH host override. Omit it to use the host saved in the KeyHub project."
     )]
     host: Option<String>,
     #[serde(default)]
@@ -914,21 +914,21 @@ struct SshRunInput {
     port: Option<u16>,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH username override. Omit it to use the encrypted username saved in the OpenKeylet project."
+        description = "Optional SSH username override. Omit it to use the encrypted username saved in the KeyHub project."
     )]
     username: Option<String>,
     #[schemars(
-        description = "One command to execute. A hidden module may be used directly as {{openkeylet:password}} or {{openkeylet:module name}} without surrounding quotes; OpenKeylet inserts a shell-quoted value."
+        description = "One command to execute. A hidden module may be used directly as {{keyhub:password}} or {{keyhub:module name}} without surrounding quotes; KeyHub inserts a shell-quoted value."
     )]
     command: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional text written directly to the remote command's standard input. It may contain {{openkeylet:module name}} placeholders, which OpenKeylet substitutes and redacts locally."
+        description = "Optional text written directly to the remote command's standard input. It may contain {{keyhub:module name}} placeholders, which KeyHub substitutes and redacts locally."
     )]
     stdin: Option<String>,
     #[serde(default)]
     #[schemars(
-        description = "Optional remote working directory. A hidden module may be used directly as {{openkeylet:module name}}."
+        description = "Optional remote working directory. A hidden module may be used directly as {{keyhub:module name}}."
     )]
     cwd: Option<String>,
     #[serde(default)]
@@ -938,7 +938,7 @@ struct SshRunInput {
     timeout_seconds: Option<u64>,
     #[serde(default)]
     #[schemars(
-        description = "Optional environment-variable mapping from variable name to any secret module in item. OpenKeylet injects each value into the remote command environment and redacts it from output without returning it to the caller. The command can reference variables such as $OPENKEYLET_PASSWORD."
+        description = "Optional environment-variable mapping from variable name to any secret module in item. KeyHub injects each value into the remote command environment and redacts it from output without returning it to the caller. The command can reference variables such as $KEYHUB_PASSWORD."
     )]
     secret_env: HashMap<String, String>,
 }
@@ -948,12 +948,12 @@ struct SshRunInput {
 struct SshUploadInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
+        description = "Optional KeyHub project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
     )]
     item: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH host override. Omit it to use the host saved in the OpenKeylet project."
+        description = "Optional SSH host override. Omit it to use the host saved in the KeyHub project."
     )]
     host: Option<String>,
     #[serde(default)]
@@ -963,11 +963,11 @@ struct SshUploadInput {
     port: Option<u16>,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH username override. Omit it to use the encrypted username saved in the OpenKeylet project."
+        description = "Optional SSH username override. Omit it to use the encrypted username saved in the KeyHub project."
     )]
     username: Option<String>,
     #[schemars(
-        description = "Local file or directory path on the machine running OpenKeylet. Absolute and ~/ paths are accepted; relative paths resolve from the OpenKeylet MCP process working directory. Directories are transferred recursively."
+        description = "Local file or directory path on the machine running KeyHub. Absolute and ~/ paths are accepted; relative paths resolve from the KeyHub MCP process working directory. Directories are transferred recursively."
     )]
     local_path: String,
     #[serde(default)]
@@ -990,12 +990,12 @@ struct SshUploadInput {
 struct SshDownloadInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
+        description = "Optional KeyHub project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session selected a compatible project, or when exactly one enabled project stores a password or private key."
     )]
     item: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH host override. Omit it to use the host saved in the OpenKeylet project."
+        description = "Optional SSH host override. Omit it to use the host saved in the KeyHub project."
     )]
     host: Option<String>,
     #[serde(default)]
@@ -1005,7 +1005,7 @@ struct SshDownloadInput {
     port: Option<u16>,
     #[serde(default)]
     #[schemars(
-        description = "Optional SSH username override. Omit it to use the encrypted username saved in the OpenKeylet project."
+        description = "Optional SSH username override. Omit it to use the encrypted username saved in the KeyHub project."
     )]
     username: Option<String>,
     #[schemars(
@@ -1014,7 +1014,7 @@ struct SshDownloadInput {
     remote_path: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional local file or directory path. Omit it to save in the OpenKeylet MCP process working directory using the remote source name."
+        description = "Optional local file or directory path. Omit it to save in the KeyHub MCP process working directory using the remote source name."
     )]
     local_path: String,
     #[serde(default = "default_true")]
@@ -1032,7 +1032,7 @@ struct SshDownloadInput {
 struct HttpSendInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session has selected a compatible project, or when exactly one compatible project exists."
+        description = "Optional KeyHub project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session has selected a compatible project, or when exactly one compatible project exists."
     )]
     item: String,
     #[serde(default)]
@@ -1065,7 +1065,7 @@ struct HttpSendInput {
     body_base64: Option<String>,
     #[serde(default)]
     #[schemars(
-        description = "Optional aliases from a placeholder name to a secret module. Usually omit this map and write the module directly, such as {{openkeylet:password}} or {{openkeylet:service token}}. Use secretBindings only when the placeholder should have a different short name. OpenKeylet substitutes and redacts values locally."
+        description = "Optional aliases from a placeholder name to a secret module. Usually omit this map and write the module directly, such as {{keyhub:password}} or {{keyhub:service token}}. Use secretBindings only when the placeholder should have a different short name. KeyHub substitutes and redacts values locally."
     )]
     secret_bindings: HashMap<String, String>,
     #[serde(default)]
@@ -1080,7 +1080,7 @@ struct HttpSendInput {
     max_response_bytes: Option<usize>,
     #[serde(default)]
     #[schemars(
-        description = "Optional local file path for streaming the complete response body without the in-context size limit. Absolute and ~/ paths are accepted; relative paths resolve from the OpenKeylet MCP process working directory. Parent directories are created automatically."
+        description = "Optional local file path for streaming the complete response body without the in-context size limit. Absolute and ~/ paths are accepted; relative paths resolve from the KeyHub MCP process working directory. Parent directories are created automatically."
     )]
     save_response_to: Option<String>,
     #[serde(default = "default_true")]
@@ -1149,7 +1149,7 @@ fn transfer_file_name(path: &str, label: &str) -> Result<String, String> {
 struct CredentialFillInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session or terminal has selected a compatible project, or when exactly one project supports credential filling."
+        description = "Optional KeyHub project name, or an unambiguous natural-language phrase containing it. Omit it after this MCP session or terminal has selected a compatible project, or when exactly one project supports credential filling."
     )]
     item: String,
     #[serde(default)]
@@ -1159,12 +1159,12 @@ struct CredentialFillInput {
     module: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional write target: browser, desktop, or terminal. Omit it to use the current running OpenKeylet terminal when one exists, otherwise a connected browser extension, otherwise the real operating-system foreground control."
+        description = "Optional write target: browser, desktop, or terminal. Omit it to use the current running KeyHub terminal when one exists, otherwise a connected browser extension, otherwise the real operating-system foreground control."
     )]
     target: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional terminal session ID. Omit it to use the current OpenKeylet terminal; provide it only to switch among multiple terminal sessions."
+        description = "Optional terminal session ID. Omit it to use the current KeyHub terminal; provide it only to switch among multiple terminal sessions."
     )]
     session_id: Option<String>,
     #[serde(default)]
@@ -1179,7 +1179,7 @@ struct CredentialFillInput {
 struct TerminalStartInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name or natural-language phrase. Pass it once to bind this terminal session, including when the first command has no secret; later terminal_write calls can then omit item. It is required for placeholders or secretEnv only when no unique or bound project can be inferred."
+        description = "Optional KeyHub project name or natural-language phrase. Pass it once to bind this terminal session, including when the first command has no secret; later terminal_write calls can then omit item. It is required for placeholders or secretEnv only when no unique or bound project can be inferred."
     )]
     item: String,
     #[serde(default)]
@@ -1189,22 +1189,22 @@ struct TerminalStartInput {
     program: String,
     #[serde(default)]
     #[schemars(
-        description = "Arguments passed as individual argv values. A hidden module may be used directly as {{openkeylet:password}} or {{openkeylet:module name}}."
+        description = "Arguments passed as individual argv values. A hidden module may be used directly as {{keyhub:password}} or {{keyhub:module name}}."
     )]
     args: Vec<String>,
     #[serde(default)]
     #[schemars(
-        description = "Optional working directory. Absolute and ~/ paths are accepted; relative paths resolve from the OpenKeylet MCP process working directory. A hidden module may be used directly as {{openkeylet:module name}}."
+        description = "Optional working directory. Absolute and ~/ paths are accepted; relative paths resolve from the KeyHub MCP process working directory. A hidden module may be used directly as {{keyhub:module name}}."
     )]
     cwd: Option<String>,
     #[serde(default)]
     #[schemars(
-        description = "Optional first line submitted immediately after the terminal starts. When program is omitted, this runs as a command in the platform's default shell. A hidden module may be used directly as {{openkeylet:password}} or {{openkeylet:module name}} without surrounding quotes; OpenKeylet handles shell quoting."
+        description = "Optional first line submitted immediately after the terminal starts. When program is omitted, this runs as a command in the platform's default shell. A hidden module may be used directly as {{keyhub:password}} or {{keyhub:module name}} without surrounding quotes; KeyHub handles shell quoting."
     )]
     command: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional environment-variable mapping from variable name to OpenKeylet module name or common module phrase. OpenKeylet injects each value into the child process and redacts it from terminal output without returning it to the caller."
+        description = "Optional environment-variable mapping from variable name to KeyHub module name or common module phrase. KeyHub injects each value into the child process and redacts it from terminal output without returning it to the caller."
     )]
     secret_env: HashMap<String, String>,
 }
@@ -1214,21 +1214,21 @@ struct TerminalStartInput {
 struct TerminalRunInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name or natural-language phrase. Omit it after this MCP session selected a compatible project, or when the command does not use a hidden module."
+        description = "Optional KeyHub project name or natural-language phrase. Omit it after this MCP session selected a compatible project, or when the command does not use a hidden module."
     )]
     item: String,
     #[schemars(
-        description = "Shell command to run to completion. A hidden module may be used directly as {{openkeylet:password}} or {{openkeylet:module name}} without surrounding quotes; OpenKeylet inserts a shell-quoted value."
+        description = "Shell command to run to completion. A hidden module may be used directly as {{keyhub:password}} or {{keyhub:module name}} without surrounding quotes; KeyHub inserts a shell-quoted value."
     )]
     command: String,
     #[serde(default)]
     #[schemars(
-        description = "Optional text written directly to the command's standard input. It may contain {{openkeylet:module name}} placeholders, which OpenKeylet substitutes and redacts locally."
+        description = "Optional text written directly to the command's standard input. It may contain {{keyhub:module name}} placeholders, which KeyHub substitutes and redacts locally."
     )]
     stdin: Option<String>,
     #[serde(default)]
     #[schemars(
-        description = "Optional working directory. Absolute, ~/ and MCP-session-relative paths are accepted. A hidden module may be used directly as {{openkeylet:module name}}."
+        description = "Optional working directory. Absolute, ~/ and MCP-session-relative paths are accepted. A hidden module may be used directly as {{keyhub:module name}}."
     )]
     cwd: Option<String>,
     #[serde(default)]
@@ -1238,7 +1238,7 @@ struct TerminalRunInput {
     timeout_seconds: Option<u64>,
     #[serde(default)]
     #[schemars(
-        description = "Optional environment-variable mapping from variable name to a secret module. OpenKeylet injects and redacts each value locally."
+        description = "Optional environment-variable mapping from variable name to a secret module. KeyHub injects and redacts each value locally."
     )]
     secret_env: HashMap<String, String>,
 }
@@ -1268,7 +1268,7 @@ struct TerminalReadInput {
     wait_seconds: Option<u64>,
     #[serde(default)]
     #[schemars(
-        description = "Optional output substring to wait for. OpenKeylet accumulates output until this text appears or the process exits. Omit waitSeconds for no OpenKeylet deadline, or set it to bound the wait."
+        description = "Optional output substring to wait for. KeyHub accumulates output until this text appears or the process exits. Omit waitSeconds for no KeyHub deadline, or set it to bound the wait."
     )]
     until: Option<String>,
 }
@@ -1278,7 +1278,7 @@ struct TerminalReadInput {
 struct TerminalWriteInput {
     #[serde(default)]
     #[schemars(
-        description = "Optional OpenKeylet project name or natural-language phrase used when text contains a {{openkeylet:module}} placeholder. Omit it when terminal_start or an earlier write already bound this session, or when exactly one enabled project contains usable secrets."
+        description = "Optional KeyHub project name or natural-language phrase used when text contains a {{keyhub:module}} placeholder. Omit it when terminal_start or an earlier write already bound this session, or when exactly one enabled project contains usable secrets."
     )]
     item: String,
     #[serde(default)]
@@ -1287,12 +1287,12 @@ struct TerminalWriteInput {
     )]
     session_id: String,
     #[schemars(
-        description = "Interactive terminal input. A hidden module may be inserted as raw input with {{openkeylet:password}} or {{openkeylet:module name}}. OpenKeylet redacts an echoed value from later terminal output."
+        description = "Interactive terminal input. A hidden module may be inserted as raw input with {{keyhub:password}} or {{keyhub:module name}}. KeyHub redacts an echoed value from later terminal output."
     )]
     text: String,
     #[serde(default)]
     #[schemars(
-        description = "Press Enter after text. OpenKeylet uses the correct newline for the current platform and avoids adding a second newline when text already ends with one. Defaults to false."
+        description = "Press Enter after text. KeyHub uses the correct newline for the current platform and avoids adding a second newline when text already ends with one. Defaults to false."
     )]
     submit: bool,
 }
@@ -1301,9 +1301,9 @@ struct TerminalWriteInput {
 impl VaultMcp {
     #[tool(
         name = "items_search",
-        description = "Discover or select enabled OpenKeylet projects, modules, and available actions. A query that finds one project makes it the current project for this MCP session, so later compatible actions can omit item. When the user already named a project and the intended action is clear, call that action directly instead. Query may be the project name or the user's natural-language phrase containing it. Exact case-insensitive name matches win. Only modules explicitly marked agentVisible include value.",
+        description = "Discover or select enabled KeyHub projects, modules, and available actions. A query that finds one project makes it the current project for this MCP session, so later compatible actions can omit item. When the user already named a project and the intended action is clear, call that action directly instead. Query may be the project name or the user's natural-language phrase containing it. Exact case-insensitive name matches win. Only modules explicitly marked agentVisible include value.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<ItemsSearchOutput>(),
-        annotations(title = "Find OpenKeylet projects", read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
+        annotations(title = "Find KeyHub projects", read_only_hint = true, destructive_hint = false, idempotent_hint = true, open_world_hint = false)
     )]
     async fn items_search(
         &self,
@@ -1314,7 +1314,7 @@ impl VaultMcp {
 
     #[tool(
         name = "credential_fill",
-        description = "Use one stored module without returning hidden plaintext. Omit item when this MCP session or terminal already selected a compatible project, or when exactly one enabled project supports filling; otherwise pass its name or a natural phrase containing it. OpenKeylet infers a sole secret module and understands module names or common phrases such as password, API key, private key, and verification code in either module or item. Omit target to use the current running OpenKeylet terminal, otherwise try a connected browser extension and immediately fall back to the real operating-system foreground control; common target aliases are accepted. sessionId is only needed to switch among multiple terminals. Set submit=true to complete the focused form or press Enter in the same call. Call items_search only when discovery or genuine ambiguity remains.",
+        description = "Use one stored module without returning hidden plaintext. Omit item when this MCP session or terminal already selected a compatible project, or when exactly one enabled project supports filling; otherwise pass its name or a natural phrase containing it. KeyHub infers a sole secret module and understands module names or common phrases such as password, API key, private key, and verification code in either module or item. Omit target to use the current running KeyHub terminal, otherwise try a connected browser extension and immediately fall back to the real operating-system foreground control; common target aliases are accepted. sessionId is only needed to switch among multiple terminals. Set submit=true to complete the focused form or press Enter in the same call. Call items_search only when discovery or genuine ambiguity remains.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<CredentialFillOutput>(),
         annotations(title = "Fill a credential", read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1443,7 +1443,7 @@ impl VaultMcp {
 
     #[tool(
         name = "terminal_run",
-        description = "Run one local shell command to completion and return stdout, stderr, and exit status in the same call. Use this for ordinary non-interactive local work; use PTY tools only when the process must stay interactive. stdin sends text directly without shell escaping or temporary files. command, stdin, and cwd may contain {{openkeylet:module}} placeholders, and secretEnv may inject a stored module when a child program needs an environment variable. OpenKeylet substitutes locally and redacts known values from output. Omit item when the session selected a compatible project or no hidden module is used. There is no sandbox, output limit, or default timeout.",
+        description = "Run one local shell command to completion and return stdout, stderr, and exit status in the same call. Use this for ordinary non-interactive local work; use PTY tools only when the process must stay interactive. stdin sends text directly without shell escaping or temporary files. command, stdin, and cwd may contain {{keyhub:module}} placeholders, and secretEnv may inject a stored module when a child program needs an environment variable. KeyHub substitutes locally and redacts known values from output. Omit item when the session selected a compatible project or no hidden module is used. There is no sandbox, output limit, or default timeout.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<SshResponse>(),
         annotations(title = "Run a local command", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1522,7 +1522,7 @@ impl VaultMcp {
 
     #[tool(
         name = "terminal_start",
-        description = "Start a program or script in a OpenKeylet-managed local PTY and make it the current terminal for this MCP session. Omit program to start the platform's default shell, or provide any program and argv; Windows .cmd and .bat scripts use the native command processor. Pass item once to bind the terminal so later terminal_write placeholders can omit it. command, args, and cwd may use a hidden module directly as {{openkeylet:password}} or {{openkeylet:module name}}; OpenKeylet substitutes it locally and redacts it from output. Use secretEnv only when the child program specifically needs an environment variable. command may contain the first line to submit immediately after startup. This is not a sandbox.",
+        description = "Start a program or script in a KeyHub-managed local PTY and make it the current terminal for this MCP session. Omit program to start the platform's default shell, or provide any program and argv; Windows .cmd and .bat scripts use the native command processor. Pass item once to bind the terminal so later terminal_write placeholders can omit it. command, args, and cwd may use a hidden module directly as {{keyhub:password}} or {{keyhub:module name}}; KeyHub substitutes it locally and redacts it from output. Use secretEnv only when the child program specifically needs an environment variable. command may contain the first line to submit immediately after startup. This is not a sandbox.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<TerminalOpenResult>(),
         annotations(title = "Open a managed terminal", read_only_hint = false, destructive_hint = false, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1674,7 +1674,7 @@ impl VaultMcp {
 
     #[tool(
         name = "terminal_write",
-        description = "Write interactive input to the current OpenKeylet-managed PTY. Omit sessionId for the current terminal; provide it only to switch among multiple terminals. text may contain {{openkeylet:password}} or {{openkeylet:module name}}; OpenKeylet inserts the raw value locally and redacts any echo, so later password, sudo, token, or TOTP prompts do not require a separate tool. item may be omitted after terminal_start or an earlier write bound the terminal. Set submit=true to press Enter without constructing a platform-specific newline. Use credential_fill for browser or desktop controls.",
+        description = "Write interactive input to the current KeyHub-managed PTY. Omit sessionId for the current terminal; provide it only to switch among multiple terminals. text may contain {{keyhub:password}} or {{keyhub:module name}}; KeyHub inserts the raw value locally and redacts any echo, so later password, sudo, token, or TOTP prompts do not require a separate tool. item may be omitted after terminal_start or an earlier write bound the terminal. Set submit=true to press Enter without constructing a platform-specific newline. Use credential_fill for browser or desktop controls.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<OkOutput>(),
         annotations(title = "Write terminal input", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1736,7 +1736,7 @@ impl VaultMcp {
 
     #[tool(
         name = "terminal_read",
-        description = "Read output from the current OpenKeylet-managed PTY. Omit sessionId for the current terminal; provide it only to switch among multiple terminals. Add until to accumulate output until that text appears or the process exits; this waits without a OpenKeylet deadline unless waitSeconds is set. Without until, waitSeconds waits until any output arrives. With neither, the read is immediate. OpenKeylet redacts values it filled and common encodings of those values.",
+        description = "Read output from the current KeyHub-managed PTY. Omit sessionId for the current terminal; provide it only to switch among multiple terminals. Add until to accumulate output until that text appears or the process exits; this waits without a KeyHub deadline unless waitSeconds is set. Without until, waitSeconds waits until any output arrives. With neither, the read is immediate. KeyHub redacts values it filled and common encodings of those values.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<TerminalReadResult>(),
         annotations(title = "Read terminal output", read_only_hint = true, destructive_hint = false, idempotent_hint = false, open_world_hint = false)
     )]
@@ -1788,7 +1788,7 @@ impl VaultMcp {
 
     #[tool(
         name = "terminal_stop",
-        description = "Close and clean up the current OpenKeylet-managed PTY, terminating the program if it is still running. Omit sessionId for the current terminal; provide it only to switch among multiple terminals.",
+        description = "Close and clean up the current KeyHub-managed PTY, terminating the program if it is still running. Omit sessionId for the current terminal; provide it only to switch among multiple terminals.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<OkOutput>(),
         annotations(title = "Close a managed terminal", read_only_hint = false, destructive_hint = true, idempotent_hint = true, open_world_hint = false)
     )]
@@ -1811,7 +1811,7 @@ impl VaultMcp {
 
     #[tool(
         name = "ssh_run",
-        description = "Execute the requested command through OpenKeylet SSH. The project only needs a saved password or private key: host, port, and username may be supplied at runtime, with saved values as defaults and port 22 as the fallback. stdin sends text directly to the remote command without shell escaping or temporary files. Omit item after selecting a compatible project or when exactly one project stores SSH authentication. command, stdin, and cwd may use {{openkeylet:module}} placeholders; OpenKeylet substitutes and redacts them locally. Use secretEnv only when the remote program needs an environment variable. This grants full command authority and has no observation, diagnostic, restricted, or execution mode.",
+        description = "Execute the requested command through KeyHub SSH. The project only needs a saved password or private key: host, port, and username may be supplied at runtime, with saved values as defaults and port 22 as the fallback. stdin sends text directly to the remote command without shell escaping or temporary files. Omit item after selecting a compatible project or when exactly one project stores SSH authentication. command, stdin, and cwd may use {{keyhub:module}} placeholders; KeyHub substitutes and redacts them locally. Use secretEnv only when the remote program needs an environment variable. This grants full command authority and has no observation, diagnostic, restricted, or execution mode.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<SshResponse>(),
         annotations(title = "Execute an SSH command", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1877,7 +1877,7 @@ impl VaultMcp {
 
     #[tool(
         name = "ssh_upload",
-        description = "Upload one local file or directory through OpenKeylet SFTP. The project only needs a saved password or private key; host, port, and username may be supplied at runtime, while saved values remain defaults and port 22 is the fallback. Directories are copied recursively. remotePath is optional and defaults to the local source name in the SSH login directory. Missing parents are created and an existing destination is replaced by default, even when its file/directory kind changed.",
+        description = "Upload one local file or directory through KeyHub SFTP. The project only needs a saved password or private key; host, port, and username may be supplied at runtime, while saved values remain defaults and port 22 is the fallback. Directories are copied recursively. remotePath is optional and defaults to the local source name in the SSH login directory. Missing parents are created and an existing destination is replaced by default, even when its file/directory kind changed.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<SshTransferResponse>(),
         annotations(title = "Upload a path over SSH", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1915,7 +1915,7 @@ impl VaultMcp {
 
     #[tool(
         name = "ssh_download",
-        description = "Download one remote file or directory through OpenKeylet SFTP. The project only needs a saved password or private key; host, port, and username may be supplied at runtime, while saved values remain defaults and port 22 is the fallback. Directories are copied recursively. localPath is optional and defaults to the remote source name in the MCP working directory. Missing parents are created and an existing destination is replaced by default, even when its file/directory kind changed.",
+        description = "Download one remote file or directory through KeyHub SFTP. The project only needs a saved password or private key; host, port, and username may be supplied at runtime, while saved values remain defaults and port 22 is the fallback. Directories are copied recursively. localPath is optional and defaults to the remote source name in the MCP working directory. Missing parents are created and an existing destination is replaced by default, even when its file/directory kind changed.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<SshTransferResponse>(),
         annotations(title = "Download a path over SSH", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -1956,7 +1956,7 @@ impl VaultMcp {
 
     #[tool(
         name = "http_send",
-        description = "Send an HTTP request using any enabled OpenKeylet project that contains a configured secret, without returning hidden plaintext. Omit item when this MCP session already selected a compatible project or exactly one compatible project exists; otherwise pass its name or a natural phrase containing it. Built-in API/Basic authentication is injected automatically. For any other scheme, write a module directly as {{openkeylet:password}} or {{openkeylet:service token}} inside URL, header, query, JSON/text body, or form values; OpenKeylet resolves it locally. secretBindings is needed only for optional short aliases. A saved service URL is only a default; any HTTP/HTTPS URL and method may be used, redirects cross origins, and large responses may stream to saveResponseTo.",
+        description = "Send an HTTP request using any enabled KeyHub project that contains a configured secret, without returning hidden plaintext. Omit item when this MCP session already selected a compatible project or exactly one compatible project exists; otherwise pass its name or a natural phrase containing it. Built-in API/Basic authentication is injected automatically. For any other scheme, write a module directly as {{keyhub:password}} or {{keyhub:service token}} inside URL, header, query, JSON/text body, or form values; KeyHub resolves it locally. secretBindings is needed only for optional short aliases. A saved service URL is only a default; any HTTP/HTTPS URL and method may be used, redirects cross origins, and large responses may stream to saveResponseTo.",
         output_schema = rmcp::handler::server::tool::schema_for_type::<ApiResponse>(),
         annotations(title = "Send an authenticated API request", read_only_hint = false, destructive_hint = true, idempotent_hint = false, open_world_hint = true)
     )]
@@ -2003,9 +2003,9 @@ impl VaultMcp {
 impl ServerHandler for VaultMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(Implementation::new("openkeylet", env!("CARGO_PKG_VERSION")).with_title("OpenKeylet"))
+            .with_server_info(Implementation::new("keyhub", env!("CARGO_PKG_VERSION")).with_title("KeyHub"))
             .with_instructions(
-            "OpenKeylet lets agents use locally saved credentials without receiving hidden plaintext. An explicit item or unique items_search result becomes the current project; later compatible actions may omit item, and a terminal keeps its own binding. When the user names a project and the action is clear, call it directly. Use items_search only for discovery, selection, inspection, or genuine ambiguity. credential_fill understands common module phrases and may infer a sole secret; omit target to use the current running OpenKeylet terminal, otherwise a connected browser or foreground control, and use submit=true to complete the login. terminal_start makes the opened PTY current, so terminal_write, terminal_read, terminal_stop, and terminal credential fills should omit sessionId unless deliberately switching among multiple terminals. Use terminal_run for one-shot local commands and PTY tools only for persistent interaction. Direct {{openkeylet:module}} placeholders work in commands, stdin, paths, terminal input, SSH, and HTTP values; OpenKeylet substitutes and redacts them locally. terminal_run.stdin and ssh_run.stdin pass scripts, JSON, or other text without shell escaping or temporary files. A password or private-key project can use SSH without saved target metadata: pass host, optional port, and username at runtime; saved values are defaults and port 22 is the fallback. Use secretEnv only when a program needs an environment variable, and HTTP secretBindings only for aliases. Never ask the user to reveal a hidden value. terminal_read.until waits without polling and has no deadline unless waitSeconds is supplied. OpenKeylet has no observation, diagnostic, restricted, or execution modes.",
+            "KeyHub lets agents use locally saved credentials without receiving hidden plaintext. An explicit item or unique items_search result becomes the current project; later compatible actions may omit item, and a terminal keeps its own binding. When the user names a project and the action is clear, call it directly. Use items_search only for discovery, selection, inspection, or genuine ambiguity. credential_fill understands common module phrases and may infer a sole secret; omit target to use the current running KeyHub terminal, otherwise a connected browser or foreground control, and use submit=true to complete the login. terminal_start makes the opened PTY current, so terminal_write, terminal_read, terminal_stop, and terminal credential fills should omit sessionId unless deliberately switching among multiple terminals. Use terminal_run for one-shot local commands and PTY tools only for persistent interaction. Direct {{keyhub:module}} placeholders work in commands, stdin, paths, terminal input, SSH, and HTTP values; KeyHub substitutes and redacts them locally. terminal_run.stdin and ssh_run.stdin pass scripts, JSON, or other text without shell escaping or temporary files. A password or private-key project can use SSH without saved target metadata: pass host, optional port, and username at runtime; saved values are defaults and port 22 is the fallback. Use secretEnv only when a program needs an environment variable, and HTTP secretBindings only for aliases. Never ask the user to reveal a hidden value. terminal_read.until waits without polling and has no deadline unless waitSeconds is supplied. KeyHub has no observation, diagnostic, restricted, or execution modes.",
         )
     }
 
@@ -2067,10 +2067,10 @@ pub fn render_config(format: &str) -> Result<String> {
     let executable = path_text(&executable);
     match format {
         "stdio-json" => Ok(serde_json::to_string_pretty(&json!({
-            "mcpServers": {"openkeylet": {"command": executable, "args": ["mcp", "stdio"]}}
+            "mcpServers": {"keyhub": {"command": executable, "args": ["mcp", "stdio"]}}
         }))?),
         "stdio-toml" => Ok(format!(
-            "[mcp_servers.openkeylet]\ncommand = \"{}\"\nargs = [\"mcp\", \"stdio\"]",
+            "[mcp_servers.keyhub]\ncommand = \"{}\"\nargs = [\"mcp\", \"stdio\"]",
             toml_escape(&executable)
         )),
         _ => bail!("Unknown configuration format:{format}"),
@@ -2080,7 +2080,8 @@ pub fn render_config(format: &str) -> Result<String> {
 pub fn launcher_executable() -> Result<std::path::PathBuf> {
     #[cfg(target_os = "linux")]
     if let Some(path) = validated_linux_launcher(
-        std::env::var_os("OPENKEYLET_LAUNCHER_PATH")
+        std::env::var_os("KEYHUB_LAUNCHER_PATH")
+            .or_else(|| std::env::var_os("OPENKEYLET_LAUNCHER_PATH"))
             .or_else(|| std::env::var_os("KRU_LAUNCHER_PATH"))
             .map(std::path::PathBuf::from),
         std::env::var_os("APPIMAGE").map(std::path::PathBuf::from),
@@ -2095,7 +2096,7 @@ pub fn launcher_executable() -> Result<std::path::PathBuf> {
         return Ok(path);
     }
     let current =
-        std::env::current_exe().context("Unable to determine the OpenKeylet executable path")?;
+        std::env::current_exe().context("Unable to determine the KeyHub executable path")?;
     Ok(stable_launcher_executable(current))
 }
 
@@ -2154,6 +2155,68 @@ mod tests {
     use super::*;
     use crate::model::{ConnectionInput, ItemModule, NamedSecrets, SecretBundle};
     use tempfile::tempdir;
+
+    #[test]
+    fn keyhub_templates_keep_both_legacy_prefixes_without_recursive_expansion() {
+        let input = "{{keyhub:password}}|{{openkeylet:token}}|{{kru:token}}";
+        let replacements = HashMap::from([
+            ("password".to_owned(), "secret-{{keyhub:token}}".to_owned()),
+            ("token".to_owned(), "token-value".to_owned()),
+        ]);
+        let mut modules = HashSet::new();
+        collect_secret_placeholders_text(input, &mut modules).unwrap();
+        assert_eq!(
+            modules,
+            HashSet::from(["password".to_owned(), "token".to_owned()])
+        );
+        let mut used = HashSet::new();
+        assert_eq!(
+            interpolate_http_text(input, &replacements, &mut used).unwrap(),
+            "secret-{{keyhub:token}}|token-value|token-value"
+        );
+        assert_eq!(used, modules);
+        assert!(collect_secret_placeholders_text("{{keyhub:password}", &mut modules).is_err());
+    }
+
+    #[test]
+    fn keyhub_brand_keeps_the_complete_mcp_tool_surface() {
+        let directory = tempdir().unwrap();
+        let server = VaultMcp::new(Vault::open(directory.path().into()).unwrap());
+        let info = server.get_info();
+        assert_eq!(info.server_info.name, "keyhub");
+        assert_eq!(info.server_info.title.as_deref(), Some("KeyHub"));
+        let mut names = server
+            .tool_router
+            .list_all()
+            .into_iter()
+            .map(|tool| tool.name.to_string())
+            .collect::<Vec<_>>();
+        names.sort();
+        assert_eq!(
+            names,
+            [
+                "credential_fill",
+                "http_send",
+                "items_search",
+                "ssh_download",
+                "ssh_run",
+                "ssh_upload",
+                "terminal_read",
+                "terminal_run",
+                "terminal_start",
+                "terminal_stop",
+                "terminal_write",
+            ]
+        );
+        let config: serde_json::Value =
+            serde_json::from_str(&render_config("stdio-json").unwrap()).unwrap();
+        assert!(config["mcpServers"]["keyhub"].is_object());
+        assert!(
+            render_config("stdio-toml")
+                .unwrap()
+                .starts_with("[mcp_servers.keyhub]")
+        );
+    }
 
     #[test]
     fn old_and_new_secret_templates_can_be_mixed_without_recursive_substitution() {
@@ -2222,7 +2285,7 @@ mod tests {
 
         let directory = tempdir().unwrap();
         let launcher = directory.path().join("openkeylet");
-        let appimage = directory.path().join("OpenKeylet.AppImage");
+        let appimage = directory.path().join("KeyHub.AppImage");
         std::fs::write(&launcher, "#!/bin/sh\n").unwrap();
         std::fs::write(&appimage, "appimage").unwrap();
         std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -2372,20 +2435,17 @@ mod tests {
 
         let natural_phrase = structured_value(
             &mcp.items_search(Parameters(ItemsSearchInput {
-                query: Some("Use TEST_LOGIN in OpenKeylet MCP to finish signing in".into()),
+                query: Some("Use TEST_LOGIN in KeyHub MCP to finish signing in".into()),
             }))
             .await,
         );
         assert_eq!(natural_phrase["items"].as_array().unwrap().len(), 1);
         assert_eq!(natural_phrase["items"][0]["name"], "test login");
         assert_eq!(
-            mcp.resolve_item_for_action(
-                "Use TEST_LOGIN in OpenKeylet MCP to finish signing in",
-                None,
-            )
-            .unwrap()
-            .stored
-            .name,
+            mcp.resolve_item_for_action("Use TEST_LOGIN in KeyHub MCP to finish signing in", None,)
+                .unwrap()
+                .stored
+                .name,
             "test login"
         );
 
@@ -2429,14 +2489,14 @@ mod tests {
             })
             .unwrap();
         assert_eq!(
-            mcp.resolve_item_for_action("use test login api in OpenKeylet MCP", None)
+            mcp.resolve_item_for_action("use test login api in KeyHub MCP", None)
                 .unwrap()
                 .stored
                 .name,
             "test login api"
         );
         assert_eq!(
-            mcp.resolve_item_for_action("use test login api in OpenKeylet MCP", Some("ssh"))
+            mcp.resolve_item_for_action("use test login api in KeyHub MCP", Some("ssh"))
                 .unwrap()
                 .stored
                 .name,
@@ -2456,7 +2516,7 @@ mod tests {
 
         let selected = structured_value(
             &mcp.items_search(Parameters(ItemsSearchInput {
-                query: Some("use test login in OpenKeylet MCP".into()),
+                query: Some("use test login in KeyHub MCP".into()),
             }))
             .await,
         );
@@ -2615,7 +2675,7 @@ mod tests {
             body: axum::body::Bytes,
         ) -> String {
             let otp = headers
-                .get("x-openkeylet-otp")
+                .get("x-keyhub-otp")
                 .and_then(|value| value.to_str().ok())
                 .unwrap_or_default()
                 .to_owned();
@@ -2697,7 +2757,7 @@ mod tests {
             "item": "dynamic HTTP item",
             "url": format!("http://{address}/echo/{{{{openkeylet:auth}}}}"),
             "method": "POST",
-            "headers": {"X-OpenKeylet-Otp": "{{openkeylet:otp}}"},
+            "headers": {"X-KeyHub-Otp": "{{openkeylet:otp}}"},
             "query": {"credential": "{{openkeylet:auth}}"},
             "body": {"credential": "{{openkeylet:auth}}"},
             "secretBindings": {
@@ -2726,7 +2786,7 @@ mod tests {
             "item": "dynamic HTTP item",
             "url": format!("http://{address}/echo/{{{{openkeylet:service password}}}}"),
             "method": "POST",
-            "headers": {"X-OpenKeylet-Otp": "{{openkeylet:totp}}"},
+            "headers": {"X-KeyHub-Otp": "{{openkeylet:totp}}"},
             "query": {"credential": "{{openkeylet:service password}}"},
             "body": {"credential": "{{openkeylet:service password}}"}
         }))
@@ -2891,7 +2951,7 @@ mod tests {
         let terminal = mcp.terminal.open(program, args, None).unwrap();
         let output = mcp
             .credential_fill(Parameters(CredentialFillInput {
-                item: "use the password from multi login in OpenKeylet MCP".into(),
+                item: "use the password from multi login in KeyHub MCP".into(),
                 module: String::new(),
                 target: "PTY".into(),
                 session_id: Some(terminal.session_id.to_string()),
@@ -3060,7 +3120,7 @@ mod tests {
         let one_shot_command = "printf '%s\n' {{openkeylet:password}}; cat; printf '%s\n' \"$OPENKEYLET_HIDDEN_ENV\" >&2";
         let one_shot = structured_value(
             &mcp.terminal_run(Parameters(TerminalRunInput {
-                item: "use CLI Login in OpenKeylet MCP".into(),
+                item: "use CLI Login in KeyHub MCP".into(),
                 command: one_shot_command.into(),
                 stdin: Some("stdin={{openkeylet:password}}".into()),
                 cwd: None,
@@ -3093,7 +3153,7 @@ mod tests {
         );
         let opened = structured_value(
             &mcp.terminal_start(Parameters(TerminalStartInput {
-                item: "use CLI Login in OpenKeylet MCP".into(),
+                item: "use CLI Login in KeyHub MCP".into(),
                 program,
                 args,
                 cwd: None,
@@ -3125,7 +3185,7 @@ mod tests {
         let direct_command = "printf '%s\\n' {{openkeylet:password}}; exit";
         let direct = structured_value(
             &mcp.terminal_start(Parameters(TerminalStartInput {
-                item: "use CLI Login in OpenKeylet MCP".into(),
+                item: "use CLI Login in KeyHub MCP".into(),
                 program: String::new(),
                 args: Vec::new(),
                 cwd: None,
@@ -3172,7 +3232,7 @@ mod tests {
         );
         let interactive = structured_value(
             &mcp.terminal_start(Parameters(TerminalStartInput {
-                item: "use CLI Login in OpenKeylet MCP".into(),
+                item: "use CLI Login in KeyHub MCP".into(),
                 program: interactive_program,
                 args: interactive_args,
                 cwd: None,

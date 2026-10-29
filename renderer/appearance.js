@@ -1,10 +1,10 @@
 /* Local presentation preferences are independent of the encrypted vault. */
 (() => {
   const storageKey = 'openkeylet.appearance.v1';
-  let preferences = { theme: 'dark', sound: false };
+  let preferences = { theme: 'light', sound: false };
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-    preferences = { theme: saved?.theme === 'light' ? 'light' : 'dark', sound: saved?.sound === true };
+    preferences = { theme: saved?.theme === 'dark' ? 'dark' : 'light', sound: saved?.sound === true };
   } catch { /* Unavailable storage leaves safe defaults. */ }
   document.documentElement.dataset.theme = preferences.theme;
   let localize = (zh, en) => en;

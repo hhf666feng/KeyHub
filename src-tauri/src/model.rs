@@ -25,6 +25,7 @@ pub struct OwnerPinVerifier {
 pub struct Settings {
     pub language: String,
     pub close_behavior: String,
+    pub menu_bar_only: bool,
     pub browser_enabled: bool,
     pub browser_port: u16,
     pub browser_paired: bool,
@@ -35,6 +36,7 @@ pub struct Settings {
 pub struct SettingsPatch {
     pub language: Option<String>,
     pub close_behavior: Option<String>,
+    pub menu_bar_only: Option<bool>,
     pub browser_enabled: Option<bool>,
     pub browser_port: Option<u16>,
 }
@@ -44,6 +46,7 @@ impl Default for Settings {
         Self {
             language: "en".to_owned(),
             close_behavior: "tray".to_owned(),
+            menu_bar_only: false,
             browser_enabled: false,
             browser_port: 39_272,
             browser_paired: false,
@@ -63,6 +66,17 @@ mod settings_tests {
         .unwrap();
         assert_eq!(settings.language, "en");
         assert_eq!(settings.close_behavior, "tray");
+    }
+
+    #[test]
+    fn menu_bar_mode_defaults_off_and_round_trips_explicit_preference() {
+        let defaults: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(
+            serde_json::to_value(defaults).unwrap()["menuBarOnly"],
+            false
+        );
+        let enabled: Settings = serde_json::from_str(r#"{"menuBarOnly":true}"#).unwrap();
+        assert_eq!(serde_json::to_value(enabled).unwrap()["menuBarOnly"], true);
     }
 }
 
@@ -220,17 +234,17 @@ pub struct SecretBundle {
 
 impl SecretBundle {
     pub(crate) fn remember_password_change(&mut self, previous: Option<&str>) {
-        if let Some(previous) = previous.filter(|v| !v.is_empty()) {
-            if self.get("password") != Some(previous) {
-                self.password_history.insert(
-                    0,
-                    PasswordHistoryEntry {
-                        password: previous.to_owned(),
-                        changed_at: chrono::Utc::now().to_rfc3339(),
-                    },
-                );
-                self.password_history.truncate(20);
-            }
+        if let Some(previous) = previous.filter(|v| !v.is_empty())
+            && self.get("password") != Some(previous)
+        {
+            self.password_history.insert(
+                0,
+                PasswordHistoryEntry {
+                    password: previous.to_owned(),
+                    changed_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
+            self.password_history.truncate(20);
         }
     }
     pub fn non_empty_values(&self) -> Vec<String> {

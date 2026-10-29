@@ -4,6 +4,7 @@
 /src-tauri/gen/
 /dist/
 /.tmp/
+/.omx/
 .DS_Store
 *.p12
 *.p8

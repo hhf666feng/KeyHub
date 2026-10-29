@@ -37,27 +37,32 @@ test -f "$root/SHA256SUMS.txt"
   if [[ "$kind" == "macos" ]]; then shasum -a 256 -c SHA256SUMS.txt; else sha256sum -c SHA256SUMS.txt; fi
 )
 
+for alias in keyhub openkeylet kru; do
+  test -x "$root/$alias"
+  cmp -s "$root/keyhub" "$root/$alias"
+done
+
 case "$kind" in
   macos)
-    executable="$root/OpenKeylet.app/Contents/MacOS/openkeylet"
+    executable="$root/KeyHub.app/Contents/MacOS/keyhub"
     test -x "$executable"
-    /usr/bin/codesign --verify --deep --strict --verbose=2 "$root/OpenKeylet.app"
-    if [[ "${OPENKEYLET_REQUIRE_NOTARIZED:-0}" == "1" ]]; then
-      signature_details="$(/usr/bin/codesign --display --verbose=4 "$root/OpenKeylet.app" 2>&1)"
+    /usr/bin/codesign --verify --deep --strict --verbose=2 "$root/KeyHub.app"
+    if [[ "${KEYHUB_REQUIRE_NOTARIZED:-${OPENKEYLET_REQUIRE_NOTARIZED:-0}}" == "1" ]]; then
+      signature_details="$(/usr/bin/codesign --display --verbose=4 "$root/KeyHub.app" 2>&1)"
       grep -Fq "Authority=Developer ID Application:" <<<"$signature_details"
       grep -Fq "runtime" <<<"$signature_details"
       grep -Fq "Timestamp=" <<<"$signature_details"
-      /usr/bin/xcrun stapler validate "$root/OpenKeylet.app"
-      /usr/sbin/spctl --assess --type execute --verbose=4 "$root/OpenKeylet.app"
+      /usr/bin/xcrun stapler validate "$root/KeyHub.app"
+      /usr/sbin/spctl --assess --type execute --verbose=4 "$root/KeyHub.app"
     fi
     ;;
   linux-gui)
-    executable="$root/openkeylet"
+    executable="$root/keyhub"
     test -x "$executable"
-    test -x "$root/OpenKeylet.AppImage"
+    test -x "$root/KeyHub.AppImage"
     ;;
   linux-headless)
-    executable="$root/openkeylet"
+    executable="$root/keyhub"
     test -x "$executable"
     ;;
 esac

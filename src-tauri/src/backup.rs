@@ -244,7 +244,7 @@ fn reject_vault_internal_export_path(vault: &Vault, path: &Path) -> Result<()> {
     };
     if target.starts_with(&data_dir) {
         bail!(
-            "Backup files cannot be saved inside the OpenKeylet data directory. Choose another location"
+            "Backup files cannot be saved inside the KeyHub data directory. Choose another location"
         );
     }
     Ok(())

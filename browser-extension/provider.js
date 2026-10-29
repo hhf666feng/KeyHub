@@ -3,11 +3,11 @@ const bridgeRequests = new Map();
 const credentialRequests = new Map();
 const preparingCredentials = new Map();
 function bridgeCall(method, params = {}) {
-  if (socket?.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Open OpenKeylet and connect Browser Bridge first"));
+  if (socket?.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Open KeyHub and connect Browser Bridge first"));
   if (bridgeRequests.size >= 32) return Promise.reject(new Error("Too many pending requests"));
   const requestId = crypto.randomUUID();
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { bridgeRequests.delete(requestId); reject(new Error("OpenKeylet did not respond")); }, 20000);
+    const timer = setTimeout(() => { bridgeRequests.delete(requestId); reject(new Error("KeyHub did not respond")); }, 20000);
     bridgeRequests.set(requestId, { resolve, reject, timer });
     try { socket.send(JSON.stringify({ type: "rpc", requestId, method, params })); }
     catch (e) { clearTimeout(timer); bridgeRequests.delete(requestId); reject(e); }
@@ -20,7 +20,7 @@ function finishBridgeRequest(message) {
 }
 function failBridgeRequests() {
   clearLoginCaptures();
-  for (const p of bridgeRequests.values()) { clearTimeout(p.timer); p.reject(new Error("OpenKeylet disconnected")); }
+  for (const p of bridgeRequests.values()) { clearTimeout(p.timer); p.reject(new Error("KeyHub disconnected")); }
   bridgeRequests.clear();
   preparingCredentials.clear();
   for (const [id] of credentialRequests) finishCredentialRequest(id, { fallback: true });

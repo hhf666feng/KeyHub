@@ -1,11 +1,12 @@
 [package]
-name = "openkeylet"
+name = "keyhub"
 version = "0.16.0"
 description = "Local password and credential manager for AI agents"
 authors = ["OpenKeylet contributors"]
 license = "MIT"
 edition = "2024"
 rust-version = "1.88"
+default-run = "keyhub"
 
 [lib]
 name = "mcp_vault"
@@ -27,8 +28,16 @@ gui = [
 desktop-fill = ["dep:enigo", "dep:windows"]
 
 [[bin]]
-name = "openkeylet"
+name = "keyhub"
 path = "src/main.rs"
+
+[[bin]]
+name = "openkeylet"
+path = "src/bin/openkeylet.rs"
+
+[[bin]]
+name = "kru"
+path = "src/bin/kru.rs"
 
 
 [build-dependencies]
@@ -66,7 +75,7 @@ sha2 = "0.10"
 sha1 = "0.10"
 subtle = "2.6"
 toml_edit = { version = "0.25.13", optional = true }
-tauri = { version = "2.11.5", features = ["tray-icon"], optional = true }
+tauri = { version = "2.11.5", features = ["tray-icon", "macos-private-api"], optional = true }
 tauri-plugin-clipboard-manager = { version = "2", optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 tauri-plugin-opener = { version = "2", optional = true }

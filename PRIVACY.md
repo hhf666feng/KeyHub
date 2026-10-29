@@ -1,8 +1,10 @@
-# OpenKeylet privacy policy
+# KeyHub privacy policy
 
-Last updated: October 20, 2026
+Last updated: October 26, 2026
 
-This policy covers the OpenKeylet browser extension and its connection to the OpenKeylet desktop application. OpenKeylet is a local password and credential manager. It does not require an OpenKeylet account or operate a developer-hosted vault service.
+This policy covers the KeyHub browser extension and its connection to the KeyHub desktop application. KeyHub is a local password and credential manager. It does not require a KeyHub account or operate a developer-hosted vault service.
+
+KeyHub was previously OpenKeylet (originally KRU). This naming/UI update does not introduce new data practices or a new service. The fixed extension ID, pairing token, bridge protocol and extension storage keys remain unchanged, as do desktop identifier `dev.kru.desktop`, the `mcp-vault/v2` data directory and existing OS keyring entries. Existing data is not moved or uploaded because of the rename. See [migration and compatibility](README.md#migration-and-capability-parity).
 
 ## Information used
 
@@ -22,7 +24,7 @@ Disabling suggestions, explicitly locking from the extension, disconnecting the 
 
 ## Where information goes
 
-The extension exchanges information with OpenKeylet on the same computer over an authenticated loopback connection. It does not send vault contents to an OpenKeylet server. Local loopback traffic is not TLS-encrypted; its protection relies on the local machine boundary, extension-origin validation and pairing token. This does not protect against a compromised operating-system user account.
+The extension exchanges information with KeyHub on the same computer over an authenticated loopback connection. It does not send vault contents to a KeyHub server. Local loopback traffic is not TLS-encrypted; its protection relies on the local machine boundary, extension-origin validation and pairing token. This does not protect against a compromised operating-system user account.
 
 When you fill a website, that website and scripts running on it can access the values you fill. Passkey operations send the website the data needed for registration or authentication after confirmation. The website's privacy practices then apply.
 
@@ -30,22 +32,22 @@ If you connect an AI agent through the desktop application's MCP integration, th
 
 The desktop application has optional GitHub backup. If you configure and use it, encrypted snapshots and necessary repository/account metadata are transferred to GitHub. Snapshots include saved vault data, trash and password history; the recovery key is not uploaded. Disconnecting does not remove existing remote snapshots or Git history. GitHub's own privacy policy applies to its service.
 
-OpenKeylet does not include advertising, sell personal data, or use vault data for profiling or model training. Data is used only for the disclosed credential-management features and their necessary operation, in accordance with the Chrome Web Store User Data Policy, including its Limited Use requirements.
+KeyHub does not include advertising, sell personal data, or use vault data for profiling or model training. Data is used only for the disclosed credential-management features and their necessary operation, in accordance with the Chrome Web Store User Data Policy, including its Limited Use requirements.
 
 ## Storage, retention and deletion
 
-Saved secrets are encrypted in the local desktop vault. A configured PIN controls owner access and passkey verification; it is not a separate vault-encryption key.
+Saved secrets are encrypted in the local desktop vault. A configured PIN controls owner access and passkey verification; it is not a separate vault-encryption key and does not disable MCP actions.
 
 Deleted items remain in the local trash until you restore or permanently delete them. Up to 20 previous passwords per item are retained in encrypted history until cleared. Exported backups and optional GitHub snapshots can retain earlier copies after local deletion. You control these separate copies.
 
-Removing the extension removes its browser-managed extension storage as handled by Chrome. It does not delete the desktop vault or backups. Use OpenKeylet's vault controls to remove items and history, and delete backups separately where stored. Generated passwords are not retained as generation history.
+Removing the extension removes its browser-managed extension storage as handled by Chrome. It does not delete the desktop vault or backups. Use KeyHub's vault controls to remove items and history, and delete backups separately where stored. Generated passwords are not retained as generation history.
 
 ## Your choices
 
-You can disable save suggestions, restrict extension site access in Chrome, lock the extension when a PIN is configured, disconnect Browser Bridge, decline a passkey request or choose the device/browser provider, and uninstall the extension. Restricting site access prevents related features on those sites. The extension needs the OpenKeylet desktop application to access the local vault.
+You can disable save suggestions, restrict extension site access in Chrome, lock the extension when a PIN is configured, disconnect Browser Bridge, decline a passkey request or choose the device/browser provider, and uninstall the extension. Restricting site access prevents related features on those sites. The extension needs the KeyHub desktop application to access the local vault.
 
 ## Contact and changes
 
-Contact the OpenKeylet maintainers through [GitHub Issues](https://github.com/omaekumiko2-create/OpenKeylet/issues). For confidential security reports, use the repository's [private vulnerability reporting](https://github.com/omaekumiko2-create/OpenKeylet/security/advisories/new) if available; otherwise follow [SECURITY.md](SECURITY.md). Do not post credentials, vault files or personal data in public issues.
+Contact the KeyHub maintainers through [GitHub Issues](https://github.com/omaekumiko2-create/OpenKeylet/issues). For confidential security reports, use the repository's [private vulnerability reporting](https://github.com/omaekumiko2-create/OpenKeylet/security/advisories/new) if available; otherwise follow [SECURITY.md](SECURITY.md). Do not post credentials, vault files or personal data in public issues.
 
 Material changes to data practices will be reflected in this policy and disclosed in the product when required. The date above identifies this version.

@@ -8,11 +8,11 @@ let captureContext = captureParams.get("capture") || "";
 document.body.classList.toggle("capture-page", Boolean(captureContext));
 const captureTabId = captureParams.has("tab") ? Number(captureParams.get("tab")) : undefined;
 let pendingCapture = null, savingCapture = null, saveEntries = [], detectedForms = [], readSource = null, openedCapture = "";
-const showError = e => { refreshError = false; $("#error").textContent = e?.message || String(e || ""); };
+const showError = e => { refreshError = false; const message = e?.message || String(e || ""); KeyHubUI.text($("#error"), () => KeyHubUI.t(message)); };
 async function call(action, fields = {}) {
   const reply = await chrome.runtime.sendMessage({ type: "vault-ui", action, origin: currentOrigin,
     captureId: captureContext || undefined, captureTabId, ...fields });
-  if (!reply?.ok) throw new Error(reply?.error || "OpenKeylet unavailable");
+  if (!reply?.ok) throw new Error(reply?.error || KeyHubUI.t("KeyHub unavailable"));
   return reply.result;
 }
 async function refresh() {
@@ -26,7 +26,7 @@ async function refresh() {
     const state = await call("list");
     if (saving || reading) return;
     if (state.captureExpired) { captureContext = ""; closeSave(); }
-    $("#status").textContent = "已连接本地密码库 / CONNECTED";
+    KeyHubUI.text($("#status"), () => KeyHubUI.t("已连接本地密码库 / CONNECTED"));
     $("#lamp").classList.add("on");
     if (state.locked) { closeSave(); closePersonal(); OpenKeyletVaultUI.close(); }
     else if (!$("#save-form").hidden || !$("#personal-form").hidden || OpenKeyletVaultUI.isEditing()) return;
@@ -45,7 +45,7 @@ async function refresh() {
     $("#lock").hidden = !state.pinConfigured;
     pendingCapture = state.capture;
     $("#capture-notice").hidden = !pendingCapture;
-    $("#capture-source").textContent = pendingCapture ? `来源网站 / Source: ${pendingCapture.origin}` : "";
+    KeyHubUI.text($("#capture-source"), () => pendingCapture ? `${KeyHubUI.t("来源网站 / Source: ")}${pendingCapture.origin}` : "");
     $("#capture-review").disabled = state.locked;
     if (state.locked) $("#generator-output").value = "";
     if (entriesChanged || JSON.stringify(personalEntries) !== JSON.stringify(state.personal)) {
@@ -58,17 +58,17 @@ async function refresh() {
     }
     if (!entriesChanged) return;
     $("#entries").replaceChildren();
-    if (!entries.length) { const p=document.createElement("p"); p.textContent="这个网站还没有保存的密码 / No saved logins"; $("#entries").append(p); }
+    if (!entries.length) { const p=document.createElement("p"); KeyHubUI.text(p, () => KeyHubUI.t("这个网站还没有保存的密码 / No saved logins")); $("#entries").append(p); }
     for (const item of entries) {
       const button = document.createElement("button"); button.type = "button"; button.className = "login-entry";
       const title = document.createElement("strong"); title.textContent = item.name;
-      const sub = document.createElement("small"); sub.textContent = item.username || "填写 / Fill";
+      const sub = document.createElement("small"); KeyHubUI.text(sub, () => item.username || KeyHubUI.t("填写 / Fill"));
       button.append(title, sub); button.addEventListener("click", async () => { button.disabled=true; try { await call("fill",{id:item.id}); showError("已填写 / Filled"); } catch(e) { showError(e); } finally { button.disabled=false; } });
       $("#entries").append(button);
     }
   } catch(e) {
     closeSave(); closePersonal(); OpenKeyletVaultUI.close();
-    $("#status").textContent = "暂不可用 / UNAVAILABLE";
+    KeyHubUI.text($("#status"), () => KeyHubUI.t("暂不可用 / UNAVAILABLE"));
     $("#lamp").classList.remove("on");
     $("#vault-panel").hidden = true; $("#unlock-form").hidden = true;
     $("#website").hidden = true; $("#page-hint").hidden = true;
@@ -76,7 +76,7 @@ async function refresh() {
     personalEntries = []; $("#personal-entries").replaceChildren();
     pendingCapture = null; $("#capture-notice").hidden = true;
     $("#generator-output").value = "";
-    showError(`请确认 OpenKeylet 已打开且浏览器连接已启用。 / Check that OpenKeylet and Browser Bridge are running.\n${e.message || e}`);
+    KeyHubUI.text($("#error"), () => `${KeyHubUI.t("请确认 KeyHub 已打开且浏览器连接已启用。 / Check that KeyHub and Browser Bridge are running.\n")}${KeyHubUI.t(e.message || String(e))}`);
     refreshError = true;
   } finally { loading=false; }
 }
@@ -91,21 +91,22 @@ $("#read-form").addEventListener("click", async () => {
     readSource = { sourceUrl: form.sourceUrl, sourceTabId: form.sourceTabId };
     detectedForms = form.forms;
     $("#detected-form").replaceChildren(...detectedForms.map((candidate, i) =>
-      new Option(`${i + 1} · ${candidate.username || "账号待确认 / Check account"} · ${{login:"登录",signup:"注册",change:"修改密码"}[candidate.kind]}`, String(i))));
+      KeyHubUI.option(() => `${i + 1} · ${candidate.username || KeyHubUI.t("账号待确认 / Check account")} · ${KeyHubUI.t({login:"登录",signup:"注册",change:"修改密码"}[candidate.kind])}`, String(i))));
     $("#detected-form").value = String(form.selectedIndex);
     $("#detected-form").hidden = $("#detected-form-label").hidden = detectedForms.length < 2;
     presentLogin(form, currentOrigin);
   } catch(e) { showError(e); } finally { reading = false; }
 });
 function presentLogin(form, origin) {
-  $("#save-target").replaceChildren(new Option("新项目 / New item", ""), ...saveEntries.map(i=>new Option(`${i.name} · ${i.username}`,i.id)));
+  $("#save-target").replaceChildren(KeyHubUI.option(() => KeyHubUI.t("新项目 / New item"), ""), ...saveEntries.map(i=>new Option(`${i.name} · ${i.username}`,i.id)));
   const match = form.username ? saveEntries.filter(i => i.username === form.username) : [];
   $("#save-target").value = match.length === 1 ? match[0].id : "";
   $("#name").value = match.length === 1 ? match[0].name : new URL(origin).hostname;
   $("#username").value = form.username; $("#password").value = form.password;
   $("#use-generated-password").hidden = Boolean(savingCapture);
-  $("#save-source").textContent = `来源网站 / Source: ${origin}`;
-  $("#save-warning").textContent = (form.warnings || []).join(" · ");
+  KeyHubUI.text($("#save-source"), () => `${KeyHubUI.t("来源网站 / Source: ")}${origin}`);
+  const warnings = form.warnings || [];
+  KeyHubUI.text($("#save-warning"), () => warnings.map(message => KeyHubUI.t(message)).join(" · "));
   selectTarget(); $("#save-form").hidden = false; showError("");
 }
 async function reviewCapture() {
@@ -141,7 +142,7 @@ function selectTarget() { const item=saveEntries.find(i=>i.id===$("#save-target"
 $("#save-target").addEventListener("change",selectTarget);
 function closeSave() {
   $("#save-form").reset(); $("#save-form").hidden=true;
-  $("#password").type = "password"; $("#toggle-saved-password").textContent = "显示密码 / Show password";
+  $("#password").type = "password"; KeyHubUI.text($("#toggle-saved-password"), () => KeyHubUI.t("显示密码 / Show password"));
   $("#detected-form").replaceChildren(); $("#save-warning").textContent = ""; $("#save-source").textContent = "";
   savingCapture = null; saveEntries = []; detectedForms = []; readSource = null;
 }
@@ -155,7 +156,7 @@ $("#cancel-save").addEventListener("click", async () => {
 $("#toggle-saved-password").addEventListener("click", () => {
   const visible = $("#password").type === "password";
   $("#password").type = visible ? "text" : "password";
-  $("#toggle-saved-password").textContent = visible ? "隐藏密码 / Hide password" : "显示密码 / Show password";
+  KeyHubUI.text($("#toggle-saved-password"), () => visible ? KeyHubUI.t("隐藏密码 / Hide password") : KeyHubUI.t("显示密码 / Show password"));
 });
 $("#capture-close").addEventListener("click", () => window.close());
 $("#save-form").addEventListener("submit",async e=>{
@@ -167,11 +168,11 @@ $("#save-form").addEventListener("submit",async e=>{
       captureContext = "";
       $("#capture-complete").hidden = !document.body.classList.contains("capture-page");
     }
-    closeSave(); showError("已保存到本地密码库 / Saved to OpenKeylet");
+    closeSave(); showError("已保存到本地密码库 / Saved to KeyHub");
   }
   catch(e){showError(e);} finally {saving=false;refresh();}
 });
-$("#pair-form").addEventListener("submit",async e=>{ e.preventDefault(); const port=Number($("#port").value); if(!Number.isInteger(port)||port<1024||port>65535){showError("Invalid port");return;} await chrome.storage.local.set({bridgePort:port}); await chrome.runtime.sendMessage({type:"bridge-config-updated"}); showError("在 OpenKeylet 安装指引中点击“打开扩展页” / Click Open extensions page in OpenKeylet"); });
+$("#pair-form").addEventListener("submit",async e=>{ e.preventDefault(); const port=Number($("#port").value); if(!Number.isInteger(port)||port<1024||port>65535){showError("Invalid port");return;} await chrome.storage.local.set({bridgePort:port}); await chrome.runtime.sendMessage({type:"bridge-config-updated"}); showError("在 KeyHub 安装指引中点击“打开扩展页” / Click Open extensions page in KeyHub"); });
 const PERSONAL_LABELS = {
   secureNote: { secureNote:"安全笔记 / Secure note" },
   card: { cardholderName:"持卡人 / Cardholder", cardNumber:"卡号 / Number", cardBrand:"卡组织 / Brand", cardExpMonth:"到期月 / Expiry month", cardExpYear:"到期年 / Expiry year", cardSecurityCode:"安全码 / Security code" },
@@ -182,12 +183,12 @@ function renderPersonal() {
   for (const item of [...personalEntries].sort((a,b) => Number(b.favorite) - Number(a.favorite))) {
     const row = document.createElement("div"); row.className = "personal-entry";
     const title = document.createElement("strong"); title.textContent = `${item.favorite ? "★ " : ""}${item.name}`;
-    const subtitle = document.createElement("small"); subtitle.textContent = `${item.itemType === "card" ? "CARD" : item.itemType === "secureNote" ? "NOTE" : "IDENTITY"} ${item.subtitle}`;
+    const subtitle = document.createElement("small"); KeyHubUI.text(subtitle, () => `${item.itemType === "card" ? KeyHubUI.t("CARD") : item.itemType === "secureNote" ? KeyHubUI.t("NOTE") : KeyHubUI.t("IDENTITY")} ${item.subtitle}`);
     const actions = document.createElement("div"); actions.className = "personal-actions";
-    const fill = document.createElement("button"); fill.type = "button"; fill.textContent = "填写 / Fill";
+    const fill = document.createElement("button"); fill.type = "button"; KeyHubUI.text(fill, () => KeyHubUI.t("填写 / Fill"));
     fill.disabled = !currentOrigin;
-    fill.onclick = async () => { fill.disabled = true; try { const result = await call("personal-fill",{id:item.id}); showError(`已填写 ${result.filled} 个字段 / Fields filled`); } catch(e) { showError(e); } finally { fill.disabled = false; } };
-    const edit = document.createElement("button"); edit.type = "button"; edit.textContent = "编辑 / Edit";
+    fill.onclick = async () => { fill.disabled = true; try { const result = await call("personal-fill",{id:item.id}); KeyHubUI.text($("#error"), () => `${KeyHubUI.t("已填写 / Filled")} ${result.filled}`); } catch(e) { showError(e); } finally { fill.disabled = false; } };
+    const edit = document.createElement("button"); edit.type = "button"; KeyHubUI.text(edit, () => KeyHubUI.t("编辑 / Edit"));
     edit.onclick = async () => { edit.disabled = true; reading = true; try { openPersonal(await call("personal-edit",{id:item.id})); } catch(e) { showError(e); } finally { reading = false; edit.disabled = false; } };
     if (item.itemType !== "secureNote") actions.append(fill);
     actions.append(edit); row.append(title,subtitle,actions); container.append(row);
@@ -195,11 +196,11 @@ function renderPersonal() {
 }
 function openPersonal(item) {
   personalEdit = item;
-  $("#personal-title").textContent = item.itemType === "card" ? "信用卡 / Card" : item.itemType === "secureNote" ? "安全笔记 / Secure note" : "身份资料 / Identity";
+  KeyHubUI.text($("#personal-title"), () => item.itemType === "card" ? KeyHubUI.t("信用卡 / Card") : item.itemType === "secureNote" ? KeyHubUI.t("安全笔记 / Secure note") : KeyHubUI.t("身份资料 / Identity"));
   $("#personal-name").value = item.name || "";
   $("#personal-fields").replaceChildren();
   for (const [name, label] of Object.entries(PERSONAL_LABELS[item.itemType])) {
-    const field = document.createElement("label"); field.textContent = label; field.htmlFor = `personal-${name}`;
+    const field = document.createElement("label"); KeyHubUI.text(field, () => KeyHubUI.t(label)); field.htmlFor = `personal-${name}`;
     const input = document.createElement(name === "secureNote" ? "textarea" : "input"); input.id = `personal-${name}`; input.dataset.personalField = name;
     input.autocomplete = "off"; input.maxLength = name === "secureNote" ? 65536 : 4096;
     if (name === "secureNote") input.rows = 7;
@@ -219,7 +220,7 @@ $("#personal-form").addEventListener("submit", async e => {
   try {
     const fields = Object.fromEntries([...document.querySelectorAll("[data-personal-field]")].map(input=>[input.dataset.personalField,input.value]));
     await call("personal-save",{ id:personalEdit.id, expectedUpdatedAt:personalEdit.updatedAt, itemType:personalEdit.itemType, name:$("#personal-name").value, fields });
-    closePersonal(); showError("已保存到本地密码库 / Saved to OpenKeylet");
+    closePersonal(); showError("已保存到本地密码库 / Saved to KeyHub");
   } catch(e) { showError(e); } finally { saving = false; refresh(); }
 });
 async function generatePassword() {

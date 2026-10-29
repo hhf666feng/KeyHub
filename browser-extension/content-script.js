@@ -97,7 +97,7 @@ function showSaveNotice(available) {
   style.textContent = ":host{color-scheme:dark}section{box-sizing:border-box;width:min(340px,calc(100vw - 32px));padding:16px;border:1px solid #61696c;border-radius:12px;background:#303538;color:#e2e8eb;box-shadow:0 6px 26px #0006;font:14px/1.5 system-ui,sans-serif}strong{display:block;color:#80d9ea}p{margin:8px 0 12px}button{font:inherit;cursor:pointer;border:1px solid #69767a;border-radius:7px;background:#454e53;color:#f0f4f5;padding:7px 11px;margin-right:8px}button:focus-visible{outline:2px solid #80d9ea}";
   const section = document.createElement("section");
   section.setAttribute("role", "status");
-  const title = document.createElement("strong"); title.textContent = "OpenKeylet · 保存登录信息";
+  const title = document.createElement("strong"); title.textContent = "KeyHub · 保存登录信息";
   const description = document.createElement("p");
   description.textContent = "检测到已提交的账号信息。打开插件预览，确认后保存。";
   const review = document.createElement("button"); review.type = "button"; review.textContent = "预览保存 / Review";
@@ -134,7 +134,7 @@ window.addEventListener("message", async event => {
   let result;
   try {
     const reply = await chrome.runtime.sendMessage({ type: "openkeylet-webauthn", requestId:m.requestId, operation:m.operation, options:m.options });
-    result = reply?.ok ? reply.result : { error: reply?.error || "OpenKeylet request failed" };
+    result = reply?.ok ? reply.result : { error: reply?.error || "KeyHub request failed" };
   } catch { result = { fallback:true }; }
   window.postMessage({ type:"openkeylet-webauthn-result", requestId:m.requestId, result }, location.origin);
 });

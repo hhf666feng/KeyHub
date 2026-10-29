@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'" />
+    <title>KeyHub Quick Panel</title>
+    <link rel="stylesheet" href="quick.css" />
+    <script src="quick.js" defer></script>
+  </head>
+  <body>
+    <main class="panel" aria-label="KeyHub">
+      <header class="header">
+        <img class="app-mark" src="app-mark.svg" width="36" height="36" alt="" />
+        <div class="brand"><strong>KeyHub</strong><span data-label="subtitle">Your keys, at hand.</span></div>
+        <div class="tools">
+          <button id="refresh" class="icon-button" type="button" aria-label="Refresh" title="Refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg></button>
+          <button id="open" class="icon-button" type="button" aria-label="Open full window" title="Open full window"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6-9 9M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5" /></svg></button>
+          <button id="settings" class="icon-button" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6m8 4v6" /></svg></button>
+        </div>
+      </header>
+      <section class="status-group" aria-label="Status">
+        <div class="owner-status"><span class="status-dot" id="owner-dot"></span><span id="owner">Checking vault</span></div>
+        <button id="bridge" class="bridge" type="button">Bridge</button>
+      </section>
+      <div id="tabs" class="tabs" role="tablist" aria-label="Quick access">
+        <button id="tab-credentials" type="button" role="tab" data-tab="credentials" aria-selected="true" aria-controls="content" data-label="credentials">Credentials</button>
+        <button id="tab-agents" type="button" role="tab" data-tab="agents" aria-selected="false" aria-controls="content" tabindex="-1" data-label="agents">Agents</button>
+        <button id="tab-activity" type="button" role="tab" data-tab="activity" aria-selected="false" aria-controls="content" tabindex="-1" data-label="activity">Activity</button>
+      </div>
+      <div class="search-wrap" id="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+        <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="Find a credential" aria-label="Search credential names" />
+      </div>
+      <div class="section-heading"><span id="section-title">YOUR CREDENTIALS</span><span id="summary" role="status"></span></div>
+      <div id="error" role="alert" hidden></div>
+      <section id="content" class="content" role="tabpanel" aria-labelledby="tab-credentials" aria-busy="true" tabindex="0"></section>
+      <div class="privacy-note" data-label="privacy">Metadata only. Secrets stay in your vault.</div>
+      <footer class="footer">
+        <button id="full-window" type="button"><span class="window-glyph" aria-hidden="true">↗</span><span data-label="full">Full window</span></button>
+        <div class="footer-actions"><button id="lock" type="button" data-label="lock">Lock</button><span class="divider" aria-hidden="true"></span><button id="quit" type="button" data-label="quit">Quit</button></div>
+      </footer>
+    </main>
+  </body>
+</html>

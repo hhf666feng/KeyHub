@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick-panel",
+  "description": "The compact panel can subscribe to state updates, not emit events or alter tray/window resources.",
+  "windows": ["quick"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

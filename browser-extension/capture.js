@@ -145,7 +145,7 @@ async function captureUiAction(message) {
   const draft = await captureForUi(message);
   if (message.action === "capture-dismiss") { clearLoginCapture(draft.tabId, draft.id); return {}; }
   const status = await bridgeCall("status");
-  if (status.locked) throw new Error("请先解锁 OpenKeylet / Unlock OpenKeylet first");
+  if (status.locked) throw new Error("请先解锁 KeyHub / Unlock KeyHub first");
   if (message.action === "capture-read") {
     const entries = await bridgeCall("password.list", { origin: draft.url });
     await captureForUi({ captureTabId: draft.tabId, captureId: draft.id });

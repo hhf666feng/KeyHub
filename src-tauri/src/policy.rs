@@ -65,10 +65,10 @@ pub fn redact(mut value: String, connection: &StoredConnection, secrets: &Secret
     if let Some(token) = &secrets.token {
         candidates.push(format!("Bearer {token}"));
     }
-    if connection.http_auth_type == "basic" {
-        if let (Some(username), Some(password)) = (secrets.get("username"), &secrets.password) {
-            candidates.push(STANDARD.encode(format!("{username}:{password}")));
-        }
+    if connection.http_auth_type == "basic"
+        && let (Some(username), Some(password)) = (secrets.get("username"), &secrets.password)
+    {
+        candidates.push(STANDARD.encode(format!("{username}:{password}")));
     }
     candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.len()));
     candidates.dedup();

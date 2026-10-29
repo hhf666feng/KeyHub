@@ -671,7 +671,7 @@ mod tests {
     #[test]
     fn opening_below_capacity_preserves_a_finished_drained_session() {
         let manager = TerminalManager::new();
-        let marker = "OpenKeylet-STALE-SESSION";
+        let marker = "KeyHub-STALE-SESSION";
         let (program, args) = output_command(marker);
         let stale = manager.open(&program, args, None).unwrap();
         let mut output = String::new();
@@ -697,7 +697,7 @@ mod tests {
     #[test]
     fn opening_a_terminal_preserves_a_finished_session_with_unread_output() {
         let manager = TerminalManager::new();
-        let marker = "OpenKeylet-UNREAD-SESSION";
+        let marker = "KeyHub-UNREAD-SESSION";
         let (program, args) = output_command(marker);
         let unread = manager.open(&program, args, None).unwrap();
         wait_for_exit_with_unread_output(&manager, unread.session_id, Duration::from_secs(2));
@@ -915,7 +915,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
                     "-NoProfile".into(),
                     "-NonInteractive".into(),
                     "-Command".into(),
-                    "[Console]::Write('OpenKeylet-POWERSHELL-OK')".into(),
+                    "[Console]::Write('KeyHub-POWERSHELL-OK')".into(),
                 ],
                 None,
             )
@@ -926,7 +926,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
             session.session_id,
             &mut output,
             Duration::from_secs(5),
-            |output, result| !result.running && output.contains("OpenKeylet-POWERSHELL-OK"),
+            |output, result| !result.running && output.contains("KeyHub-POWERSHELL-OK"),
         );
         assert!(
             !output.contains("Could not start this shell"),
@@ -954,7 +954,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
                     "-NoProfile".into(),
                     "-NonInteractive".into(),
                     "-Command".into(),
-                    "$ErrorActionPreference='Stop'; try { Import-Module Microsoft.PowerShell.Security -Force; Get-ExecutionPolicy | Out-Null; [void][Net.ServicePointManager]::SecurityProtocol; [Console]::Write('OpenKeylet-WINDOWS-POWERSHELL-OK') } catch { [Console]::Write($_.Exception.ToString()) }; exit".into(),
+                    "$ErrorActionPreference='Stop'; try { Import-Module Microsoft.PowerShell.Security -Force; Get-ExecutionPolicy | Out-Null; [void][Net.ServicePointManager]::SecurityProtocol; [Console]::Write('KeyHub-WINDOWS-POWERSHELL-OK') } catch { [Console]::Write($_.Exception.ToString()) }; exit".into(),
                 ],
                 None,
             )
@@ -973,7 +973,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
             |_, result| !result.running,
         );
         assert!(
-            output.contains("OpenKeylet-WINDOWS-POWERSHELL-OK"),
+            output.contains("KeyHub-WINDOWS-POWERSHELL-OK"),
             "Windows PowerShell did not complete its startup checks: {output}"
         );
         assert!(
@@ -989,7 +989,7 @@ node "%~dp0node_modules\demo-cli\cli.js" %*"#,
         let temp = tempfile::tempdir().unwrap();
         for extension in ["bat", "cmd"] {
             let script = temp.path().join(format!("fixture.{extension}"));
-            std::fs::write(&script, "@echo off\r\necho OpenKeylet-BATCH-OK").unwrap();
+            std::fs::write(&script, "@echo off\r\necho KeyHub-BATCH-OK").unwrap();
             let resolved = resolve_executable(script.to_str().unwrap(), None).unwrap();
             assert!(
                 Path::new(&resolved.executable)

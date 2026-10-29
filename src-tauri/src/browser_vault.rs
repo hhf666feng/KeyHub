@@ -40,7 +40,7 @@ async fn verify(vault: &Vault, pin: &str, throttle: &Mutex<Instant>) -> Result<b
     if !vault.owner_pin_configured()? {
         return Ok(false);
     }
-    ensure!(!pin.is_empty(), "Enter your OpenKeylet PIN");
+    ensure!(!pin.is_empty(), "Enter your KeyHub PIN");
     // Shared across connections; reconnecting cannot reset PIN attempt throttling.
     let mut next = throttle.lock().await;
     tokio::time::sleep(next.saturating_duration_since(Instant::now())).await;
@@ -106,7 +106,7 @@ pub async fn handle(
         }
         _ => {}
     }
-    ensure!(unlocked, "OpenKeylet is locked; enter your PIN");
+    ensure!(unlocked, "KeyHub is locked; enter your PIN");
     match method {
         "vault.list" => Ok(json!({"items":vault.list_connections()?,"trash":vault.trash_items()?})),
         "vault.get" => {
@@ -398,7 +398,7 @@ impl Vault {
                 );
                 ensure!(
                     Some(c.updated_at.as_str()) == p["expectedUpdatedAt"].as_str(),
-                    "Login changed in OpenKeylet; reload before saving"
+                    "Login changed in KeyHub; reload before saving"
                 );
                 (
                     c.clone(),

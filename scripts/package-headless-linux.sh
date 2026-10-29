@@ -16,13 +16,13 @@ case "$(uname -m)" in
   *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-binary_source="$project_root/src-tauri/target/release/openkeylet"
+binary_source="$project_root/src-tauri/target/release/keyhub"
 if [[ ! -f "$binary_source" ]]; then
-  echo "Headless OpenKeylet binary is missing. Run npm run build:headless first." >&2
+  echo "Headless KeyHub binary is missing. Run npm run build:headless first." >&2
   exit 1
 fi
 
-package_name="OpenKeylet_${version}_linux-headless-${package_arch}"
+package_name="KeyHub_${version}_linux-headless-${package_arch}"
 dist_root="$project_root/dist"
 stage_root="$dist_root/.headless-linux-stage"
 package_root="$stage_root/$package_name"
@@ -36,9 +36,18 @@ esac
 
 rm -rf "$stage_root"
 mkdir -p "$package_root"
-cp "$binary_source" "$package_root/openkeylet"
-chmod +x "$package_root/openkeylet"
-cp "$project_root/README.md" "$project_root/LICENSE" "$package_root/"
+cp "$binary_source" "$package_root/keyhub"
+chmod +x "$package_root/keyhub"
+for alias in openkeylet kru; do
+  cp "$package_root/keyhub" "$package_root/$alias"
+done
+cp "$project_root/README.md" "$project_root/README.zh-CN.md" \
+  "$project_root/SECURITY.md" "$project_root/SECURITY.zh-CN.md" \
+  "$project_root/PRIVACY.md" "$project_root/PRIVACY.zh-CN.md" "$project_root/LICENSE" "$package_root/"
+mkdir -p "$package_root/docs" "$package_root/.github/assets"
+cp "$project_root/docs/guide.md" "$project_root/docs/guide.zh-CN.md" "$package_root/docs/"
+cp -R "$project_root/docs/chrome-web-store" "$package_root/docs/chrome-web-store"
+cp "$project_root/.github/assets/openkeylet-hero.svg" "$package_root/.github/assets/"
 cp -R "$project_root/browser-extension" "$package_root/browser-extension"
 
 (

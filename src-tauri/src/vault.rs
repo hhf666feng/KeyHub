@@ -44,6 +44,11 @@ pub struct DecryptedConnection {
     pub secrets: SecretBundle,
 }
 
+type BackupEntries = (
+    Vec<(PortableConnection, SecretBundle)>,
+    Vec<crate::model::PortableTrashItem>,
+);
+
 impl Vault {
     pub fn open(data_dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&data_dir).context("Unable to create vault directory")?;
@@ -118,7 +123,7 @@ impl Vault {
             serde_json::from_slice(&bytes).context("Invalid vault file format")?;
         if !matches!(document.version, 7 | 8 | 9 | 10 | 11 | VAULT_VERSION) {
             bail!(
-                "OpenKeylet supports vault versions 7 through 12; current file version is {}",
+                "KeyHub supports vault versions 7 through 12; current file version is {}",
                 document.version
             );
         }
@@ -281,6 +286,9 @@ impl Vault {
             if let Some(browser_enabled) = patch.browser_enabled {
                 next.browser_enabled = browser_enabled;
             }
+            if let Some(menu_bar_only) = patch.menu_bar_only {
+                next.menu_bar_only = menu_bar_only;
+            }
             if let Some(browser_port) = patch.browser_port {
                 if browser_port == 0 {
                     bail!("Local port must be between 1–65535");
@@ -402,13 +410,12 @@ impl Vault {
             {
                 bail!("This item is in the trash; restore it before editing");
             }
-            if let Some(expected) = expected_updated_at {
-                if existing
+            if let Some(expected) = expected_updated_at
+                && existing
                     .as_ref()
                     .is_none_or(|item| item.updated_at != expected)
-                {
-                    bail!("This item changed or was deleted; close and reopen it before saving");
-                }
+            {
+                bail!("This item changed or was deleted; close and reopen it before saving");
             }
             let mut secrets = if let Some(connection) = &existing {
                 self.inner
@@ -648,6 +655,15 @@ impl Vault {
         Ok(self.read_document()?.activities)
     }
 
+    #[cfg(feature = "gui")]
+    pub(crate) fn quick_summary(&self, unlocked: bool) -> Result<crate::quick_panel::VaultSummary> {
+        // The compact panel never needs to decrypt a credential envelope.
+        Ok(crate::quick_panel::summarize(
+            &self.read_document()?,
+            unlocked,
+        ))
+    }
+
     pub fn add_activity(&self, activity: NewActivity) -> Result<()> {
         self.update_document(|document| {
             document.activities.insert(
@@ -717,12 +733,7 @@ impl Vault {
         Ok(self.export_backup_entries()?.0)
     }
 
-    pub fn export_backup_entries(
-        &self,
-    ) -> Result<(
-        Vec<(PortableConnection, SecretBundle)>,
-        Vec<crate::model::PortableTrashItem>,
-    )> {
+    pub fn export_backup_entries(&self) -> Result<BackupEntries> {
         let document = self.read_document()?;
         let active = document
             .connections
@@ -2075,6 +2086,35 @@ mod tests {
         let settings = vault.settings().unwrap();
         assert_eq!(settings.language, "en");
         assert!(settings.browser_enabled);
+    }
+
+    #[test]
+    fn menu_bar_preference_patch_persists_without_changing_other_settings() {
+        let directory = tempdir().unwrap();
+        let vault = Vault::open(directory.path().to_path_buf()).unwrap();
+        vault
+            .update_settings_patch(SettingsPatch {
+                language: Some("zh".into()),
+                browser_enabled: Some(true),
+                ..Default::default()
+            })
+            .unwrap();
+        let patch = serde_json::from_value(serde_json::json!({"menuBarOnly":true})).unwrap();
+        vault.update_settings_patch(patch).unwrap();
+        let reopened = Vault::open(directory.path().to_path_buf()).unwrap();
+        let settings = reopened.settings().unwrap();
+        assert_eq!(settings.language, "zh");
+        assert!(settings.browser_enabled);
+        assert_eq!(serde_json::to_value(settings).unwrap()["menuBarOnly"], true);
+        reopened
+            .update_settings_patch(
+                serde_json::from_value(serde_json::json!({"menuBarOnly":false})).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(reopened.settings().unwrap()).unwrap()["menuBarOnly"],
+            false
+        );
     }
 
     #[test]

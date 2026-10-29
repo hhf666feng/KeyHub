@@ -1,6 +1,6 @@
 /* Bricktone WorkspaceDialog / workspace-material.css:
    one chassis, a 34px title, an inset canvas transition, fixed footer controls.
-   OpenKeylet retains its existing editing, draft and disclosure behavior. */
+   KeyHub retains its existing editing, draft and disclosure behavior. */
 .modal-card, .confirm-card {
   border: 1px solid var(--ui-panel-edge-dark);
   border-top-color: var(--ui-key-edge-light);

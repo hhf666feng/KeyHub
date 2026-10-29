@@ -1,18 +1,20 @@
-# 中文商店文案
+# KeyHub 中文商店文案（草稿）
+
+仅为待提交文案，不表示已上架或发布新版。显示名称更新保留 v0.16.0，扩展固定 ID、配对令牌、桥接协议、存储键及权限不变。下列上游仓库与下载入口保持原样，提交前须核对可用桌面构建的兼容性。
 
 ## 名称
 
-OpenKeylet — 本地密码与 Passkey
+KeyHub — 本地密码与 Passkey
 
 ## 简介
 
-连接 OpenKeylet 桌面密码库，在浏览器中管理密码、Passkey、信用卡和身份资料。需要运行 OpenKeylet 桌面应用。
+连接 KeyHub 桌面密码库，在浏览器中管理密码、Passkey、信用卡和身份资料。需要运行 KeyHub 桌面应用。
 
 ## 详细介绍
 
-把你的本地 OpenKeylet 密码库带到 Chrome：保存和填写登录信息、使用 Passkey，并管理信用卡、身份资料和安全笔记。
+把你的本地 KeyHub 密码库带到 Chrome：保存和填写登录信息、使用 Passkey，并管理信用卡、身份资料和安全笔记。
 
-需要安装并运行免费的 OpenKeylet 桌面应用，以及启用 Browser Bridge。本扩展与桌面应用共用密码库，无需 OpenKeylet 账号。
+需要安装并运行免费的 KeyHub 桌面应用，以及启用 Browser Bridge。本扩展与桌面应用共用密码库，无需 KeyHub 账号。
 
 方便地使用密码
 
@@ -28,14 +30,14 @@ OpenKeylet — 本地密码与 Passkey
 
 本地连接，自主选择
 
-扩展通过本机连接与 OpenKeylet 通信，不含广告或内置使用分析。可选的 GitHub 加密备份在桌面端单独配置。通过桌面 MCP 服务接入 AI Agent 后，Agent 可请求已启用的凭据操作，包括填写当前聚焦的浏览器字段，以及明确请求的表单提交。
+扩展通过本机连接与 KeyHub 通信，不含广告或内置使用分析。可选的 GitHub 加密备份在桌面端单独配置。通过桌面 MCP 服务接入 AI Agent 后，Agent 可请求已启用的凭据操作，包括填写当前聚焦的浏览器字段，以及明确请求的表单提交。
 
 开始使用
 
-1. 下载并运行兼容版本的 OpenKeylet 桌面应用。
+1. 下载并运行兼容版本的 KeyHub 桌面应用。
 2. 开启 Browser Bridge，按照指引配对。
 3. 安装扩展并固定到工具栏。
-4. 打开网站，按需使用 OpenKeylet PIN 解锁，再选择操作。
+4. 打开网站，按需使用 KeyHub PIN 解锁，再选择操作。
 5. 如需自动识别待保存的登录信息，在扩展中主动开启保存提示。
 
 桌面端下载：https://github.com/omaekumiko2-create/OpenKeylet/releases/latest

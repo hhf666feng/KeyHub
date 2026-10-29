@@ -18,14 +18,14 @@ if (@($manifest.permissions | Where-Object { $_ -notin @('scripting', 'storage')
 }
 $packageVersion = (Get-Content -LiteralPath (Join-Path $projectRoot 'package.json') -Raw | ConvertFrom-Json).version
 if ($manifest.version -ne $packageVersion) { throw 'Desktop/package and extension versions differ; review compatibility.' }
-$stage = Join-Path $tempRoot ('openkeylet-store-' + [Guid]::NewGuid().ToString('N'))
+$stage = Join-Path $tempRoot ('keyhub-store-' + [Guid]::NewGuid().ToString('N'))
 $output = Join-Path $projectRoot 'dist\chrome-web-store'
 New-Item -ItemType Directory -Path $stage,$output -Force | Out-Null
 try {
   # Explicit allowlist: no tests, desktop binary, private keys, backups or repository files.
   $files = @('manifest.json','service-worker.js','content-script.js','webauthn-main.js',
     'form-reader.js','provider.js','capture.js','popup.html','popup.js','popup.css',
-    'vault.js','request.html','request.js','privacy.html')
+    'vault.js','request.html','request.js','ui.js','privacy.html')
   foreach ($file in $files) {
     Copy-Item -LiteralPath (Join-Path $source $file) -Destination (Join-Path $stage $file)
   }
@@ -36,7 +36,7 @@ try {
   $manifest.PSObject.Properties.Remove('key')
   $manifest.PSObject.Properties.Remove('update_url')
   [IO.File]::WriteAllText((Join-Path $stage 'manifest.json'), ($manifest | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
-  $archive = Join-Path $output ("openkeylet-chrome-store-" + $manifest.version + '.zip')
+  $archive = Join-Path $output ("keyhub-chrome-store-" + $manifest.version + '.zip')
   Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -Force
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $zip = [IO.Compression.ZipFile]::OpenRead($archive)
@@ -55,7 +55,7 @@ try {
   # Verify the resolved absolute target immediately before recursive cleanup.
   $resolvedStage = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $stage).ProviderPath)
   if (-not $resolvedStage.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or
-      [IO.Path]::GetFileName($resolvedStage) -notmatch '^openkeylet-store-[a-f0-9]{32}$') {
+      [IO.Path]::GetFileName($resolvedStage) -notmatch '^keyhub-store-[a-f0-9]{32}$') {
     throw "Refusing cleanup outside packaging stage: $resolvedStage"
   }
   Remove-Item -LiteralPath $resolvedStage -Recurse -Force
